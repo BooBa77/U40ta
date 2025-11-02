@@ -20,7 +20,7 @@ export class AuthService {
    * Пользователя выбираем из списка на странице DevLogin.vue
    */
   async devLogin(userId: number) {
-    const user = await this.usersService.findByTelegramUserId(userId);
+    const user = await this.usersService.findById(userId);;
     if (!user) {
       throw new NotFoundException('Пользователь не найден');
     }

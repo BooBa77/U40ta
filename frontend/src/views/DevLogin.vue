@@ -1,25 +1,26 @@
 <template>
-  <div>
+  <div class="dev-login">
     <h1>Вход для разработки</h1>
     
     <!-- Выпадающий список пользователей -->
-    <div>
+    <div class="user-selection">
       <label>Выберите пользователя:</label>
       <select v-model="selectedUserId">
         <option value="">-- Выберите пользователя --</option>
         <option v-for="user in users" :key="user.id" :value="user.id">
-          {{ user.name }} (ID: {{ user.id }})
+          Пользователь #{{ user.id }}
         </option>
       </select>
     </div>
 
     <!-- Кнопка входа -->
-    <button @click="login" :disabled="!selectedUserId">
+    <button @click="login" :disabled="!selectedUserId" class="login-btn">
       Войти
     </button>
 
-    <!-- Сообщение об ошибке -->
-    <p v-if="error" style="color: red;">{{ error }}</p>
+    <!-- Сообщения -->
+    <div v-if="error" class="error">{{ error }}</div>
+    <div v-if="loading" class="loading">Выполняется вход...</div>
   </div>
 </template>
 
@@ -30,7 +31,8 @@ export default {
     return {
       users: [], // Список пользователей
       selectedUserId: '', // ID выбранного пользователя
-      error: '' // Сообщение об ошибке
+      error: '', // Сообщение об ошибке
+      loading: false // Флаг загрузки
     }
   },
   async mounted() {
@@ -56,6 +58,9 @@ export default {
     async login() {
       if (!this.selectedUserId) return
 
+      this.loading = true
+      this.error = ''
+
       try {
         // Отправляем запрос на бэкенд для получения JWT
         const response = await fetch('/api/auth/dev-login', {
@@ -64,25 +69,88 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            userId: this.selectedUserId
+            userId: parseInt(this.selectedUserId)
           })
         })
 
         if (response.ok) {
           const data = await response.json()
           
-          // Сохраняем токен (например, в localStorage)
-          localStorage.setItem('auth_token', data.token)
+          // Сохраняем токен в localStorage
+          localStorage.setItem('auth_token', data.access_token)
           
-          // Переходим на главную страницу
+          // Просто перенаправляем на главную страницу
+          // Home.vue сам проверит авторизацию и получит данные пользователя
           this.$router.push('/')
         } else {
-          this.error = 'Ошибка авторизации'
+          const errorData = await response.json()
+          this.error = errorData.message || 'Ошибка авторизации'
         }
       } catch (err) {
         this.error = 'Ошибка соединения с сервером'
+      } finally {
+        this.loading = false
       }
     }
   }
 }
 </script>
+
+<style scoped>
+.dev-login {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+  text-align: center;
+}
+
+.user-selection {
+  margin: 20px 0;
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.login-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.login-btn:not(:disabled):hover {
+  background: #0056b3;
+}
+
+.error {
+  margin: 20px 0;
+  padding: 10px;
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+  border-radius: 4px;
+}
+
+.loading {
+  margin: 20px 0;
+  padding: 10px;
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+  border-radius: 4px;
+}
+</style>
