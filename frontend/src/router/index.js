@@ -13,7 +13,12 @@ const routes = [
     path: '/dev-login', 
     name: 'DevLogin',
     component: DevLogin
-  }
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login
+  }  
 ]
 
 const router = createRouter({
