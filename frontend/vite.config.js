@@ -7,9 +7,15 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://backend:3000',
+        target: process.env.NODE_ENV === 'development' 
+          ? 'http://backend:3000'  // Docker Compose
+          : 'http://localhost:3000', // Продакшен
         changeOrigin: true
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets'
   }
 })
