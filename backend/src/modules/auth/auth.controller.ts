@@ -1,6 +1,5 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
-import { ConfigService } from '@nestjs/config';
 
 /**
  * AuthController - обрабатывает запросы аутентификации и авторизации
@@ -10,9 +9,7 @@ import { ConfigService } from '@nestjs/config';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(
-    private readonly authService: AuthService,
-    private readonly configService: ConfigService,) {}
+  constructor(private readonly authService: AuthService) {}
 
   /**
    * POST /api/auth/telegram - обработка авторизации через Telegram Web App
