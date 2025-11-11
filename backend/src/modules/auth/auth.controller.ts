@@ -41,6 +41,7 @@ export class AuthController {
   /**
    * POST /api/auth/dev-login - эндпоинт для авторизации в режиме разработки
    * Позволяет войти под любым пользователем из базы данных по его ID
+   * В режиме разработки доступен без авторизации, в продакшене возвращает 404
    * 
    * @param userId - объект с ID пользователя из тела запроса
    * @returns объект с статусом авторизации и JWT токеном
@@ -54,7 +55,10 @@ export class AuthController {
     }
 
     this.logger.log(`Получен запрос на dev-авторизацию для пользователя ID: ${userId}`);
+    
+    // Вызываем AuthService для обработки dev-логина
     const result = await this.authService.devLogin(userId);
+    
     this.logger.log(`Dev-авторизация завершена для пользователя ID: ${userId}`);
     return result;
   }
