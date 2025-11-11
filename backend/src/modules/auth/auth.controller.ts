@@ -1,18 +1,18 @@
-import { Controller, Post, Body, Logger, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ConfigService } from '@nestjs/config';
 
 /**
  * AuthController - обрабатывает запросы аутентификации и авторизации
- * Все endpoints защищены JwtAuthGuard, который в режиме разработки автоматически пропускает запросы
- * а в продакшене требует валидный JWT токен
+ * Все endpoints публичные и не защищены JwtAuthGuard
  */
 @Controller('auth')
-@UseGuards(JwtAuthGuard) // Защищаем весь контроллер JWT аутентификацией
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,) {}
 
   /**
    * POST /api/auth/telegram - обработка авторизации через Telegram Web App
@@ -44,18 +44,20 @@ export class AuthController {
   /**
    * POST /api/auth/dev-login - эндпоинт для авторизации в режиме разработки
    * Позволяет войти под любым пользователем из базы данных по его ID
-   * В режиме разработки доступен без авторизации, в продакшене требует JWT токен
-   * 
+   
    * @param userId - объект с ID пользователя из тела запроса
    * @returns объект с статусом авторизации и JWT токеном
    */
   @Post('dev-login')
   async devLogin(@Body() { userId }: { userId: number }) {
+    // проверка на PRODUCTION, там эту дыру нужно контроллировать
+    if (this.configService.get('NODE_ENV') === 'production') {
+      this.logger.warn('Попытка использования dev-login в продакшене');
+      throw new NotFoundException('Метод не найден');
+    }
+
     this.logger.log(`Получен запрос на dev-авторизацию для пользователя ID: ${userId}`);
-    
-    // Вызываем AuthService для обработки dev-логина
     const result = await this.authService.devLogin(userId);
-    
     this.logger.log(`Dev-авторизация завершена для пользователя ID: ${userId}`);
     return result;
   }
