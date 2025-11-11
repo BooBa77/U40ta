@@ -1,6 +1,5 @@
-import { Controller, Post, Body, Logger, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Logger, NotFoundException } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
  * AuthController - обрабатывает запросы аутентификации и авторизации
@@ -10,9 +9,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(
-    private readonly authService: AuthService,
-    private readonly configService: ConfigService,) {}
+  constructor(private readonly authService: AuthService) {}
 
   /**
    * POST /api/auth/telegram - обработка авторизации через Telegram Web App
@@ -44,14 +41,14 @@ export class AuthController {
   /**
    * POST /api/auth/dev-login - эндпоинт для авторизации в режиме разработки
    * Позволяет войти под любым пользователем из базы данных по его ID
-   
+   * 
    * @param userId - объект с ID пользователя из тела запроса
    * @returns объект с статусом авторизации и JWT токеном
    */
   @Post('dev-login')
   async devLogin(@Body() { userId }: { userId: number }) {
     // проверка на PRODUCTION, там эту дыру нужно контроллировать
-    if (this.configService.get('NODE_ENV') === 'production') {
+    if (process.env.NODE_ENV === 'production') {
       this.logger.warn('Попытка использования dev-login в продакшене');
       throw new NotFoundException('Метод не найден');
     }
