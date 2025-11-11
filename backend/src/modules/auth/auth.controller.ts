@@ -1,6 +1,6 @@
-import { Controller, Post, Body, Logger, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Body, Logger, UseGuards } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
-import { ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
  * AuthController - обрабатывает запросы аутентификации и авторизации
