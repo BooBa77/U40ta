@@ -59,6 +59,17 @@ self.addEventListener('activate', function(event) {
       // Немедленно берём под контроль все открытые вкладки
       console.log('[SW] Забираем контроль над всеми клиентами');
       return self.clients.claim();
+    }).then(function() {
+      // Уведомляем все вкладки о новой версии SW
+      console.log('[SW] Уведомляем клиентов о новой версии');
+      return self.clients.matchAll();
+    }).then(function(clients) {
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'SW_UPDATED',
+          version: CACHE_VERSION
+        });
+      });
     })
   );
 });
