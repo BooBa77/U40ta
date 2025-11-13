@@ -1,0 +1,179 @@
+/* frontend/public/css/login.css */
+/* Стили для страницы авторизации U40TA */
+
+/* ===== БАЗОВЫЕ СТИЛИ ===== */
+.login-page {
+  /* Белый фон всей страницы */
+  background-color: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.login-container {
+  /* Центрированный контейнер */
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+  padding: 40px 20px;
+}
+
+/* ===== ТИПОГРАФИЯ ===== */
+.login-title {
+  /* Заголовок "Авторизация U40TA" */
+  color: #333333;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.login-subtitle {
+  /* Подзаголовок с инструкцией */
+  color: #666666;
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 40px;
+}
+
+.pending-title {
+  /* Заголовок в режиме ожидания */
+  color: #333333;
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.pending-text {
+  /* Текст ожидания одобрения */
+  color: #666666;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+/* ===== КНОПКА TELEGRAM ===== */
+.telegram-btn-container {
+  /* Контейнер для кнопки Telegram */
+  margin-bottom: 30px;
+}
+
+.telegram-btn {
+  /* Голубая кнопка Telegram */
+  background-color: #0088cc;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 16px 32px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.telegram-btn:hover {
+  /* Эффект при наведении */
+  background-color: #0077b3;
+}
+
+.telegram-btn:active {
+  /* Эффект при нажатии */
+  background-color: #006699;
+  transform: translateY(1px);
+}
+
+/* ===== КНОПКА УСТАНОВКИ PWA ===== */
+.pwa-section {
+  /* Секция с PWA */
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.install-btn {
+  /* Кнопка установки PWA */
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.install-btn:hover {
+  /* Эффект при наведении */
+  background-color: #218838;
+}
+
+.install-btn:active {
+  /* Эффект при нажатии */
+  background-color: #1e7e34;
+  transform: translateY(1px);
+}
+
+.pwa-status {
+  /* Статус PWA */
+  color: #666666;
+  font-size: 14px;
+  margin-top: 15px;
+}
+
+/* ===== СОСТОЯНИЕ ОЖИДАНИЯ ===== */
+.pending-state {
+  /* Контейнер для состояния ожидания */
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  padding: 30px 20px;
+  margin-bottom: 30px;
+}
+
+.pending-icon {
+  /* Иконка ожидания */
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+/* ===== АДАПТИВНОСТЬ ===== */
+@media (max-width: 480px) {
+  .login-container {
+    /* На маленьких экранах меньше отступов */
+    padding: 20px 15px;
+  }
+  
+  .login-title {
+    font-size: 22px;
+  }
+  
+  .login-subtitle {
+    font-size: 15px;
+  }
+}
+
+/* ===== СКРЫТЫЕ ЭЛЕМЕНТЫ ===== */
+.hidden {
+  /* Утилитный класс для скрытия элементов */
+  display: none !important;
+}
+
+/* ===== АНИМАЦИИ ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-container > * {
+  /* Плавное появление элементов */
+  animation: fadeIn 0.3s ease-out;
+}

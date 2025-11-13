@@ -1,94 +1,113 @@
 <template>
   <div class="login-page">
     <div class="login-container">
-      <h1>Авторизация U40TA</h1>
-      <p>Войдите через Telegram для доступа к системе</p>
       
-      <!-- Кнопка Telegram Widget -->
-      <div class="telegram-btn" ref="telegramWidget"></div>
+      <!-- ЗАГОЛОВОК -->
+      <h1 class="login-title">Авторизация U40TA</h1>
       
-      <!-- Fallback кнопка если виджет не загрузился -->
-      <button 
-        v-if="showFallbackBtn" 
-        @click="initTelegramWidget" 
-        class="fallback-btn"
-      >
-        Авторизоваться через Telegram
-      </button>
-
-      <!-- Информация о пользователе -->
-      <div v-if="userData" class="user-data">
-        <h3>Данные пользователя:</h3>
-        <pre>{{ userData }}</pre>
-        <button @click="logout" class="logout-btn">Выйти</button>
+      <!-- ОБЫЧНЫЙ РЕЖИМ: Telegram кнопка -->
+      <div v-if="!isPending" class="telegram-btn-container">
+        <p class="login-subtitle">Войдите через Telegram для доступа к системе</p>
+        <button class="telegram-btn" @click="initTelegramWidget">
+          Авторизация через Telegram
+        </button>
+        <!-- Виджет Telegram будет вставлен сюда -->
+        <div ref="telegramWidget"></div>
       </div>
-
-      <!-- Статус PWA -->
-      <div class="pwa-status">
-        <p id="pwa-status-text">{{ pwaStatus }}</p>
-        <button 
-          v-if="showInstallBtn" 
-          @click="installPWA" 
-          id="install-btn" 
-          class="install-btn"
-        >
+      
+      <!-- РЕЖИМ ОЖИДАНИЯ: Текст без кнопки -->
+      <div v-else class="pending-state">
+        <div class="pending-icon">⏳</div>
+        <h2 class="pending-title">Заявка принята!</h2>
+        <p class="pending-text">
+          Ожидайте уведомления в Telegram.<br>
+          Когда получите сообщение - обновите страницу.
+        </p>
+      </div>
+      
+      <!-- КНОПКА УСТАНОВКИ PWA (скрыта в PWA режиме) -->
+      <div v-if="showInstallBtn" class="pwa-section">
+        <button class="install-btn" @click="installPWA">
           Установить приложение
         </button>
+        <p class="pwa-status">Для удобства использования</p>
       </div>
+      
     </div>
   </div>
 </template>
 
 <script>
+// Константа с именем бота для Telegram Widget
 const BOT_USERNAME = 'u40ta_bot';
 
 export default {
   name: 'Login',
   data() {
     return {
-      userData: null,
-      showFallbackBtn: false,
-      pwaStatus: 'Проверка PWA...',
-      showInstallBtn: false,
-      deferredPrompt: null
+      isPending: false,          // Флаг режима ожидания одобрения
+      showInstallBtn: false,     // Показывать кнопку установки PWA
+      deferredPrompt: null       // Событие установки PWA
     }
   },
   mounted() {
-    this.checkSavedSession();
-    this.initTelegramWidget();
+    // Проверяем статус при загрузке страницы
+    this.checkAuthStatus();
+    // Инициализируем PWA функционал
     this.initPWA();
     
-    // Глобальная функция для Telegram callback
+    // Глобальная функция для callback Telegram Widget
     window.onTelegramAuth = (user) => {
       this.onTelegramAuth(user);
     };
-    
-    // Проверяем загрузился ли виджет
-    setTimeout(() => {
-      if (!this.$refs.telegramWidget.children.length) {
-        this.showFallbackBtn = true;
-      }
-    }, 2000);
   },
   methods: {
-    // Инициализация Telegram Widget
+    /**
+     * Проверяем статус авторизации при загрузке страницы
+     * Если есть pending-токен - показываем режим ожидания
+     * Если есть рабочий токен - редирект на главную
+     */
+    checkAuthStatus() {
+      const pendingToken = localStorage.getItem('pending_token');
+      const authToken = localStorage.getItem('auth_token');
+      
+      if (authToken) {
+        // Уже авторизован - переходим на главную
+        this.$router.push('/');
+        return;
+      }
+      
+      if (pendingToken) {
+        // Есть pending-токен - показываем режим ожидания
+        this.isPending = true;
+      }
+    },
+
+    /**
+     * Инициализация Telegram Widget по клику на кнопку
+     * Создает и вставляет скрипт Telegram Widget
+     */
     initTelegramWidget() {
       const script = document.createElement('script');
       script.src = 'https://telegram.org/js/telegram-widget.js?22';
       script.setAttribute('data-telegram-login', BOT_USERNAME);
       script.setAttribute('data-size', 'large');
-      script.setAttribute('data-auth-url', '/api/auth/telegram'); // Важно!
+      script.setAttribute('data-auth-url', '/api/auth/telegram');
       script.setAttribute('data-request-access', 'write');
       script.setAttribute('data-userpic', 'true');
       script.setAttribute('data-radius', '20');
-      script.setAttribute('data-onauth', 'onTelegramAuth(user)'); // Важно!
+      script.setAttribute('data-onauth', 'onTelegramAuth(user)');
       script.async = true;
 
+      // Очищаем контейнер и вставляем скрипт
       this.$refs.telegramWidget.innerHTML = '';
       this.$refs.telegramWidget.appendChild(script);
     },
 
-    // Обработка успешной авторизации Telegram
+    /**
+     * Обработка успешной авторизации через Telegram
+     * Получает данные пользователя и отправляет на бэкенд
+     */
     async onTelegramAuth(user) {
       console.log('Telegram auth success:', user);
 
@@ -97,46 +116,29 @@ export default {
         return;
       }
 
-      // Сохраняем данные пользователя
-      localStorage.setItem('telegram_user', JSON.stringify(user));
-      localStorage.setItem('telegram_auth_date', Date.now().toString());
-
-      // Отображаем данные
-      this.userData = {
-        id: user.id,
-        first_name: user.first_name || 'Не указано',
-        last_name: user.last_name || 'Не указано',
-        username: user.username || 'Не указан',
-        auth_date: new Date(user.auth_date * 1000).toLocaleString('ru-RU')
-      };
-
-      // Отправляем данные на бэкенд
-      await this.sendToBackend(user);
-    },
-
-    // Отправка данных на бэкенд
-    async sendToBackend(userData) {
       try {
+        // Отправляем данные на бэкенд
         const response = await fetch('/api/auth/telegram', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(userData)
+          body: JSON.stringify(user)
         });
 
         const data = await response.json();
         console.log('Backend response:', data);
 
         if (data.status === 'success' && data.access_token) {
-          // Сохраняем JWT токен
+          // Успешная авторизация - сохраняем токен и переходим на главную
           localStorage.setItem('auth_token', data.access_token);
-          
-          // Перенаправляем на главную страницу
           this.$router.push('/');
         } else if (data.status === 'pending') {
-          alert('Ваша заявка на рассмотрении. Ожидайте одобрения администратором.');
+          // Режим ожидания - сохраняем pending-токен и показываем соответствующий экран
+          localStorage.setItem('pending_token', 'true');
+          this.isPending = true;
         } else {
+          // Ошибка авторизации
           alert('Ошибка авторизации: ' + (data.message || 'Неизвестная ошибка'));
         }
       } catch (error) {
@@ -145,68 +147,44 @@ export default {
       }
     },
 
-    // Проверка сохраненной сессии
-    checkSavedSession() {
-      const savedUser = localStorage.getItem('telegram_user');
-      const authDate = localStorage.getItem('telegram_auth_date');
-
-      if (savedUser && authDate) {
-        const hoursDiff = (Date.now() - parseInt(authDate)) / (1000 * 60 * 60);
-        if (hoursDiff < 24) {
-          const user = JSON.parse(savedUser);
-          this.userData = {
-            id: user.id,
-            first_name: user.first_name || 'Не указано',
-            last_name: user.last_name || 'Не указано',
-            username: user.username || 'Не указан'
-          };
-          console.log('Restored user session:', user);
-        } else {
-          this.logout();
-        }
-      }
-    },
-
-    // Выход из системы
-    logout() {
-      localStorage.removeItem('telegram_user');
-      localStorage.removeItem('telegram_auth_date');
-      localStorage.removeItem('auth_token');
-      this.userData = null;
-      console.log('User logged out');
-    },
-
-    // PWA функциональность
+    /**
+     * Инициализация PWA функционала
+     * Регистрирует Service Worker и настраивает установку
+     */
     initPWA() {
+      // Регистрируем Service Worker
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
           .then(() => {
-            this.pwaStatus = 'PWA: ✅ Готов к установке';
-            
-            if (window.matchMedia('(display-mode: standalone)').matches) {
-              this.pwaStatus = 'PWA: ✅ Запущено как приложение';
-              this.showInstallBtn = false;
-            }
+            console.log('Service Worker registered');
           })
-          .catch(() => {
-            this.pwaStatus = 'PWA: ⚠️ Service Worker не зарегистрирован';
+          .catch((error) => {
+            console.error('Service Worker registration failed:', error);
           });
-      } else {
-        this.pwaStatus = 'PWA: ❌ Не поддерживается';
       }
 
+      // Слушаем событие предложения установки PWA
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         this.deferredPrompt = e;
-        this.showInstallBtn = true;
+        
+        // Показываем кнопку установки только если НЕ в PWA режиме
+        if (!window.matchMedia('(display-mode: standalone)').matches) {
+          this.showInstallBtn = true;
+        }
       });
 
+      // Скрываем кнопку после установки
       window.addEventListener('appinstalled', () => {
         this.showInstallBtn = false;
-        this.pwaStatus = 'PWA: ✅ Установлено как приложение';
+        console.log('PWA installed');
       });
     },
 
+    /**
+     * Установка PWA приложения
+     * Использует отложенное событие установки
+     */
     installPWA() {
       if (this.deferredPrompt) {
         this.deferredPrompt.prompt();
@@ -223,76 +201,6 @@ export default {
 </script>
 
 <style scoped>
-.login-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-}
-
-.login-container {
-  background: white;
-  padding: 2rem;
-  border-radius: 15px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  text-align: center;
-  max-width: 400px;
-  width: 100%;
-}
-
-.login-container h1 {
-  color: #333;
-  margin-bottom: 1rem;
-}
-
-.login-container p {
-  color: #666;
-  margin-bottom: 2rem;
-}
-
-.telegram-btn {
-  margin-bottom: 1rem;
-}
-
-.fallback-btn, .logout-btn, .install-btn {
-  background: #0088cc;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 1rem;
-  margin: 0.5rem;
-  width: 100%;
-}
-
-.fallback-btn:hover, .logout-btn:hover, .install-btn:hover {
-  background: #0077b3;
-}
-
-.user-data {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 8px;
-  margin: 1rem 0;
-  text-align: left;
-}
-
-.user-data pre {
-  white-space: pre-wrap;
-  font-size: 0.9rem;
-}
-
-.pwa-status {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
-}
-
-.pwa-status p {
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
+/* Импортируем CSS стили */
+@import url('/css/login.css');
 </style>
