@@ -6,7 +6,7 @@
       
       <!-- ОБЫЧНЫЙ РЕЖИМ -->
       <div v-if="!isPending" class="telegram-btn-container">
-        <p class="login-subtitle">для работы в системе необходимо авторизоваться</p>
+        <p class="login-subtitle">добро пожаловать</p>
         <div ref="telegramWidget"></div>
       </div>
       
@@ -21,10 +21,10 @@
       
       <!-- PWA -->
       <div v-if="showInstallBtn" class="pwa-section">
+        <p class="pwa-status">Для удобства рекомендуем</p>
         <button class="install-btn" @click="installPWA">
           Установить PWA приложение
         </button>
-        <p class="pwa-status">Для удобства использования</p>
       </div>
       
     </div>

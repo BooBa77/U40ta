@@ -32,12 +32,16 @@ export default {
       users: [], // Список пользователей
       selectedUserId: '', // ID выбранного пользователя
       error: '', // Сообщение об ошибке
-      loading: false // Флаг загрузки
+      loading: false, // Флаг загрузки
+      isProduction: import.meta.env.PROD // Определение режима PROD
     }
   },
   async mounted() {
-    // Загружаем список пользователей при загрузке страницы
-    await this.loadUsers()
+    if (this.isProduction) {
+      this.$router.push('/login'); // Если PROD, страница не доступна - перевод на авторизацию
+      return;
+    }
+    await this.loadUsers() // Если не PROD, загружаем список доступных пользователей
   },
   methods: {
     // Метод для загрузки списка пользователей
