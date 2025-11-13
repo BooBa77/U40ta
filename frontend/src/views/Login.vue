@@ -2,11 +2,11 @@
   <div class="login-page">
     <div class="login-container">
       
-      <h1 class="login-title">Авторизация U40TA</h1>
+      <h1 class="login-title">U40TA</h1>
       
       <!-- ОБЫЧНЫЙ РЕЖИМ -->
       <div v-if="!isPending" class="telegram-btn-container">
-        <p class="login-subtitle">Войдите через Telegram для доступа к системе</p>
+        <p class="login-subtitle">для работы в системе необходимо авторизоваться</p>
         <div ref="telegramWidget"></div>
       </div>
       
@@ -16,14 +16,13 @@
         <h2 class="pending-title">Заявка принята!</h2>
         <p class="pending-text">
           Ожидайте уведомления в Telegram.<br>
-          Когда получите сообщение - обновите страницу.
         </p>
       </div>
       
       <!-- PWA -->
       <div v-if="showInstallBtn" class="pwa-section">
         <button class="install-btn" @click="installPWA">
-          Установить приложение
+          Установить PWA приложение
         </button>
         <p class="pwa-status">Для удобства использования</p>
       </div>
@@ -33,7 +32,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'; // ТЕПЕРЬ НУЖНЫ!
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 const BOT_USERNAME = 'u40ta_bot';
