@@ -1,22 +1,22 @@
 <template>
   <div class="home">
-    <div class="welcome-card">
+    <!-- АБР в левом верхнем углу -->
+    <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
+    
+    <!-- Основной контент -->
+    <div class="main-content">
       <h1>Добро пожаловать в U40TA!</h1>
-      <p>Вы успешно авторизованы в системе</p>
-      
-      <div class="user-info" v-if="userData">
-        <h3>Информация о пользователе:</h3>
-        <p><strong>ID:</strong> {{ userData.sub }}</p>
-        <p><strong>Имя:</strong> {{ userData.first_name }}</p>
-        <p><strong>Фамилия:</strong> {{ userData.last_name }}</p>
-        <p><strong>Роль:</strong> {{ userData.role }}</p>
-      </div>
-      
-      <div class="token-info">
-        <p><strong>Токен:</strong> {{ tokenPreview }}</p>
-      </div>
+      <p>Основной функционал в разработке</p>
+      <p v-if="userData.sub">User ID: {{ userData.sub }}</p>
+      <p v-if="userData.role">Role: {{ userData.role }}</p>
+    </div>
 
-      <button @click="handleLogout" class="logout-btn">Выйти из системы</button>
+    <!-- PWA и Выход внизу -->
+    <div class="bottom-actions">
+      <button v-if="showInstallBtn" @click="installPWA" class="pwa-btn">
+        Установить приложение
+      </button>
+      <button @click="logout" class="logout-btn">Выйти</button>
     </div>
   </div>
 </template>
@@ -26,45 +26,106 @@ export default {
   name: 'Home',
   data() {
     return {
-      userData: null,
-      token: ''
+      userData: { sub: null, role: null }, // из JWT токена
+      userAbr: '', // из отдельного запроса
+      showInstallBtn: false,
+      deferredPrompt: null
     }
   },
-  computed: {
-    tokenPreview() {
-      if (!this.token) return 'не получен';
-      return this.token.substring(0, 20) + '...';
-    }
-  },
-  mounted() {
+  async mounted() {
     this.checkAuth();
+    await this.loadUserAbr(); // загружаем абр отдельно
+    this.initPWA();
   },
   methods: {
     checkAuth() {
-      // Получаем токен из localStorage
-      this.token = localStorage.getItem('auth_token');
-      
-      if (!this.token) {
-        // Если нет токена - перенаправляем на страницу входа
-        this.$router.push('/dev-login');
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        this.$router.push('/login');
         return;
       }
-
+      
       try {
-        // Декодируем JWT токен чтобы получить данные пользователя
-        const payload = JSON.parse(atob(this.token.split('.')[1]));
-        this.userData = payload;
-        console.log('Данные пользователя:', payload);
+        // Декодируем упрощенный токен (только ID и роль)
+        const payloadBase64 = token.split('.')[1];
+        const payloadJson = atob(payloadBase64);
+        const payload = JSON.parse(payloadJson);
+        
+        console.log('🔍 Упрощенный токен:', payload);
+        
+        this.userData = {
+          sub: payload.sub,
+          role: payload.role
+        };
+        
       } catch (error) {
         console.error('Ошибка декодирования токена:', error);
-        this.handleLogout();
+        this.$router.push('/login');
       }
     },
 
-    handleLogout() {
-      // Удаляем токен и перенаправляем на страницу входа
+    async loadUserAbr() {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch('/api/users/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const user = await response.json();
+          console.log('✅ Данные пользователя:', user);
+          this.userAbr = user.abr;
+        } else {
+          console.error('Ошибка загрузки данных пользователя');
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки данных пользователя:', error);
+      }
+    },
+
+    initPWA() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then(() => {
+            console.log('Service Worker registered');
+          })
+          .catch((error) => {
+            console.error('Service Worker registration failed:', error);
+          });
+      }
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        this.deferredPrompt = e;
+        
+        if (!window.matchMedia('(display-mode: standalone)').matches) {
+          this.showInstallBtn = true;
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        this.showInstallBtn = false;
+        console.log('PWA installed');
+      });
+    },
+
+    installPWA() {
+      if (this.deferredPrompt) {
+        this.deferredPrompt.prompt();
+        this.deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            this.showInstallBtn = false;
+          }
+          this.deferredPrompt = null;
+        });
+      }
+    },
+
+    logout() {
       localStorage.removeItem('auth_token');
-      this.$router.push('/dev-login');
+      this.$router.push('/login');
     }
   }
 }
@@ -72,78 +133,57 @@ export default {
 
 <style scoped>
 .home {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-}
-
-.welcome-card {
   background: white;
-  padding: 2rem;
-  border-radius: 15px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  position: relative;
+}
+
+.user-abr {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  gap: 20px;
   text-align: center;
-  max-width: 500px;
-  width: 100%;
 }
 
-.welcome-card h1 {
-  color: #333;
-  margin-bottom: 1rem;
-  font-size: 2rem;
+.bottom-actions {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
-.welcome-card p {
-  color: #666;
-  margin-bottom: 1.5rem;
-  font-size: 1.1rem;
-}
-
-.user-info {
-  background: #f8f9fa;
-  padding: 1rem;
+.pwa-btn {
+  background: #28a745;
+  color: white;
+  border: none;
   border-radius: 8px;
-  margin-bottom: 1.5rem;
-  text-align: left;
-}
-
-.user-info h3 {
-  margin-top: 0;
-  color: #333;
-  border-bottom: 1px solid #dee2e6;
-  padding-bottom: 0.5rem;
-}
-
-.user-info p {
-  margin: 0.5rem 0;
-  color: #555;
-}
-
-.token-info {
-  background: #e3f2fd;
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-bottom: 1.5rem;
-  font-family: monospace;
-  font-size: 0.9rem;
+  padding: 12px 24px;
+  cursor: pointer;
 }
 
 .logout-btn {
-  background: #ff4757;
+  background: #dc3545;
   color: white;
   border: none;
-  padding: 12px 30px;
-  border-radius: 25px;
+  border-radius: 8px;
+  padding: 10px 20px;
   cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.3s;
-  width: 100%;
-}
-
-.logout-btn:hover {
-  background: #ff3742;
 }
 </style>

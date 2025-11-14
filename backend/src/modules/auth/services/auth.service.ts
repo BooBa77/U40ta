@@ -86,9 +86,6 @@ export class AuthService {
     // Эти данные будут доступны при верификации токена без запроса к базе данных
     const payload = {
       sub: user.id,                            // Внутренний ID пользователя в нашей системе
-      first_name: user.firstName,              // Имя пользователя
-      last_name: user.lastName,                // Фамилия пользователя
-      abr: user.abr,                           // ФИО пользователя (три буквы)
       role: user.role,                         // Роль пользователя (user/admin)
     };
 

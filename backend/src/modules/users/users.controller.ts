@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -24,5 +24,11 @@ export class UsersController {
     // Вызываем сервис для получения всех пользователей из базы данных
     const users = await this.usersService.findAll();
     return users;
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getCurrentUser(@Request() req) {
+    return this.usersService.findById(req.user.sub);
   }
 }
