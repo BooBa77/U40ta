@@ -1,8 +1,14 @@
 <template>
   <div class="home">
-    <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
-    
+    <!-- Верхний правый угол - Exit -->
+    <div class="header-actions">
+      <ExitButton />
+    </div>
+
+    <!-- Основной контент по центру -->
     <div class="main-content">
+      <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
+      
       <input 
         type="file" 
         accept="image/*" 
@@ -10,16 +16,18 @@
         style="display: none" 
         ref="fileInput"
       >
-      <button class="scan-btn" @click="triggerFileInput">
-        Сканировать штрих-код
-      </button>
+      <BaseButton 
+        class="scan-btn" 
+        @click="triggerFileInput"
+        size="large"
+      >
+        📷 Сканировать штрих-код
+      </BaseButton>
     </div>
 
-    <div class="bottom-actions">
-      <button v-if="showInstallBtn" @click="installPWA" class="pwa-btn">
-        Установить приложение PWA
-      </button>
-      <button @click="logout" class="logout-btn">Выйти</button>
+    <!-- Нижний блок - PWA -->
+    <div class="pwa-section">
+      <PWAInstallButton />
     </div>
   </div>
 </template>
@@ -27,6 +35,9 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import BaseButton from '@/components/ui/BaseButton.vue'
+import ExitButton from '@/components/ui/ExitButton.vue'
+import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 
 export default {
   name: 'Home',
