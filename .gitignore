@@ -3,6 +3,7 @@ sync-db.bat
 backend/node_modules/
 backend/dist/
 frontend/node_modules/
+frontend/views/test/
 docs/
 *.log
 .DS_Store

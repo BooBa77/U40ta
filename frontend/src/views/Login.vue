@@ -19,74 +19,70 @@
         </p>
       </div>
       
-      <!-- PWA -->
-      <div v-if="showInstallBtn" class="pwa-section">
-        <p class="pwa-status">Для удобства рекомендуем</p>
-        <button class="install-btn" @click="installPWA">
-          Установить PWA приложение
-        </button>
-      </div>
+      <!-- PWA Кнопка -->
+      <PWAInstallButton />
       
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 
-const BOT_USERNAME = 'u40ta_bot';
+const BOT_USERNAME = 'u40ta_bot'
 
 export default {
   name: 'Login',
+  components: {
+    PWAInstallButton
+  },
   setup() {
-    const router = useRouter();
-    const telegramWidget = ref(null);
-    
-    const isPending = ref(false);
-    const showInstallBtn = ref(false);
-    const deferredPrompt = ref(null);
+    const router = useRouter()
+    const telegramWidget = ref(null)
+    const isPending = ref(false)
 
     const checkAuthStatus = () => {
-      const pendingToken = localStorage.getItem('pending_token');
-      const authToken = localStorage.getItem('auth_token');
+      const pendingToken = localStorage.getItem('pending_token')
+      const authToken = localStorage.getItem('auth_token')
       
       if (authToken) {
-        router.push('/');
-        return;
+        router.push('/')
+        return
       }
       
       if (pendingToken) {
-        isPending.value = true;
+        isPending.value = true
       }
-    };
+    }
 
     const initTelegramWidget = () => {
-      if (isPending.value) return;
+      if (isPending.value) return
       
-      const script = document.createElement('script');
-      script.src = 'https://telegram.org/js/telegram-widget.js?22';
-      script.setAttribute('data-telegram-login', BOT_USERNAME);
-      script.setAttribute('data-size', 'large');
-      script.setAttribute('data-auth-url', '/api/auth/telegram');
-      script.setAttribute('data-request-access', 'write');
-      script.setAttribute('data-userpic', 'true');
-      script.setAttribute('data-radius', '20');
-      script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-      script.async = true;
+      const script = document.createElement('script')
+      script.src = 'https://telegram.org/js/telegram-widget.js?22'
+      script.setAttribute('data-telegram-login', BOT_USERNAME)
+      script.setAttribute('data-size', 'large')
+      script.setAttribute('data-auth-url', '/api/auth/telegram')
+      script.setAttribute('data-request-access', 'write')
+      script.setAttribute('data-userpic', 'true')
+      script.setAttribute('data-radius', '20')
+      script.setAttribute('data-onauth', 'onTelegramAuth(user)')
+      script.async = true
 
       if (telegramWidget.value) {
-        telegramWidget.value.innerHTML = '';
-        telegramWidget.value.appendChild(script);
+        telegramWidget.value.innerHTML = ''
+        telegramWidget.value.appendChild(script)
       }
-    };
+    }
 
     const onTelegramAuth = async (user) => {
-      console.log('Telegram auth success:', user);
+      console.log('Telegram auth success:', user)
 
       if (!user || !user.id) {
-        console.error('Invalid user data received');
-        return;
+        console.error('Invalid user data received')
+        return
       }
 
       try {
@@ -96,78 +92,37 @@ export default {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(user)
-        });
+        })
 
-        const data = await response.json();
-        console.log('Backend response:', data);
+        const data = await response.json()
+        console.log('Backend response:', data)
 
         if (data.status === 'success' && data.access_token) {
-          localStorage.setItem('auth_token', data.access_token);
-          router.push('/');
+          localStorage.setItem('auth_token', data.access_token)
+          router.push('/')
         } else if (data.status === 'pending') {
-          localStorage.setItem('pending_token', 'true');
-          isPending.value = true;
+          localStorage.setItem('pending_token', 'true')
+          isPending.value = true
         } else {
-          alert('Ошибка авторизации: ' + (data.message || 'Неизвестная ошибка'));
+          alert('Ошибка авторизации: ' + (data.message || 'Неизвестная ошибка'))
         }
       } catch (error) {
-        console.error('Backend error:', error);
-        alert('Ошибка соединения с сервером');
+        console.error('Backend error:', error)
+        alert('Ошибка соединения с сервером')
       }
-    };
-
-    const initPWA = () => {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
-          .then(() => {
-            console.log('Service Worker registered');
-          })
-          .catch((error) => {
-            console.error('Service Worker registration failed:', error);
-          });
-      }
-
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt.value = e;
-        
-        if (!window.matchMedia('(display-mode: standalone)').matches) {
-          showInstallBtn.value = true;
-        }
-      });
-
-      window.addEventListener('appinstalled', () => {
-        showInstallBtn.value = false;
-        console.log('PWA installed');
-      });
-    };
-
-    const installPWA = () => {
-      if (deferredPrompt.value) {
-        deferredPrompt.value.prompt();
-        deferredPrompt.value.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            showInstallBtn.value = false;
-          }
-          deferredPrompt.value = null;
-        });
-      }
-    };
+    }
 
     onMounted(() => {
-      checkAuthStatus();
-      initPWA();
-      initTelegramWidget();
+      checkAuthStatus()
+      initTelegramWidget()
       
-      window.onTelegramAuth = onTelegramAuth;
-    });
+      window.onTelegramAuth = onTelegramAuth
+    })
 
     return {
       isPending,
-      showInstallBtn,
-      telegramWidget,
-      installPWA
-    };
+      telegramWidget
+    }
   }
 }
 </script>

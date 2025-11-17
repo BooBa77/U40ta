@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -26,8 +26,9 @@ export class UsersController {
     return users;
   }
 
-  @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.usersService.findById(+id); // +id преобразует строку в число
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getCurrentUser(@Request() req) {
+    return this.usersService.findById(req.user.sub);
   }
 }

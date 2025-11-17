@@ -3,6 +3,10 @@
     <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
     
     <div class="main-content">
+      <h1>Добро пожаловать в U40TA!</h1>
+      
+      <div id="reader-element" style="display: none;"></div>
+      
       <input 
         type="file" 
         accept="image/*" 
@@ -11,13 +15,44 @@
         ref="fileInput"
       >
       <button class="scan-btn" @click="triggerFileInput">
-        Сканировать штрих-код
+        📷 Сканировать штрих-код/QR из изображения
       </button>
+      
+      <div class="scan-stats">
+        <div>Успешно: {{ successCount }} | Не распознано: {{ failCount }}</div>
+        <div>Работает: EAN-13, QR Code</div>
+        <div>Проблемы: Другие форматы</div>
+      </div>
+      
+      <div v-if="scannedCode" class="scan-result">
+        Найден код: <strong>{{ scannedCode }}</strong>
+      </div>
+      
+      <div v-if="loading" class="loading">
+        {{ loadingMessage }}
+      </div>
+      
+      <div v-if="debugInfo" class="debug-info">
+        <h4>Диагностика:</h4>
+        <pre>{{ debugInfo }}</pre>
+      </div>
+
+      <div class="format-info">
+        <h4>Поддерживаемые форматы:</h4>
+        <div class="format-list">
+          <div class="format-item supported">✅ EAN-13</div>
+          <div class="format-item supported">✅ QR Code</div>
+          <div class="format-item problematic">❓ CODE_128</div>
+          <div class="format-item problematic">❓ CODE_39</div>
+          <div class="format-item problematic">❓ UPC-A</div>
+          <div class="format-item problematic">❓ Другие</div>
+        </div>
+      </div>
     </div>
 
     <div class="bottom-actions">
       <button v-if="showInstallBtn" @click="installPWA" class="pwa-btn">
-        Установить приложение PWA
+        Установить приложение
       </button>
       <button @click="logout" class="logout-btn">Выйти</button>
     </div>
