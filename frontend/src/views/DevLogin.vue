@@ -14,9 +14,14 @@
     </div>
 
     <!-- Кнопка входа -->
-    <button @click="login" :disabled="!selectedUserId" class="login-btn">
+    <BaseButton 
+      @click="login" 
+      :disabled="!selectedUserId" 
+      variant="primary"
+      class="login-btn"
+    >
       Войти
-    </button>
+    </BaseButton>
 
     <!-- Сообщения -->
     <div v-if="error" class="error">{{ error }}</div>
@@ -24,137 +29,153 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'DevLogin',
-  data() {
-    return {
-      users: [], // Список пользователей
-      selectedUserId: '', // ID выбранного пользователя
-      error: '', // Сообщение об ошибке
-      loading: false, // Флаг загрузки
-      isProduction: import.meta.env.PROD // Определение режима PROD
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import BaseButton from '@/components/ui/BaseButton.vue'
+
+const router = useRouter()
+const users = ref([])
+const selectedUserId = ref('')
+const error = ref('')
+const loading = ref(false)
+const isProduction = import.meta.env.PROD
+
+// Функция определения устройства
+const detectDevice = async () => {
+  const userAgent = navigator.userAgent
+  const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
+  const isMobile = mobileRegex.test(userAgent) || ('ontouchstart' in window)
+  
+  let hasCamera = false
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    hasCamera = devices.some(device => device.kind === 'videoinput')
+  } catch (error) {
+    hasCamera = false
+  }
+  
+  localStorage.setItem('device_isMobile', JSON.stringify(isMobile))
+  localStorage.setItem('device_hasCamera', JSON.stringify(hasCamera))
+}
+
+// Загрузка списка пользователей
+const loadUsers = async () => {
+  try {
+    const response = await fetch('/api/users')
+    if (response.ok) {
+      users.value = await response.json()
+    } else {
+      error.value = 'Ошибка загрузки пользователей'
     }
-  },
-  async mounted() {
-    if (this.isProduction) {
-      this.$router.push('/login'); // Если PROD, страница не доступна - перевод на авторизацию
-      return;
-    }
-    await this.loadUsers() // Если не PROD, загружаем список доступных пользователей
-  },
-  methods: {
-    // Метод для загрузки списка пользователей
-    async loadUsers() {
-      try {
-        const response = await fetch('/api/users')
-        if (response.ok) {
-          this.users = await response.json()
-        } else {
-          this.error = 'Ошибка загрузки пользователей'
-        }
-      } catch (err) {
-        this.error = 'Ошибка соединения с сервером'
-      }
-    },
-
-    // Метод для входа выбранного пользователя
-    async login() {
-      if (!this.selectedUserId) return
-
-      this.loading = true
-      this.error = ''
-
-      try {
-        // Отправляем запрос на бэкенд для получения JWT
-        const response = await fetch('/api/auth/dev-login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            userId: parseInt(this.selectedUserId)
-          })
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          
-          // Сохраняем токен в localStorage
-          localStorage.setItem('auth_token', data.access_token)
-          
-          // Просто перенаправляем на главную страницу
-          // Home.vue сам проверит авторизацию и получит данные пользователя
-          this.$router.push('/')
-        } else {
-          const errorData = await response.json()
-          this.error = errorData.message || 'Ошибка авторизации'
-        }
-      } catch (err) {
-        this.error = 'Ошибка соединения с сервером'
-      } finally {
-        this.loading = false
-      }
-    }
+  } catch (err) {
+    error.value = 'Ошибка соединения с сервером'
   }
 }
+
+// Вход выбранного пользователя
+const login = async () => {
+  if (!selectedUserId.value) return
+
+  loading.value = true
+  error.value = ''
+
+  try {
+    const response = await fetch('/api/auth/dev-login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userId: parseInt(selectedUserId.value)
+      })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      localStorage.setItem('auth_token', data.access_token)
+      router.push('/')
+    } else {
+      const errorData = await response.json()
+      error.value = errorData.message || 'Ошибка авторизации'
+    }
+  } catch (err) {
+    error.value = 'Ошибка соединения с сервером'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(async () => {
+  if (isProduction) {
+    router.push('/login')
+    return
+  }
+  await detectDevice()
+  await loadUsers()
+})
 </script>
 
 <style scoped>
 .dev-login {
   max-width: 400px;
   margin: 50px auto;
-  padding: 20px;
+  padding: var(--spacing);
   text-align: center;
+  background: white;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
 }
 
 .user-selection {
-  margin: 20px 0;
+  margin: var(--spacing-lg) 0;
+  text-align: left;
+}
+
+.user-selection label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+  color: var(--color-text);
 }
 
 select {
   width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  padding: var(--spacing-sm);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 14px;
+  transition: border-color var(--transition);
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-secondary);
 }
 
 .login-btn {
   width: 100%;
-  padding: 12px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.login-btn:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-}
-
-.login-btn:not(:disabled):hover {
-  background: #0056b3;
+  margin-top: var(--spacing);
 }
 
 .error {
-  margin: 20px 0;
-  padding: 10px;
+  margin: var(--spacing) 0;
+  padding: var(--spacing-sm);
   background-color: #ffebee;
   color: #c62828;
   border: 1px solid #ffcdd2;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
+  font-size: 14px;
 }
 
 .loading {
-  margin: 20px 0;
-  padding: 10px;
+  margin: var(--spacing) 0;
+  padding: var(--spacing-sm);
   background-color: #e3f2fd;
   color: #1565c0;
   border: 1px solid #bbdefb;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
+  font-size: 14px;
 }
 </style>

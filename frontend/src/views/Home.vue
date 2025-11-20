@@ -6,12 +6,10 @@
     </header>
 
     <main class="home-main">
-      <!--
       <QrScanner 
         size="large" 
         @scan="handleScanResult"
       />
-      -->
     </main>
 
     <footer class="home-footer">
@@ -60,7 +58,7 @@ const loadUserAbr = async () => {
 }
 
 const handleScanResult = (result) => {
-  console.log('Результат сканирования:', result)
+  console.log('Home.vue получил результат сканирования:', result)
   // Здесь логика обработки результата
 }
 

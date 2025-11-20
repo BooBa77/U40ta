@@ -33,6 +33,10 @@ import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 
 const BOT_USERNAME = 'u40ta_bot'
 
+// Глобальные переменные устройства (нативный подход)
+const isMobile = ref(JSON.parse(localStorage.getItem('device_isMobile') || 'false'))
+const hasCamera = ref(JSON.parse(localStorage.getItem('device_hasCamera') || 'false'))
+
 export default {
   name: 'Login',
   components: {
@@ -112,9 +116,30 @@ export default {
       }
     }
 
+    // Функция определения устройства
+    const detectDevice = async () => {
+      // Проверка мобилы
+      const userAgent = navigator.userAgent
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
+      isMobile.value = mobileRegex.test(userAgent) || ('ontouchstart' in window)
+      
+      // Проверка камеры
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        hasCamera.value = devices.some(device => device.kind === 'videoinput')
+      } catch (error) {
+        hasCamera.value = false
+      }
+      
+      // Сохраняем в localStorage
+      localStorage.setItem('device_isMobile', JSON.stringify(isMobile.value))
+      localStorage.setItem('device_hasCamera', JSON.stringify(hasCamera.value))
+    }
+
     onMounted(() => {
       checkAuthStatus()
       initTelegramWidget()
+      detectDevice()
       
       window.onTelegramAuth = onTelegramAuth
     })
