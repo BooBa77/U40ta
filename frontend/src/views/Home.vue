@@ -9,7 +9,26 @@
       <QrScanner 
         size="large" 
         @scan="handleScanResult"
+        @error="handleScanError"
       />
+
+
+
+      <!-- Отображение результата -->
+      <div v-if="scanResult" class="scan-result">
+        <h3>Результат сканирования:</h3>
+        <pre>{{ scanResult }}</pre>
+      </div>
+      
+      <!-- Отображение ошибки -->
+      <div v-if="scanError" class="scan-error">
+        <h3>Ошибка:</h3>
+        <p>{{ scanError }}</p>
+      </div>
+
+
+
+
     </main>
 
     <footer class="home-footer">
@@ -27,6 +46,8 @@ import QrScanner from '@/components/QrScanner.vue'
 
 const router = useRouter()
 const userAbr = ref('')
+const scanResult = ref('')
+const scanError = ref('')
 
 const checkAuth = () => {
   const token = localStorage.getItem('auth_token')
@@ -58,8 +79,15 @@ const loadUserAbr = async () => {
 }
 
 const handleScanResult = (result) => {
-  console.log('Home.vue получил результат сканирования:', result)
-  // Здесь логика обработки результата
+  console.log('Home.vue получил результат:', result)
+  scanResult.value = result
+  scanError.value = ''
+}
+
+const handleScanError = (error) => {
+  console.log('Home.vue получил ошибку:', error)
+  scanError.value = error
+  scanResult.value = ''
 }
 
 onMounted(() => {
