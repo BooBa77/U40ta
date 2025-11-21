@@ -1,30 +1,9 @@
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
+
 export function useQrFile(emit) {
   let html5QrcodeInstance = null
 
-  const loadHtml5QrcodeScript = () => {
-    return new Promise((resolve, reject) => {
-      if (window.Html5Qrcode) {
-        resolve(window.Html5Qrcode)
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'
-      script.onload = () => {
-        if (window.Html5Qrcode) {
-          resolve(window.Html5Qrcode)
-        } else {
-          reject(new Error('Html5Qrcode не загрузился'))
-        }
-      }
-      script.onerror = () => reject(new Error('CDN не доступен'))
-      document.head.appendChild(script)
-    })
-  }
-
   const scanWithHtml5Qrcode = async (file) => {
-    const { Html5Qrcode, Html5QrcodeSupportedFormats } = window
-
     if (html5QrcodeInstance) {
       try {
         await html5QrcodeInstance.clear()
@@ -33,7 +12,6 @@ export function useQrFile(emit) {
       }
     }
 
-    // Создаём временный элемент для сканера
     const tempElement = document.createElement('div')
     tempElement.id = 'temp-qr-scanner'
     tempElement.style.display = 'none'
@@ -60,8 +38,19 @@ export function useQrFile(emit) {
       })
       return result
     } finally {
-      // Убираем временный элемент
       document.body.removeChild(tempElement)
+    }
+  }
+
+  const processFile = async (file) => {
+    try {
+      console.log('🖼️ Файл:', file.name)
+      const result = await scanWithHtml5Qrcode(file)
+      console.log('✅ Результат:', result)
+      emit('scan', result)
+    } catch (error) {
+      console.log('❌ Ошибка:', error)
+      emit('error', error.message)
     }
   }
 
@@ -81,23 +70,6 @@ export function useQrFile(emit) {
     
     document.body.appendChild(fileInput)
     fileInput.click()
-  }
-
-  const processFile = async (file) => {
-    try {
-      console.log('🖼️ Файл:', file.name)
-      await loadHtml5QrcodeScript()
-      
-      console.log('🔍 Сканируем...')
-      const result = await scanWithHtml5Qrcode(file)
-      
-      console.log('✅ Результат:', result)
-      emit('scan', result)
-      
-    } catch (error) {
-      console.log('❌ Ошибка:', error)
-      emit('error', error.message)
-    }
   }
 
   return {

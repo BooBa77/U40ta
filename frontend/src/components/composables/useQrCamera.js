@@ -1,9 +1,21 @@
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
+
 export function useQrCamera(emit) {
   let html5QrcodeInstance = null
 
+  const stopCameraScan = () => {
+    if (html5QrcodeInstance) {
+      html5QrcodeInstance.stop().then(() => {
+        html5QrcodeInstance.clear()
+      }).catch(console.error)
+    }
+    
+    const overlay = document.getElementById('camera-overlay')
+    if (overlay) overlay.remove()
+  }
+
   const startCameraScan = async () => {
     try {
-      // Создаём полноэкранный overlay для камеры
       const cameraOverlay = document.createElement('div')
       cameraOverlay.id = 'camera-overlay'
       cameraOverlay.style.cssText = `
@@ -20,7 +32,6 @@ export function useQrCamera(emit) {
         justify-content: center;
       `
 
-      // Контейнер для preview камеры
       const cameraContainer = document.createElement('div')
       cameraContainer.id = 'camera-container'
       cameraContainer.style.cssText = `
@@ -28,15 +39,15 @@ export function useQrCamera(emit) {
         max-width: 400px;
         height: 400px;
         position: relative;
+        margin-bottom: 20px;
       `
 
-      // Кнопка закрытия
       const closeButton = document.createElement('button')
       closeButton.textContent = '✕'
       closeButton.style.cssText = `
         position: absolute;
-        top: 20px;
-        right: 20px;
+        top: 10px;
+        right: 10px;
         background: rgba(0,0,0,0.5);
         color: white;
         border: none;
@@ -49,32 +60,54 @@ export function useQrCamera(emit) {
       `
       closeButton.onclick = stopCameraScan
 
+      const cancelButton = document.createElement('button')
+      cancelButton.textContent = 'Отмена'
+      cancelButton.style.cssText = `
+        background: rgba(255,255,255,0.9);
+        color: #333;
+        border: none;
+        border-radius: 25px;
+        padding: 12px 24px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 20px;
+      `
+      cancelButton.onclick = stopCameraScan
+
       cameraContainer.appendChild(closeButton)
       cameraOverlay.appendChild(cameraContainer)
+      cameraOverlay.appendChild(cancelButton)
       document.body.appendChild(cameraOverlay)
 
-      // Ждём загрузки библиотеки
-      if (!window.Html5Qrcode) {
-        await loadHtml5QrcodeScript()
-      }
-
-      // Запускаем камеру
       html5QrcodeInstance = new Html5Qrcode('camera-container')
+
+      const allSupportedFormats = [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
       
       await html5QrcodeInstance.start(
         { facingMode: "environment" },
         {
           fps: 10,
           qrbox: { width: 250, height: 250 },
-          aspectRatio: 1
+          aspectRatio: 1,
+          formatsToSupport: allSupportedFormats
         },
         (result) => {
-          console.log('✅ Найден QR-код:', result)
+          console.log('✅ Найден код:', result)
           emit('scan', result)
           stopCameraScan()
         },
         (error) => {
-          // Игнорируем ошибки сканирования (процесс идёт)
           console.log('Сканирование...')
         }
       )
@@ -84,33 +117,6 @@ export function useQrCamera(emit) {
       emit('error', 'Ошибка камеры: ' + error.message)
       stopCameraScan()
     }
-  }
-
-  const stopCameraScan = () => {
-    if (html5QrcodeInstance) {
-      html5QrcodeInstance.stop().then(() => {
-        html5QrcodeInstance.clear()
-      }).catch(console.error)
-    }
-    
-    // Убираем overlay
-    const overlay = document.getElementById('camera-overlay')
-    if (overlay) overlay.remove()
-  }
-
-  const loadHtml5QrcodeScript = () => {
-    return new Promise((resolve, reject) => {
-      if (window.Html5Qrcode) {
-        resolve()
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'
-      script.onload = () => resolve()
-      script.onerror = () => reject(new Error('CDN не доступен'))
-      document.head.appendChild(script)
-    })
   }
 
   return {
