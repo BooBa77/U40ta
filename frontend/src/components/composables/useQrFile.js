@@ -84,25 +84,19 @@ export function useQrFile(emit) {
   }
 
   const processFile = async (file) => {
-    emit('scanning', true)
-    
     try {
-      console.log('🖼️ Файл:', file.name, file.type, file.size)
-      
-      emit('scanning', true)
+      console.log('🖼️ Файл:', file.name)
       await loadHtml5QrcodeScript()
       
-      console.log('🔍 Начинаем сканирование с html5-qrcode')
+      console.log('🔍 Сканируем...')
       const result = await scanWithHtml5Qrcode(file)
       
-      console.log('✅ Найден код:', result)
+      console.log('✅ Результат:', result)
       emit('scan', result)
       
     } catch (error) {
-      console.log('❌ Ошибка сканирования:', error)
-      emit('error', `Не удалось распознать: ${error.message}`)
-    } finally {
-      emit('scanning', false)
+      console.log('❌ Ошибка:', error)
+      emit('error', error.message)
     }
   }
 

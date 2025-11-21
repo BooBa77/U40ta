@@ -26,7 +26,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['scan', 'error', 'scanning'])
+const emit = defineEmits(['scan', 'error'])
 
 const currentImage = computed(() => {
   return props.size === 'small' 
