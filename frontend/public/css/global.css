@@ -27,4 +27,31 @@
   --spacing-sm: 8px;
   --spacing: 16px;
   --spacing-lg: 24px;
+
+
+
+  /* Большие кнопки главной страницы */
+  .big-home-button {
+  background: white;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  flex: 0 1 40%; /* 40% ширины */
+  width: 40%; /* ← явно задаём ширину */
+  max-width: 360px; /* ← максимальный размер */
+  aspect-ratio: 1 / 1; /* квадратные */
+}
+
+.big-home-button .button-icon,
+.big-home-button .scan-icon {
+  width: 80%; /* ← оставляем отступы */
+  height: 80%;
+  object-fit: contain;
+}
+
 }

@@ -19,7 +19,13 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: Login
-  }  
+  },
+  {
+  path: '/dbtools',
+  name: 'DBTools',
+  component: () => import('@/views/DBTools.vue'),
+  meta: { requiresAuth: true }
+}  
 ]
 
 const router = createRouter({

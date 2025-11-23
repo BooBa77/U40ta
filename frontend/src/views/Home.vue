@@ -6,13 +6,15 @@
     </header>
 
     <main class="home-main">
-      <QrScanner 
-        size="large" 
-        @scan="handleScanResult"
-        @error="handleScanError"
-      />
-
-
+      <div class="actions-grid">
+        <QrScannerButton 
+          size="large" 
+          @scan="handleScanResult"
+          @error="handleScanError"
+        />
+        
+        <DBToolsButton />
+      </div>
 
       <!-- Отображение результата -->
       <div v-if="scanResult" class="scan-result">
@@ -25,10 +27,6 @@
         <h3>Ошибка:</h3>
         <p>{{ scanError }}</p>
       </div>
-
-
-
-
     </main>
 
     <footer class="home-footer">
@@ -42,7 +40,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ExitButton from '@/components/ui/ExitButton.vue'
 import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
-import QrScanner from '@/components/QrScanner.vue'
+import QrScannerButton from '@/components/ui/QrScannerButton.vue'
+import DBToolsButton from '@/components/ui/DBToolsButton.vue'
 
 const router = useRouter()
 const userAbr = ref('')
@@ -121,5 +120,15 @@ onMounted(() => {
 .home-footer {
   margin-top: auto;
   padding-top: var(--spacing);
+}
+
+.actions-grid {
+  display: flex;
+  gap: 10%; /* 20% на пустоты */
+  width: 100%;
+  max-width: 900px; /* ← ограничиваем общую ширину */
+  margin: 0 auto; /* ← центрируем */
+  justify-content: center;
+  align-items: center;
 }
 </style>
