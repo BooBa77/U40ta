@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TelegramUsersModule } from './modules/telegram-users/telegram-users.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -49,6 +50,10 @@ import { AuthModule } from './modules/auth/auth.module';
     // AuthModule - модуль аутентификации и авторизации
     // Обрабатывает логику входа через Telegram и другие методы
     AuthModule,
+
+    // EmailModule - модуль работы с электронной почтой
+    // Сервисы получения excel-таблиц и выгрузки выборок
+    EmailModule,
   ],
   
   // providers - массив сервисов, не объявленных в других модулях

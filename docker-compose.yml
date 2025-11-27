@@ -21,6 +21,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - ./email-attachments:/app/email-attachments
     environment:
       - NODE_ENV=${NODE_ENV}
       - DB_HOST=${DB_HOST}

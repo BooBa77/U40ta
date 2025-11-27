@@ -7,7 +7,7 @@
     <main class="page-main">
       <button class="add-manual-button" @click="addObjectManual">
         Добавить объект вручную
-      </button>
+      </button>    
     </main>
   </div>
 </template>
@@ -18,9 +18,20 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 const addObjectManual = () => {
-  console.log('Добавление объекта вручную')
-  // Здесь будет логика добавления
+  router.push({
+    name: 'ObjectAdd',
+    query: {  // используем query вместо params
+      initialData: JSON.stringify({
+        zavod: 0,
+        sklad: "-", 
+        buh_name: "-",
+        inv_number: "-",
+        party_number: "-"
+      })
+    }
+  })
 }
+
 </script>
 
 <style scoped>

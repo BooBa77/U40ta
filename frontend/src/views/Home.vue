@@ -14,15 +14,29 @@
         />
         
         <DBToolsButton />
+
+        <!-- Кнопка проверки почты -->
+        <button 
+          class="email-check-btn"
+          @click="checkEmail"
+          :disabled="checkingEmail"
+        >
+          {{ checkingEmail ? '📨 Проверяем...' : '📧 Проверить почту' }}
+        </button>
       </div>
 
-      <!-- Отображение результата -->
+      <!-- Сообщение о результате проверки почты -->
+      <div v-if="emailCheckMessage" class="email-check-message" :class="{ error: !emailCheckSuccess }">
+        {{ emailCheckMessage }}
+      </div>
+
+      <!-- Отображение результата сканирования -->
       <div v-if="scanResult" class="scan-result">
         <h3>Результат сканирования:</h3>
         <pre>{{ scanResult }}</pre>
       </div>
       
-      <!-- Отображение ошибки -->
+      <!-- Отображение ошибки сканирования -->
       <div v-if="scanError" class="scan-error">
         <h3>Ошибка:</h3>
         <p>{{ scanError }}</p>
@@ -47,6 +61,9 @@ const router = useRouter()
 const userAbr = ref('')
 const scanResult = ref('')
 const scanError = ref('')
+const checkingEmail = ref(false)
+const emailCheckMessage = ref('')
+const emailCheckSuccess = ref(true)
 
 const checkAuth = () => {
   const token = localStorage.getItem('auth_token')
@@ -74,6 +91,46 @@ const loadUserAbr = async () => {
     }
   } catch (error) {
     console.error('Ошибка загрузки пользователя:', error)
+  }
+}
+
+const checkEmail = async () => {
+  if (!checkAuth()) return
+  
+  checkingEmail.value = true
+  emailCheckMessage.value = ''
+  
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch('/api/email/check-now', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const result = await response.json()
+    
+    if (result.success) {
+      emailCheckMessage.value = '✅ ' + result.message
+      emailCheckSuccess.value = true
+    } else {
+      emailCheckMessage.value = '❌ ' + result.message
+      emailCheckSuccess.value = false
+    }
+    
+  } catch (error) {
+    emailCheckMessage.value = '❌ Ошибка при проверке почты'
+    emailCheckSuccess.value = false
+    console.error('Ошибка проверки почты:', error)
+  } finally {
+    checkingEmail.value = false
+    
+    // Автоматически скрываем сообщение через 5 секунд
+    setTimeout(() => {
+      emailCheckMessage.value = ''
+    }, 5000)
   }
 }
 
@@ -113,8 +170,10 @@ onMounted(() => {
 .home-main {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--spacing);
 }
 
 .home-footer {
@@ -122,13 +181,77 @@ onMounted(() => {
   padding-top: var(--spacing);
 }
 
+/* Стили сетки с главными кнопками */
 .actions-grid {
   display: flex;
-  gap: 10%; /* 20% на пустоты */
+  gap: 10%;
   width: 100%;
-  max-width: 900px; /* ← ограничиваем общую ширину */
-  margin: 0 auto; /* ← центрируем */
+  max-width: 900px;
+  margin: 0 auto;
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Стили для кнопки проверки почты */
+.email-check-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 160px;
+}
+
+.email-check-btn:hover:not(:disabled) {
+  background: #45a049;
+  transform: translateY(-2px);
+}
+
+.email-check-btn:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Сообщение о результате проверки почты */
+.email-check-message {
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: #e8f5e8;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+  text-align: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.email-check-message.error {
+  background: #ffebee;
+  color: #c62828; 
+  border: 1px solid #ffcdd2;
+}
+
+/* Стили для результатов сканирования */
+.scan-result,
+.scan-error {
+  margin-top: var(--spacing);
+  padding: var(--spacing);
+  border-radius: 8px;
+  max-width: 400px;
+}
+
+.scan-result {
+  background: #e8f5e8;
+  border: 1px solid #c8e6c9;
+}
+
+.scan-error {
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
 }
 </style>
