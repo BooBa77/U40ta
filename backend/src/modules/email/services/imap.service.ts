@@ -183,7 +183,7 @@ export class ImapService implements OnModuleInit {
 
   private async saveAttachment(attachment: any, email: any) {
     try {
-      const attachmentsDir = '/app/email-attachments';
+      const attachmentsDir = '/email-attachments';  // ← Корень контейнера
       const filename = attachment.filename;
       const filePath = path.join(attachmentsDir, filename);
 
