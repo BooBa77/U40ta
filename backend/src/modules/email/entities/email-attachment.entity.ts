@@ -5,24 +5,24 @@ export class EmailAttachment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column('text')
   filename: string; // имя файла
 
-  @Column({ nullable: true })
-  email_from: string; // от кого пришло
+  @Column('text', { nullable: true })
+  email_from: string | null; // от кого пришло
 
   @CreateDateColumn()
   received_at: Date; // дата загрузки
 
-  @Column({ nullable: true })
-  good_file: boolean; // применим ли файл для работы
+  @Column('boolean', { nullable: true })
+  good_file: boolean | null; // применим ли файл для работы
 
-  @Column({ nullable: true })
-  type: string; // 'ОСВ' или 'Инвентаризация'
+  @Column('text', { nullable: true })
+  doc_type: string | null; // 'ОСВ' или 'Инвентаризация'
 
-  @Column({ nullable: true })
-  sklad: string; // код склада
+  @Column('text', { nullable: true })
+  sklad: string | null; // код склада
 
-  @Column({ nullable: true })
-  error_reason: string; // описание ошибки применения файла
+  @Column('text', { nullable: true })
+  error_reason: string | null; // описание ошибки применения файла
 }

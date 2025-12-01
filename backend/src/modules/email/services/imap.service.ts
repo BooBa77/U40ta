@@ -1,86 +1,52 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable } from '@nestjs/common';
 import Imap from 'imap';
 import { simpleParser } from 'mailparser';
 import * as fs from 'fs';
 import * as path from 'path';
-import { EmailAttachment } from '../entities/email-attachment.entity';
+import { FileAnalysisService } from './file-analysis.service';
 
 @Injectable()
-export class ImapService implements OnModuleInit {
+export class ImapService {
   private imap: Imap;
-  private isConnected = false;
 
-  constructor(
-    @InjectRepository(EmailAttachment)
-    private attachmentsRepo: Repository<EmailAttachment>,
-  ) {}
-
-  async onModuleInit() {
-    await this.setupImapConnection();
-  }
-
-  private async setupImapConnection() {
-    this.imap = new Imap({
-      user: 'u40ta@mail.ru',
-      password: 'YxTNPTFgz3VG8b1nzxPw',
-      host: 'imap.mail.ru',
-      port: 993,
-      tls: true,
-      tlsOptions: { rejectUnauthorized: false }
-    });
-
-    this.imap.once('ready', () => {
-      console.log('✅ IMAP подключен к Mail.ru');
-      this.isConnected = true;
-      this.startEmailPolling();
-    });
-
-    this.imap.once('error', (err) => {
-      console.error('❌ IMAP ошибка:', err.message);
-      this.isConnected = false;
-    });
-
-    this.imap.once('end', () => {
-      console.log('📧 IMAP соединение закрыто');
-      this.isConnected = false;
-    });
-
-    console.log('🔄 Подключаемся к IMAP...');
-    this.imap.connect();
-  }
-
-  private async reconnectImap() {
-    console.log('🔄 Переподключаемся к IMAP...');
-    if (this.imap) {
-      this.imap.end();
-    }
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Ждем 2 сек
-    await this.setupImapConnection();
-  }
-
-  private startEmailPolling() {
-    // Проверяем сразу при запуске
-    this.checkForNewEmails();
-    
-    // Затем каждые 5 минут
-    setInterval(async () => {
-      try {
-        await this.checkForNewEmails();
-      } catch (error) {
-        console.error('❌ Ошибка проверки почты:', error.message);
-        await this.reconnectImap();
-      }
-    }, 300000);
-  }
+  constructor(private fileAnalysisService: FileAnalysisService) {}
 
   public async checkForNewEmails() {
-    if (!this.isConnected) {
-      console.log('⚠️ IMAP не подключен, пропускаем проверку');
-      return;
-    }
+    console.log('🔄 Ручная проверка почты...');
+    
+    return new Promise((resolve, reject) => {
+      this.imap = new Imap({
+        user: 'u40ta@mail.ru',
+        password: 'YxTNPTFgz3VG8b1nzxPw',
+        host: 'imap.mail.ru',
+        port: 993,
+        tls: true,
+        tlsOptions: { rejectUnauthorized: false }
+      });
 
+      this.imap.once('ready', async () => {
+        console.log('✅ IMAP подключен к Mail.ru');
+        try {
+          await this.processNewEmails();
+          this.imap.end();
+          resolve(null);
+        } catch (error) {
+          this.imap.end();
+          reject(error);
+        }
+      });
+
+      this.imap.once('error', (err) => {
+        console.error('❌ IMAP ошибка:', err.message);
+        reject(new Error(`Ошибка подключения: ${err.message}`));
+      });
+
+      console.log('🔄 Подключаемся к IMAP...');
+      this.imap.connect();
+    });
+  }
+
+  private async processNewEmails() {
     return new Promise((resolve, reject) => {
       this.imap.openBox('INBOX', false, (err, box) => {
         if (err) {
@@ -96,11 +62,11 @@ export class ImapService implements OnModuleInit {
           
           if (results.length > 0) {
             console.log(`📨 Найдено новых писем: ${results.length}`);
-            // Обрабатываем письма последовательно
             this.processEmailsSequentially(results)
               .then(resolve)
               .catch(reject);
           } else {
+            console.log('📭 Новых писем нет');
             resolve(null);
           }
         });
@@ -134,6 +100,7 @@ export class ImapService implements OnModuleInit {
               const parsed = await simpleParser(buffer);
               await this.handleParsedEmail(parsed);
               
+              // Помечаем письмо как прочитанное
               this.imap.addFlags(uid, ['\\Seen'], (err) => {
                 if (err) {
                   console.error('Ошибка пометки письма:', err);
@@ -165,43 +132,47 @@ export class ImapService implements OnModuleInit {
       return;
     }
 
-    console.log(`📎 ВСЕ вложения (${parsedEmail.attachments.length}):`);
+    console.log(`📎 Найдено вложений: ${parsedEmail.attachments.length}`);
     
-    for (let i = 0; i < parsedEmail.attachments.length; i++) {
-      const attachment = parsedEmail.attachments[i];
-      console.log(`  ${i + 1}.`, {
-        filename: attachment.filename,
-        contentType: attachment.contentType,
-        size: attachment.content?.length || 'unknown'
-      });
-    }
-
+    // Обрабатываем каждое вложение
     for (const attachment of parsedEmail.attachments) {
-      await this.saveAttachment(attachment, parsedEmail);
+      await this.processAttachment(attachment, parsedEmail);
     }
   }
 
-  private async saveAttachment(attachment: any, email: any) {
+  /**
+   * Обрабатывает отдельное вложение: сохраняет файл и запускает анализ
+   */
+  private async processAttachment(attachment: any, email: any) {
     try {
-      const attachmentsDir = '/email-attachments';  // ← Корень контейнера
-      const filename = attachment.filename;
-      const filePath = path.join(attachmentsDir, filename);
-
-      await fs.promises.mkdir(attachmentsDir, { recursive: true });
-      await fs.promises.writeFile(filePath, attachment.content);
-      console.log('💾 Сохранен файл:', filename);
-
-      const attachmentRecord = this.attachmentsRepo.create({
-        filename: filename,
-        email_from: email.from?.value?.[0]?.address,
-        received_at: new Date(),
-      });
-
-      await this.attachmentsRepo.save(attachmentRecord);
-      console.log('📝 Запись в БД:', filename);
-
+      // 1. Сохраняем файл на диск
+      const filePath = await this.saveFileToDisk(attachment);
+      
+      // 2. Вызываем сервис анализа для создания записи в БД
+      await this.fileAnalysisService.analyzeAndSaveAttachment(
+        filePath,
+        attachment.filename,
+        email.from?.value?.[0]?.address,
+        email.subject // передаем тему письма для определения пароля "Инвентаризация"
+      );
+      
     } catch (error) {
-      console.error('❌ Ошибка сохранения вложения:', error);
+      console.error('❌ Ошибка обработки вложения:', error);
     }
+  }
+
+  /**
+   * Сохраняет файл вложения на диск
+   */
+  private async saveFileToDisk(attachment: any): Promise<string> {
+    const attachmentsDir = '/email-attachments';
+    const filename = attachment.filename;
+    const filePath = path.join(attachmentsDir, filename);
+
+    await fs.promises.mkdir(attachmentsDir, { recursive: true });
+    await fs.promises.writeFile(filePath, attachment.content);
+    console.log('💾 Сохранен файл:', filename);
+
+    return filePath;
   }
 }

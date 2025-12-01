@@ -27,6 +27,8 @@
         <h3>Ошибка:</h3>
         <p>{{ scanError }}</p>
       </div>
+
+      <EmailAttachmentsSection />
     </main>
 
     <footer class="home-footer">
@@ -42,6 +44,7 @@ import ExitButton from '@/components/ui/ExitButton.vue'
 import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 import QrScannerButton from '@/components/ui/QrScannerButton.vue'
 import DBToolsButton from '@/components/ui/DBToolsButton.vue'
+import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 
 const router = useRouter()
 const userAbr = ref('')
@@ -114,7 +117,8 @@ onMounted(() => {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  /* justify-content: center; */
 }
 
 .home-footer {
