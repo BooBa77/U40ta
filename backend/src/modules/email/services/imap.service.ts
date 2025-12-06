@@ -165,11 +165,12 @@ export class ImapService {
    * Сохраняет файл вложения на диск
    */
   private async saveFileToDisk(attachment: any): Promise<string> {
-    const attachmentsDir = '/email-attachments';
+    //const attachmentsDir = '/email-attachments';
+    const attachmentsDir = path.join(process.cwd(), 'email-attachments');
     const filename = attachment.filename;
     const filePath = path.join(attachmentsDir, filename);
 
-    await fs.promises.mkdir(attachmentsDir, { recursive: true });
+    //await fs.promises.mkdir(attachmentsDir, { recursive: true });
     await fs.promises.writeFile(filePath, attachment.content);
     console.log('💾 Сохранен файл:', filename);
 
