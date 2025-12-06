@@ -2,49 +2,47 @@
   <section class="email-attachments-section">
     <!-- Таблица файлов -->
     <div class="attachments-grid">
-      <!-- Заголовки -->
-      <div> </div>
-      <div class="grid-header date">Дата</div>
-      <div class="grid-header description">Описание</div>
-      <div class="grid-header sender">Отправитель</div>
-      <div class="grid-header actions">Действия</div>
-
       <!-- Состояние "нет файлов" -->
-      <div class="empty-state" v-if="!files.length">
+      <div class="empty-state" v-if="!files.length && !isLoading">
         Файлов нет
       </div>
-
-      <!-- Тестовые данные (пока статика) -->
-      <div class="grid-cell status">
-        <img src="/images/email-file_bad.png" alt="Статус" class="status-icon">
+      
+      <!-- Состояние загрузки -->
+      <div class="empty-state" v-if="isLoading">
+        Загрузка...
       </div>
-      <div class="grid-cell date">29.11.2025</div>
-      <div class="grid-cell description">Инвентаризация s017</div>
-      <div class="grid-cell sender">ivanov@site.com</div>
-      <div class="grid-cell actions">
-        <button class="action-btn">
-          <img src="/images/email-file_check.png" alt="Взять в работу">
-        </button>
-        <button class="action-btn">
-          <img src="/images/email-file_delete.png" alt="Удалить">
-        </button>
-      </div>
-    </div>
 
-    <!-- Уведомление о результате проверки -->
-    <div v-if="checkResult" class="result-message" :class="checkResult.success ? 'success' : 'error'">
-      {{ checkResult.message }}
+      <!-- Строки файлов -->
+      <template v-if="files.length > 0">
+        <div class="grid-row" v-for="file in files" :key="file.id">
+          <!-- Колонка 1: Кнопка "Взять в работу" -->
+          <div class="grid-cell actions">
+            <button class="action-btn" title="Взять в работу">
+              <img src="/images/email-file_check.png" alt="Взять в работу">
+            </button>
+          </div>
+          
+          <!-- Колонка 2: Контент (3 строки) -->
+          <div class="grid-cell content">
+            <div class="date">{{ formatDate(file.received_at) }}</div>
+            <div class="doc-info">{{ file.doc_type }} {{ file.sklad }}</div>
+            <div class="sender">{{ file.email_from }}</div>
+          </div>
+          
+          <!-- Колонка 3: Кнопка "Удалить файл" -->
+          <div class="grid-cell actions">
+            <button class="action-btn" title="Удалить">
+              <img src="/images/email-file_delete.png" alt="Удалить">
+            </button>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- Кнопка проверки почты -->
     <div class="email-check-footer">
-      <button 
-        class="check-email-btn" 
-        @click="checkEmail"
-        :disabled="isLoading"
-      >
-        <!-- Показываем лоадер или иконку -->
-        <img v-if="!isLoading" src="/images/email_check.png" alt="Проверить почту">
+      <button class="check-email-btn" @click="checkEmail" :disabled="isLoadingCheck">
+        <img v-if="!isLoadingCheck" src="/images/email_check.png" alt="Проверить почту">
         <span v-else>Загрузка...</span>
       </button>
     </div>
@@ -52,64 +50,68 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
-// Состояние загрузки - показываем лоадер при запросе
-const isLoading = ref(false)
-
-// Результат последней проверки почты (успех/ошибка)
-const checkResult = ref(null)
-
-// Список файлов (пока пустой, позже заменим на реальные данные из БД)
+// Состояния
+const isLoading = ref(true)
+const isLoadingCheck = ref(false)
 const files = ref([])
 
-// Основная функция проверки почты
-const checkEmail = async () => {
-  // Сбрасываем предыдущий результат и включаем лоадер
+// Загрузка файлов с API
+const loadFiles = async () => {
   isLoading.value = true
-  checkResult.value = null
-  
   try {
-    // Получаем JWT токен из localStorage
     const token = localStorage.getItem('auth_token')
-    if (!token) {
-      throw new Error('Токен авторизации не найден')
-    }
-
-    // Отправляем POST запрос на ручную проверку почты
-    const response = await fetch('/api/email/check-now', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+    const response = await fetch('/api/email/attachments', {
+      headers: { 'Authorization': `Bearer ${token}` }
     })
     
-    // Парсим ответ от сервера
-    const result = await response.json()
-    checkResult.value = result
-    
-    if (result.success) {
-      console.log('✅ Проверка почты завершена успешно')
-      // TODO: здесь позже добавим обновление списка файлов
-    } else {
-      console.error('❌ Ошибка при проверке почты:', result.message)
+    if (response.ok) {
+      files.value = await response.json()
     }
   } catch (error) {
-    // Обрабатываем ошибки сети или парсинга
-    console.error('❌ Ошибка сети:', error)
-    checkResult.value = { 
-      success: false, 
-      message: 'Ошибка сети: ' + error.message 
-    }
+    console.error('Ошибка загрузки файлов:', error)
   } finally {
-    // Выключаем лоадер в любом случае
     isLoading.value = false
   }
 }
+
+// Форматирование даты
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('ru-RU')
+}
+
+// Проверка почты
+const checkEmail = async () => {
+  isLoadingCheck.value = true
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch('/api/email/check-now', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const result = await response.json()
+    console.log('Результат проверки:', result)
+    
+    if (result.success) {
+      await loadFiles()
+    }
+  } catch (error) {
+    console.error('Ошибка проверки почты:', error)
+  } finally {
+    isLoadingCheck.value = false
+  }
+}
+
+// При монтировании загружаем файлы
+onMounted(() => {
+  loadFiles()
+})
 </script>
 
 <style scoped>
-/* Импорт стилей из отдельного файла */
+/* Все стили перенесены в отдельный CSS-файл */
 @import './EmailAttachmentsSection.css';
 </style>

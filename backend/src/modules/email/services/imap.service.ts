@@ -3,13 +3,13 @@ import Imap from 'imap';
 import { simpleParser } from 'mailparser';
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileAnalysisService } from './file-analysis.service';
+import { EmailProcessor } from './email-processor.service';
 
 @Injectable()
 export class ImapService {
   private imap: Imap;
 
-  constructor(private fileAnalysisService: FileAnalysisService) {}
+  constructor(private emailProcessor: EmailProcessor) {}
 
   public async checkForNewEmails() {
     console.log('🔄 Ручная проверка почты...');
@@ -149,7 +149,7 @@ export class ImapService {
       const filePath = await this.saveFileToDisk(attachment);
       
       // 2. Вызываем сервис анализа для создания записи в БД
-      await this.fileAnalysisService.analyzeAndSaveAttachment(
+      await this.emailProcessor.analyzeAndSaveAttachment(
         filePath,
         attachment.filename,
         email.from?.value?.[0]?.address,

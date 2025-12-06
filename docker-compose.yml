@@ -5,7 +5,6 @@ services:
       - POSTGRES_DB=${DB_DATABASE}
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_HOST_AUTH_METHOD=trust
     ports:
       - "5432:5432"
     volumes:
@@ -19,9 +18,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./backend:/app
-      - /app/node_modules
-      - ./email-attachments:/app/email-attachments
+      - ./backend:/app                    # всё, включая package.json
+      - ./email-attachments:/email-attachments
+      - backend_node_modules:/app/node_modules  # том вместо локальных node_modules
     environment:
       - NODE_ENV=${NODE_ENV}
       - DB_HOST=${DB_HOST}
@@ -29,9 +28,9 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
-      - BACKEND_PORT=${BACKEND_PORT}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+
     depends_on:
       - postgres
     restart: unless-stopped
@@ -43,13 +42,13 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
+      - ./frontend:/app                   # всё
+      - frontend_node_modules:/app/node_modules  # том
     depends_on:
       - backend
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  backend_node_modules:
+  frontend_node_modules:

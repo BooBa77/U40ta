@@ -3,7 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { ImapService } from './services/imap.service';
 import { SmtpService } from './services/smtp.service';
-import { FileAnalysisService } from './services/file-analysis.service';
+import { EmailProcessor } from './services/email-processor.service';
+import { EmailFileAnalyzer } from './services/email-file-analyzer.service';
 import { EmailAttachment } from './entities/email-attachment.entity';
 import { EmailController } from './email.controller';
 
@@ -13,7 +14,7 @@ import { EmailController } from './email.controller';
     JwtAuthModule,
   ],
   controllers: [EmailController],
-  providers: [ImapService, SmtpService, FileAnalysisService],
-  exports: [ImapService, SmtpService, FileAnalysisService]
+  providers: [ImapService, SmtpService, EmailProcessor, EmailFileAnalyzer],
+  exports: [ImapService, SmtpService, EmailProcessor, EmailFileAnalyzer]
 })
 export class EmailModule {}

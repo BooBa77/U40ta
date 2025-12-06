@@ -37,7 +37,8 @@
     "typeorm": "^0.3.27",
     "nodemailer": "^6.9.7",
     "imap": "^0.8.19",
-    "mailparser": "^3.6.9"
+    "mailparser": "^3.6.9",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
