@@ -6,11 +6,12 @@ import { SmtpService } from './services/smtp.service';
 import { EmailProcessor } from './services/email-processor.service';
 import { EmailFileAnalyzer } from './services/email-file-analyzer.service';
 import { EmailAttachment } from './entities/email-attachment.entity';
+import { ProcessedStatement } from './entities/processed-statement.entity';
 import { EmailController } from './email.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EmailAttachment]),
+    TypeOrmModule.forFeature([EmailAttachment, ProcessedStatement]),
     JwtAuthModule,
   ],
   controllers: [EmailController],

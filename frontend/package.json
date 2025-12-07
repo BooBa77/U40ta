@@ -13,6 +13,9 @@
     "@zxing/library": "^0.21.3",
     "html5-qrcode": "^2.3.8",
     "jsqr": "^1.4.0",
+    "primeflex": "^3.3.1",
+    "primeicons": "^7.0.0",
+    "primevue": "^3.53.1",
     "vue": "^3.3.4",
     "vue-router": "^4.6.3"
   },
