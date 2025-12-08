@@ -20,4 +20,6 @@ export class EmailAttachment {
   @Column('text', { nullable: true })
   sklad: string | null; // код склада
 
+  @Column({ type: 'boolean', default: false })
+  in_process: boolean; // файл в обработке
 }

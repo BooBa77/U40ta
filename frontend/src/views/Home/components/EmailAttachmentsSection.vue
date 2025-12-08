@@ -50,12 +50,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 // Состояния
 const isLoading = ref(true)
 const isLoadingCheck = ref(false)
 const files = ref([])
+const eventSource = ref(null) // SSE
 
 // Загрузка файлов с API
 const loadFiles = async () => {
@@ -74,6 +75,33 @@ const loadFiles = async () => {
   } finally {
     isLoading.value = false
   }
+}
+// Функция для подключения к SSE
+const connectToSSE = () => {
+  // Закрываем предыдущее соединение, если есть
+  if (eventSource.value) {
+    eventSource.value.close()
+  }
+
+  // Обработка SSE. Создаём новое соединение
+  eventSource.value = new EventSource('/api/app-events/sse')
+  // Обработчик входящих сообщений
+  eventSource.value.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.message === 'update') {
+        console.log('📡 SSE: получено обновление, перезагружаем файлы')
+        loadFiles() // Перезагружаем список файлов
+      }
+    } catch (error) {
+      console.error('Ошибка парсинга SSE-события:', error)
+    }
+  })
+  // Обработчик ошибок
+  eventSource.value.addEventListener('error', (error) => {
+    console.error('SSE ошибка соединения:', error)
+    // EventSource автоматически переподключится
+  })
 }
 
 // Форматирование даты
@@ -108,6 +136,15 @@ const checkEmail = async () => {
 // При монтировании загружаем файлы
 onMounted(() => {
   loadFiles()
+  connectToSSE() // Подключаемся к SSE  
+})
+
+// Закрываем соединение при размонтировании
+onUnmounted(() => {
+  if (eventSource.value) {
+    eventSource.value.close()
+    console.log('SSE соединение закрыто')
+  }
 })
 </script>
 

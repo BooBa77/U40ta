@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import { EmailAttachment } from '../entities/email-attachment.entity';
+import { AppEventsService } from '../../app-events/app-events.service'; // SSE
 import { SmtpService } from './smtp.service';
 import { EmailFileAnalyzer } from './email-file-analyzer.service';
 
@@ -11,6 +12,7 @@ export class EmailProcessor {
   constructor(
     @InjectRepository(EmailAttachment)
     private attachmentsRepo: Repository<EmailAttachment>,
+    private appEventsService: AppEventsService,
     private smtpService: SmtpService,
     private emailFileAnalyzer: EmailFileAnalyzer,
   ) {}
@@ -39,7 +41,9 @@ export class EmailProcessor {
         };
         
         const savedRecord = await this.attachmentsRepo.save(attachmentData);
+        this.appEventsService.notifyAll();
         console.log(`✅ Файл принят: ${filename}`);
+        console.log('📡 SSE: отправлено обновление списка файлов');
         
         // Отправляем положительный ответ
         const acceptText = `Ваш файл "${filename}" принят.\n\n` +
