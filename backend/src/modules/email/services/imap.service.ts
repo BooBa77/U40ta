@@ -166,7 +166,8 @@ export class ImapService {
    */
   private async saveFileToDisk(attachment: any): Promise<string> {
     //const attachmentsDir = '/email-attachments';
-    const attachmentsDir = path.join(process.cwd(), 'email-attachments');
+    //const attachmentsDir = path.join(process.cwd(), 'email-attachments');
+    const attachmentsDir = path.join(process.cwd(), '..', 'email-attachments');
     const filename = attachment.filename;
     const filePath = path.join(attachmentsDir, filename);
 
