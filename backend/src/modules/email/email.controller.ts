@@ -1,10 +1,18 @@
 import { Controller, Post, Get, UseGuards, Req } from '@nestjs/common';
-import { Request } from 'express';
+//import { Request } from 'express';
+import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImapService } from './services/imap.service';
 import { Repository } from 'typeorm'; // Импортируем репозиторий для работы с базой данных
 import { EmailAttachment } from './entities/email-attachment.entity'; // Импортируем сущность (модель) таблицы email_attachments
 import { InjectRepository } from '@nestjs/typeorm'; // Декоратор для внедрения репозитория
+
+interface RequestWithUser extends ExpressRequest {
+  user?: {
+    role: string;
+    sub: number;
+  };
+}
 
 @Controller('email') // Все маршруты этого контроллера начинаются с /api/email
 @UseGuards(JwtAuthGuard) // Защищаем все endpoint'ы JWT-авторизацией
@@ -39,9 +47,12 @@ export class EmailController {
 
   // Получение списка всех email-вложений
   @Get('attachments') // GET /api/email/attachments
-  async getAllAttachments(@Req() request: Request) {
+  //async getAllAttachments(@Req() request: Request) {
+  async getAllAttachments(@Req() request: RequestWithUser) {
+    
     console.log('📄 Запрос списка email-вложений...');
     
+    //const userRole = request.user?.role;
     const userRole = request.user?.role;
     
     // 1. Проверка роли
