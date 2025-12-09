@@ -18,7 +18,15 @@
           <!-- Колонка 1: Кнопка "Взять в работу" -->
           <div class="grid-cell actions">
             <button class="action-btn" title="Взять в работу">
-              <img src="/images/email-file_check.png" alt="Взять в работу">
+
+              <img 
+                :src="file.in_process 
+                  ? '/images/open_processing_file.png' 
+                  : '/images/email-file_to_db.png'" 
+                alt="Открыть ведомость"
+              />
+
+
             </button>
           </div>
           

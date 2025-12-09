@@ -54,7 +54,7 @@ export class JwtAuthGuard implements CanActivate {
       // Это позволяет получить данные пользователя в контроллерах без повторной проверки
       request.user = payload;
       
-      this.logger.debug(`Успешная проверка JWT для пользователя: ${payload.first_name}`);
+      this.logger.debug(`Успешная проверка JWT для пользователя ID: ${payload.sub}, роль: ${payload.role}`);
       
       return true;
     } catch (error) {
