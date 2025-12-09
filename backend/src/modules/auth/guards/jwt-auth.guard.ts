@@ -26,18 +26,34 @@ export class JwtAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     this.logger.debug('Активация JwtAuthGuard для проверки доступа');
 
-    // Проверяем режим разработки - в development пропускаем все запросы
-    if (this.configService.get('NODE_ENV') === 'development') {
-      this.logger.debug('Режим разработки - JWT проверка отключена');
-      return true;
-    }
-
     // Получаем объект запроса из контекста
     const request = context.switchToHttp().getRequest();
     
     // Извлекаем JWT токен из заголовка Authorization
     const token = this.extractTokenFromHeader(request);
-    
+
+    // Проверяем режим разработки - в development пропускаем все запросы
+    if (this.configService.get('NODE_ENV') === 'development') {
+      this.logger.debug('Режим разработки - JWT проверка отключена');
+      // но всё же декодируем токен для заполнения request.user
+      const token = this.extractTokenFromHeader(request);
+      if (token) {
+        try {
+          // decode() только раскодирует токен без проверки подписи
+          const payload = this.jwtService.decode(token);
+          if (payload) {
+            request.user = payload;
+            this.logger.debug(`Dev режим: пользователь ID ${payload.sub}, роль ${payload.role}`);
+          }
+        } catch (error) {
+          // Игнорируем ошибки декодирования в dev
+          this.logger.debug(`Dev режим: ошибка декодирования токена: ${error.message}`);
+        }
+      }
+  
+      return true;
+    }
+   
     if (!token) {
       this.logger.warn('Попытка доступа без JWT токена');
       throw new UnauthorizedException('Требуется авторизация');

@@ -1,4 +1,5 @@
-import { Controller, Post, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, UseGuards, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImapService } from './services/imap.service';
 import { Repository } from 'typeorm'; // Импортируем репозиторий для работы с базой данных
@@ -38,6 +39,45 @@ export class EmailController {
 
   // Получение списка всех email-вложений
   @Get('attachments') // GET /api/email/attachments
+  async getAllAttachments(@Req() request: Request) {
+    console.log('📄 Запрос списка email-вложений...');
+    
+    const userRole = request.user?.role;
+    
+    // 1. Проверка роли
+    if (!userRole) {
+      console.log('⛔ Пользователь без роли');
+      return [];
+    }
+    
+    if (userRole !== 'admin' && userRole !== 'МЛ') {
+      console.log(`⛔ Доступ запрещён для роли: ${userRole}`);
+      return [];
+    }
+    
+    // 2. Создаём запрос
+    const query = this.emailAttachmentRepository.createQueryBuilder('attachment');
+    
+    // 3. Фильтрация по типу документа только для 'МЛ'
+    if (userRole === 'МЛ') {
+      query.where('attachment.doc_type IN (:...types)', { 
+        types: ['ОСВ', 'ОС'] 
+      });
+      console.log('🔹 Фильтр для МЛ: только ОСВ и ОС');
+    } else {
+      console.log('🔹 Админ: все файлы');
+    }
+    
+    // 4. Сортировка и выполнение
+    const attachments = await query
+      .orderBy('attachment.received_at', 'DESC')
+      .getMany();
+    
+    console.log(`✅ Найдено записей: ${attachments.length}`);
+    return attachments;
+  }
+  
+  /*
   async getAllAttachments() {
     try {
       console.log('📄 Запрос списка email-вложений...');
@@ -58,4 +98,6 @@ export class EmailController {
       return [];
     }
   }
+  */
+
 }
