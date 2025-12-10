@@ -61,7 +61,7 @@ export class EmailController {
       return [];
     }
     
-    if (userRole !== 'admin' && userRole !== 'МЛ') {
+    if (userRole !== 'admin' && userRole !== 'МОЛ') {
       console.log(`⛔ Доступ запрещён для роли: ${userRole}`);
       return [];
     }
@@ -69,12 +69,12 @@ export class EmailController {
     // 2. Создаём запрос
     const query = this.emailAttachmentRepository.createQueryBuilder('attachment');
     
-    // 3. Фильтрация по типу документа только для 'МЛ'
-    if (userRole === 'МЛ') {
+    // 3. Фильтрация по типу документа только для 'МОЛ'
+    if (userRole === 'МОЛ') {
       query.where('attachment.doc_type IN (:...types)', { 
         types: ['ОСВ', 'ОС'] 
       });
-      console.log('🔹 Фильтр для МЛ: только ОСВ и ОС');
+      console.log('🔹 Фильтр для МОЛ: только ОСВ и ОС');
     } else {
       console.log('🔹 Админ: все файлы');
     }

@@ -153,7 +153,7 @@ export class ImapService {
         filePath,
         attachment.filename,
         email.from?.value?.[0]?.address,
-        email.subject // передаем тему письма для определения пароля "Инвентаризация"
+        email.subject // передаем тему письма для определения ключевого слова "Инвентаризация"
       );
       
     } catch (error) {

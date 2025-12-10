@@ -17,23 +17,27 @@
         <div class="grid-row" v-for="file in files" :key="file.id">
           <!-- Колонка 1: Кнопка "Взять в работу" -->
           <div class="grid-cell actions">
-            <button class="action-btn" title="Взять в работу">
 
+
+            <button class="action-btn" 
+              title="Открыть ведомость"
+              @click="openStatement(file.id, file.is_inventory, file.in_process)">
               <img 
                 :src="file.in_process 
                   ? '/images/open_processing_file.png' 
                   : '/images/email-file_to_db.png'" 
                 alt="Открыть ведомость"
               />
-
-
             </button>
+
+
+
           </div>
           
           <!-- Колонка 2: Контент (3 строки) -->
           <div class="grid-cell content">
             <div class="date">{{ formatDate(file.received_at) }}</div>
-            <div class="doc-info">{{ file.doc_type }} {{ file.sklad }}</div>
+            <div class="doc-info">{{ file.is_inventory ? `Инвентаризация ${file.doc_type}` : ` ${file.doc_type}` }}{{ file.sklad }}</div>
             <div class="sender">{{ file.email_from }}</div>
           </div>
           
@@ -58,13 +62,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router'
 
 // Состояния
 const isLoading = ref(true)
 const isLoadingCheck = ref(false)
 const files = ref([])
 const eventSource = ref(null) // SSE
+const router = useRouter()
 
 // Загрузка файлов с API
 const loadFiles = async () => {
@@ -159,6 +165,17 @@ const checkEmail = async () => {
   } finally {
     isLoadingCheck.value = false
   }
+}
+
+// Переход на ведомость:
+const openStatement = async (attachmentId, isInventory, inProcess) => {
+  if (isInventory) {
+    // Модуль Инвентаризация ещё не разработан
+    router.push(`/inventory/${attachmentId}`);
+    return;
+  }
+  // Обычная ведомость - открываем StatementsModule
+  router.push(`/statement/${attachmentId}`);
 }
 
 // При монтировании загружаем файлы

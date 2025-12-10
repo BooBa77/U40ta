@@ -6,13 +6,12 @@ import { ImapService } from './services/imap.service';
 import { SmtpService } from './services/smtp.service';
 import { EmailProcessor } from './services/email-processor.service';
 import { EmailFileAnalyzer } from './services/email-file-analyzer.service';
-import { EmailAttachment } from './entities/email-attachment.entity';
-import { ProcessedStatement } from './entities/processed-statement.entity';
+import { EmailAttachment } from './entities/email-attachment.entity'; // Импортируем сущность (модель) таблицы email_attachments
 import { EmailController } from './email.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EmailAttachment, ProcessedStatement]),
+    TypeOrmModule.forFeature([EmailAttachment]),
     AppEventsModule, // Модуль SSE
     JwtAuthModule,
   ],

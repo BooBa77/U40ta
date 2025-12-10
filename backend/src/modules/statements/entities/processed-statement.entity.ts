@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { EmailAttachment } from './email-attachment.entity';
+import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 
 @Entity('processed_statements')
 export class ProcessedStatement {
@@ -15,6 +15,12 @@ export class ProcessedStatement {
 
   @Column({ type: 'varchar', length: 10, nullable: true })
   zavod: string; // например "4030"
+
+  @Column({ type: 'varchar', length: 10 })
+  sklad: string; // Код склада (например "s010")
+
+  @Column({ type: 'varchar', length: 10 })
+  doc_type: string; // "ОСВ", "ОС"
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   inv_number: string; // инвентарный номер

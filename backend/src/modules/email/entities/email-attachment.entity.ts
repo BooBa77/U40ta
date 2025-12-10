@@ -22,4 +22,7 @@ export class EmailAttachment {
 
   @Column({ type: 'boolean', default: false })
   in_process: boolean; // файл в обработке
+
+  @Column({ type: 'boolean', default: false })
+  is_inventory: boolean;  
 }

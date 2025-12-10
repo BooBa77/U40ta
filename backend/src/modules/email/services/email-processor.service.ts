@@ -25,6 +25,9 @@ export class EmailProcessor {
   ): Promise<EmailAttachment | null> {
     console.log(`🔄 Обрабатываем вложение: ${filename}`);
     
+      // Определяем инвентаризацию по теме
+    const isInventory = emailSubject?.toLowerCase().includes('инвентаризац') || false;
+
     try {
       // 1. Анализируем файл
       const analysis = await this.emailFileAnalyzer.analyzeExcel(filePath);
@@ -37,7 +40,8 @@ export class EmailProcessor {
           email_from: emailFrom,
           received_at: new Date(),
           doc_type: analysis.docType,
-          sklad: analysis.sklad
+          sklad: analysis.sklad,
+          is_inventory: isInventory
         };
         
         const savedRecord = await this.attachmentsRepo.save(attachmentData);
@@ -48,8 +52,7 @@ export class EmailProcessor {
         // Отправляем положительный ответ
         const acceptText = `Ваш файл "${filename}" принят.\n\n` +
                           `Тип документа: ${analysis.docType}\n` +
-                          `Склад: ${analysis.sklad}\n\n` +
-                          `Данные доступны в системе U40TA.`;
+                          `Склад: ${analysis.sklad}\n\n`;
         
         await this.smtpService.sendEmail(
           emailFrom,
@@ -89,8 +92,7 @@ export class EmailProcessor {
       
       // Отправляем сообщение об ошибке
       const errorText = `При обработке вашего файла "${filename}" возникла непредвиденная ошибка.\n\n` +
-                       `Ошибка: ${error.message}\n\n` +
-                       `Администратор уведомлён.`;
+                       `Ошибка: ${error.message}\n\n`;
       
       await this.smtpService.sendEmail(
         emailFrom,
