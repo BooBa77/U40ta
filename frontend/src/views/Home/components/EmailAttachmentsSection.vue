@@ -37,7 +37,7 @@
           <!-- Колонка 2: Контент (3 строки) -->
           <div class="grid-cell content">
             <div class="date">{{ formatDate(file.received_at) }}</div>
-            <div class="doc-info">{{ file.is_inventory ? `Инвентаризация ${file.doc_type}` : ` ${file.doc_type}` }}{{ file.sklad }}</div>
+            <div class="doc-info">{{ file.is_inventory ? `Инвентаризация ${file.doc_type}` : file.doc_type + ' ' }}{{ file.sklad }}</div>
             <div class="sender">{{ file.email_from }}</div>
           </div>
           

@@ -6,6 +6,7 @@ import { TelegramUsersModule } from './modules/telegram-users/telegram-users.mod
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EmailModule } from './modules/email/email.module';
+import { StatementsModule } from './modules/statements/statements.module';
 
 @Module({
   imports: [
@@ -60,6 +61,11 @@ import { EmailModule } from './modules/email/email.module';
     // EmailModule - модуль работы с электронной почтой
     // Сервисы получения excel-таблиц и выгрузки выборок
     EmailModule,
+
+    // StatementsModule - модуль работы с электронной почтой
+    // Сервисы получения excel-таблиц и выгрузки выборок
+    StatementsModule,
+    
   ],
   
   // providers - массив сервисов, не объявленных в других модулях
