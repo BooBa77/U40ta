@@ -17,6 +17,9 @@ export class EmailAttachment {
   @Column('text', { nullable: true })
   doc_type: string | null; // 'ОСВ' или 'Инвентаризация'
 
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  zavod: string; // например "4030"
+
   @Column('text', { nullable: true })
   sklad: string | null; // код склада
 

@@ -1,11 +1,11 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
-import { StatementParserService } from './services/statement-parser.service';
+import { StatementService } from './services/statement.service';
 
 @Controller('statements')
 @UseGuards(JwtAuthGuard) // Защита JWT для всех endpoint'ов
 export class StatementsController {
-  constructor(private readonly parserService: StatementParserService) {}
+  constructor(private readonly parserService: StatementService) {}
 
   /**
    * Открытие ведомости по ID вложения из email

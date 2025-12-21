@@ -36,4 +36,7 @@ export class ProcessedStatement {
 
   @Column({ type: 'boolean', default: false })
   is_ignore: boolean; // игнорировать ли эту строку
+
+  @Column({ type: 'boolean', default: false })
+  is_excess: boolean; // дополнительная запись, не входящая в ведомость. Это объект уже не числится на складе. Завели, чтобы подсветить проблему - объект требуется переместить 
 }

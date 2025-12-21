@@ -12,7 +12,7 @@ export class ImapService {
   constructor(private emailProcessor: EmailProcessor) {}
 
   public async checkForNewEmails() {
-    console.log('🔄 Ручная проверка почты...');
+    console.log('Ручная проверка почты...');
     
     return new Promise((resolve, reject) => {
       this.imap = new Imap({
@@ -25,7 +25,7 @@ export class ImapService {
       });
 
       this.imap.once('ready', async () => {
-        console.log('✅ IMAP подключен к Mail.ru');
+        console.log('IMAP подключен к Mail.ru');
         try {
           await this.processNewEmails();
           this.imap.end();
@@ -37,11 +37,11 @@ export class ImapService {
       });
 
       this.imap.once('error', (err) => {
-        console.error('❌ IMAP ошибка:', err.message);
+        console.error('IMAP ошибка:', err.message);
         reject(new Error(`Ошибка подключения: ${err.message}`));
       });
 
-      console.log('🔄 Подключаемся к IMAP...');
+      console.log('Подключаемся к IMAP...');
       this.imap.connect();
     });
   }
@@ -105,7 +105,7 @@ export class ImapService {
                 if (err) {
                   console.error('Ошибка пометки письма:', err);
                 } else {
-                  console.log('✅ Письмо помечено как прочитанное');
+                  console.log('Письмо помечено как прочитанное');
                 }
                 resolve(parsed);
               });
@@ -125,10 +125,10 @@ export class ImapService {
   }
 
   private async handleParsedEmail(parsedEmail: any) {
-    console.log('📧 Обрабатываем письмо от:', parsedEmail.from?.value?.[0]?.address);
+    console.log('Обрабатываем письмо от:', parsedEmail.from?.value?.[0]?.address);
     
     if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
-      console.log('📭 Вложений нет, пропускаем');
+      console.log('Вложений нет, пропускаем');
       return;
     }
 
@@ -157,7 +157,7 @@ export class ImapService {
       );
       
     } catch (error) {
-      console.error('❌ Ошибка обработки вложения:', error);
+      console.error('Ошибка обработки вложения:', error);
     }
   }
 
@@ -165,15 +165,17 @@ export class ImapService {
    * Сохраняет файл вложения на диск
    */
   private async saveFileToDisk(attachment: any): Promise<string> {
-    //const attachmentsDir = '/email-attachments';
-    //const attachmentsDir = path.join(process.cwd(), 'email-attachments');
     const attachmentsDir = path.join(process.cwd(), '..', 'email-attachments');
-    const filename = attachment.filename;
-    const filePath = path.join(attachmentsDir, filename);
 
-    //await fs.promises.mkdir(attachmentsDir, { recursive: true });
+    // Создаем уникальное имя файла, используем timestamp + случайное число
+    const fileExt = path.extname(attachment.filename); // .xlsx, .xls и т.д.
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 1000);
+    const uniqueFilename = `osv_${timestamp}_${randomSuffix}${fileExt}`;
+    const filePath = path.join(attachmentsDir, uniqueFilename);
+
     await fs.promises.writeFile(filePath, attachment.content);
-    console.log('💾 Сохранен файл:', filename);
+    console.log('Сохранен файл:', uniqueFilename);
 
     return filePath;
   }
