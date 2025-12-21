@@ -92,50 +92,50 @@ const loadFiles = async () => {
 }
 // Функция для подключения к SSE
 const connectToSSE = () => {
-  console.log('🟢 connectToSSE() вызвана');
+  console.log('connectToSSE() вызвана');
   
   // Закрываем предыдущее соединение, если есть
   if (eventSource.value) {
-    console.log('🟡 Закрываем предыдущее SSE соединение');
+    console.log('Закрываем предыдущее SSE соединение');
     eventSource.value.close();
   }
 
   // Обработка SSE. Создаём новое соединение
   const sseUrl = '/api/app-events/sse';
-  console.log('🔗 Подключаемся к SSE:', sseUrl);
+  console.log('Подключаемся к SSE:', sseUrl);
   
   eventSource.value = new EventSource(sseUrl);
   
   // Событие открытия соединения
   eventSource.value.addEventListener('open', () => {
-    console.log('✅ SSE соединение установлено');
+    console.log('SSE соединение установлено');
   });
   
   // Обработчик входящих сообщений
   eventSource.value.addEventListener('message', (event) => {
-    console.log('📨 Получено сырое SSE-событие:', event.data);
+    console.log('Получено сырое SSE-событие:', event.data);
     
     try {
       const data = JSON.parse(event.data);
-      console.log('📨 Распарсено SSE-событие:', data);
+      console.log('Распарсено SSE-событие:', data);
       
-      if (data.message === 'update') {
-        console.log('📡 SSE: получено обновление, перезагружаем файлы');
+      if (data.message === 'email-attachments-updated') {
+        console.log('получено SSE на обновление списка файлов');
         loadFiles(); // Перезагружаем список файлов
       }
     } catch (error) {
-      console.error('❌ Ошибка парсинга SSE-события:', error, 'Сырые данные:', event.data);
+      console.error('Ошибка парсинга SSE-события:', error, 'Сырые данные:', event.data);
     }
   });
   
   // Обработчик ошибок
   eventSource.value.addEventListener('error', (error) => {
-    console.error('❌ SSE ошибка соединения:', error);
-    console.log('🔄 EventSource автоматически переподключится');
+    console.error('SSE ошибка соединения:', error);
+    console.log('EventSource автоматически переподключится');
   });
   
   // Выводим объект для отладки
-  console.log('🔍 EventSource объект создан:', eventSource.value);
+  console.log('EventSource объект создан:', eventSource.value);
 }
 
 // Форматирование даты
@@ -182,7 +182,7 @@ const openStatement = async (attachmentId, isInventory, inProcess) => {
 onMounted(() => {
   loadFiles()
   connectToSSE() // Подключаемся к SSE
-  console.log('🟢 EmailAttachmentsSection смонтирован');    
+  console.log('EmailAttachmentsSection смонтирован');    
 })
 
 // Закрываем соединение при размонтировании
