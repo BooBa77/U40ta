@@ -3,7 +3,7 @@ import { InjectEntityManager, InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
-import { InventoryObject } from '../../objects/entites/object.entity';
+import { InventoryObject } from '../../objects/entities/object.entity';
 import { AppEventsService } from '../../app-events/app-events.service';
 import { StatementParserService } from './statement-parser.service';
 import { StatementObjectsService } from './statement-objects.service'; // Создадим позже
@@ -82,12 +82,12 @@ export class StatementService {
     }
 
     // 5. Проверяем наличие файла
-    const filePath = this.statementParserService.getFilePath(attachment.filename);
+    /* const filePath = this.statementParserService.getFilePath(attachment.filename);
     if (!require('fs').existsSync(filePath)) {
       throw new InternalServerErrorException(
         `Файл не найден: ${attachment.filename}`,
       );
-    }
+    } */
 
     // 6. НОВАЯ ВЕДОМОСТЬ - ТРАНЗАКЦИЯ
     let savedStatements: ProcessedStatement[] = [];
@@ -100,8 +100,8 @@ export class StatementService {
             EmailAttachment,
             {
               where: {
-                sklad: attachment.sklad,
-                doc_type: attachment.doc_type,
+                sklad: attachment.sklad!, // Добавляем ! чтобы сказать TS, что это не null
+                doc_type: attachment.doc_type!, // То же самое
                 in_process: true,
                 id: attachment.id, // исключаем текущую
               },
@@ -205,7 +205,7 @@ export class StatementService {
       console.log(`Сброшены флаги in_process у email_attachments`);
 
       // 3. Отправляем SSE уведомление
-      this.appEventsService.notifyAll();
+      this.appEventsService.notifyEmailAttachmentsUpdated();
       console.log('Отправлено SSE уведомление об очистке');
     } catch (error) {
       console.error('Ошибка при очистке данных:', error);

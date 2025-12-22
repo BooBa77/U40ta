@@ -14,13 +14,13 @@ export class EmailAttachment {
   @CreateDateColumn()
   received_at: Date; // дата загрузки
 
-  @Column('text', { nullable: true })
-  doc_type: string | null; // 'ОСВ' или 'Инвентаризация'
-
   @Column({ type: 'varchar', length: 10, nullable: true })
-  zavod: string; // например "4030"
+  doc_type: string | null; // 'ОСВ' или 'ОС'
 
-  @Column('text', { nullable: true })
+  @Column({ type: 'integer', nullable: true })
+  zavod: number; // например 4030
+
+  @Column({ type: 'varchar', length: 4, nullable: true })
   sklad: string | null; // код склада
 
   @Column({ type: 'boolean', default: false })

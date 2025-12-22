@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { Place } from '../../places/entites/place.entity';
+import { Place } from '../../places/entities/place.entity';
 
 @Entity('objects')
 @Index('idx_objects_composite', ['zavod', 'sklad', 'inv_number', 'party_number'])
