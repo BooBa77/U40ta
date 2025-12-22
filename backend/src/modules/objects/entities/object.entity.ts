@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { Place } from '../../places/entities/place.entity';
+//import { Place } from '../../places/entities/place.entity';
 
 @Entity('objects')
 @Index('idx_objects_composite', ['zavod', 'sklad', 'inv_number', 'party_number'])
@@ -33,8 +33,7 @@ export class InventoryObject {
   @Column({ type: 'text', nullable: true })
   commentary: string | null;
 
-  // Если есть Place entity
-  @ManyToOne(() => Place, { nullable: true })
-  @JoinColumn({ name: 'place' })
-  placeRelation?: Place;
+//  @ManyToOne(() => Place, { nullable: true })
+//  @JoinColumn({ name: 'place' })
+//  placeRelation?: Place;
 }

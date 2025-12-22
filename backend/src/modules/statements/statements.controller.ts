@@ -5,7 +5,8 @@ import { StatementService } from './services/statement.service';
 @Controller('statements')
 @UseGuards(JwtAuthGuard) // Защита JWT для всех endpoint'ов
 export class StatementsController {
-  constructor(private readonly parserService: StatementService) {}
+  //constructor(private readonly parserService: StatementService) {}
+  constructor(private readonly statementService: StatementService) {}  
 
   /**
    * Открытие ведомости по ID вложения из email
@@ -15,7 +16,7 @@ export class StatementsController {
   async getStatement(@Param('attachmentId') attachmentId: number) {
     try {
       // Просто вызываем сервис парсинга
-      const statements = await this.parserService.parseStatement(attachmentId);
+      const statements = await this.statementService.parseStatement(attachmentId);
       
       // Простой ответ
       return {

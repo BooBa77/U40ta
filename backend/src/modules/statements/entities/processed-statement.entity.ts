@@ -13,13 +13,13 @@ export class ProcessedStatement {
   @Column({ name: 'email_attachment_id' })
   emailAttachmentId: number;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
-  zavod: string; // например "4030"
+  @Column({ type: 'integer', nullable: true })
+  zavod: number; // например 4030
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ type: 'varchar', length: 4, nullable: true })
   sklad: string; // Код склада (например "s010")
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ type: 'varchar', length: 10, nullable: true })
   doc_type: string; // "ОСВ", "ОС"
 
   @Column({ type: 'varchar', length: 255, nullable: true })
