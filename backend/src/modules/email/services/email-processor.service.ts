@@ -23,7 +23,7 @@ export class EmailProcessor {
     emailFrom: string,
     emailSubject?: string
   ): Promise<EmailAttachment | null> {
-    console.log(`🔄 Обрабатываем вложение: ${filename}`);
+    console.log(`Обрабатываем вложение: ${filename}`);
     
       // Определяем инвентаризацию по теме
     const isInventory = emailSubject?.toLowerCase().includes('инвентаризац') || false;
@@ -45,9 +45,9 @@ export class EmailProcessor {
         };
         
         const savedRecord = await this.attachmentsRepo.save(attachmentData);
-        this.appEventsService.notifyAll();
-        console.log(`✅ Файл принят: ${filename}`);
-        console.log('📡 SSE: отправлено обновление списка файлов');
+        this.appEventsService.notifyEmailAttachmentsUpdated();
+        console.log(`Файл принят: ${filename}`);
+        console.log('SSE: отправлено обновление списка файлов');
         
         // Отправляем положительный ответ
         const acceptText = `Ваш файл "${filename}" принят.\n\n` +
@@ -56,7 +56,7 @@ export class EmailProcessor {
         
         await this.smtpService.sendEmail(
           emailFrom,
-          `✅ Файл принят: ${filename}`,
+          `Файл принят: ${filename}`,
           acceptText
         );
         
@@ -64,22 +64,22 @@ export class EmailProcessor {
         
       } else {
         // 3. Если файл кривой
-        console.log(`❌ Файл отклонён: ${filename}, причина: ${analysis.error}`);
+        console.log(`Файл отклонён: ${filename}, причина: ${analysis.error}`);
         
         // Отправляем отрицательный ответ
-        const rejectText = `❌ Извините, Ваш файл "${filename}" не принят.\n\n` +
+        const rejectText = `Извините, Ваш файл "${filename}" не принят.\n\n` +
                           `Причина: ${analysis.error}\n\n`;
         
         await this.smtpService.sendEmail(
           emailFrom,
-          `❌ Файл отклонён: ${filename}`,
+          `Файл отклонён: ${filename}`,
           rejectText
         );
         
         // Удаляем файл с диска
         try {
           fs.unlinkSync(filePath);
-          console.log(`🗑️ Файл удалён: ${filePath}`);
+          console.log(`Файл удалён: ${filePath}`);
         } catch (deleteError) {
           console.error('Ошибка удаления файла:', deleteError);
         }
@@ -88,7 +88,7 @@ export class EmailProcessor {
       }
       
     } catch (error) {
-      console.error(`💥 Ошибка обработки файла ${filename}:`, error);
+      console.error(`Ошибка обработки файла ${filename}:`, error);
       
       // Отправляем сообщение об ошибке
       const errorText = `При обработке вашего файла "${filename}" возникла непредвиденная ошибка.\n\n` +

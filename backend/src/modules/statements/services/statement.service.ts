@@ -164,8 +164,8 @@ export class StatementService {
       // );
 
       // 8. Отправляем SSE уведомление
-      this.appEventsService.notifyAll();
-      console.log('Отправлено SSE уведомление');
+      this.appEventsService.notifyEmailAttachmentsUpdated();
+      console.log('Отправлено SSE уведомление на обновление списка файлов');
 
       // 9. Возвращаем результат
       return savedStatements;

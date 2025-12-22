@@ -215,15 +215,15 @@ export class StatementParserService {
         );
         
         // 7. Транзакция успешно завершена - отправляем SSE
-        this.appEventsService.notifyAll();
-        console.log('📡 Отправлено SSE уведомление');
+        this.appEventsService.notifyEmailAttachmentsUpdated();
+        console.log('📡 Отправлено SSE уведомление на обновление списка файлов');
         
         // 8. Возвращаем результат
         return savedStatements;
         
       } catch (error) {
         // 9. Обработка ошибок транзакции
-        console.error('💥 Ошибка в транзакции:', error);
+        console.error('Ошибка в транзакции:', error);
         throw new InternalServerErrorException(
           `Ошибка обработки ведомости: ${error.message}`
         );

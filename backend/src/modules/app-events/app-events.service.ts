@@ -1,9 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { Subject, Observable } from 'rxjs';
 
+// Определяем тип события
+interface AppEvent {
+  message: string;
+  type?: string;
+  data?: any;
+}
+
 @Injectable()
 export class AppEventsService {
-  private eventSubject = new Subject<{ message: string }>();
+  
+  private eventSubject = new Subject<AppEvent>();
 
   // Для Home.vue (список вложений)
   notifyEmailAttachmentsUpdated(): void {

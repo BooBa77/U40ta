@@ -16,7 +16,7 @@ export class EmailFileAnalyzer {
     sklad?: string;
     error?: string;
   }> {
-    console.log(`🔍 Анализируем Excel файл: ${filePath}`);
+    console.log(`Анализируем Excel файл: ${filePath}`);
 
     // Этап 1: Проверка расширения файла
     const ext = path.extname(filePath).toLowerCase();
@@ -113,7 +113,7 @@ export class EmailFileAnalyzer {
       };
 
     } catch (error) {
-      console.error('❌ Ошибка анализа Excel файла:', error);
+      console.error('Ошибка анализа Excel файла:', error);
       
       let errorMessage = 'Ошибка чтения файла';
       if (error.message.includes('not a valid zip file')) {
