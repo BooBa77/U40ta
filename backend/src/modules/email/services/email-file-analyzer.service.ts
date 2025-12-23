@@ -13,6 +13,7 @@ export class EmailFileAnalyzer {
   async analyzeExcel(filePath: string): Promise<{
     isValid: boolean;
     docType?: string;
+    zavod?: number;
     sklad?: string;
     error?: string;
   }> {
@@ -89,9 +90,20 @@ export class EmailFileAnalyzer {
       }
 
       // Этап 6: Поиск первой строки с данными (где склад не пустой)
+      let zavod = 0;
       let sklad = '';
       for (const row of data) {
+        const rowZavod = row['Завод'];
         const rowSklad = row['Склад'];
+        // Приводим zavod к числу
+        if (typeof rowZavod === 'number') {
+          zavod = rowZavod;
+        } else if (typeof rowZavod === 'string') {
+          const parsed = parseInt(rowZavod.trim(), 10);
+          zavod = isNaN(parsed) ? 0 : parsed;
+        } else {
+          zavod = Number(rowZavod) || 0;
+        }
         if (rowSklad && typeof rowSklad === 'string' && rowSklad.trim() !== '') {
           sklad = rowSklad.trim();
           break;
@@ -109,6 +121,7 @@ export class EmailFileAnalyzer {
       return {
         isValid: true,
         docType: 'ОСВ',
+        zavod: zavod,
         sklad: sklad
       };
 

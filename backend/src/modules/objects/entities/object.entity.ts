@@ -1,39 +1,36 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-//import { Place } from '../../places/entities/place.entity';
+import { Place } from '../../places/entities/place.entity';
 
 @Entity('objects')
 @Index('idx_objects_composite', ['zavod', 'sklad', 'inv_number', 'party_number'])
 @Index('idx_objects_sklad', ['zavod', 'sklad'])
-@Index('idx_objects_place', ['place'])
+@Index('idx_objects_place', ['placeEntity'])
 export class InventoryObject {
-  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'ALWAYS' })
+  @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 
   @Column({ type: 'integer', nullable: false })
   zavod: number;
 
-  @Column({ type: 'varchar', length: 4, nullable: false })
+  @Column({ type: 'varchar', length: 4, nullable: true })
   sklad: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: false })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   buh_name: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: false })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   inv_number: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: false })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   party_number: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   sn: string | null;
 
-  @Column({ type: 'bigint', nullable: true })
-  place: number | null;
+  @ManyToOne(() => Place, { nullable: true })
+  @JoinColumn({ name: 'place' })
+  placeEntity: Place | null;
 
   @Column({ type: 'text', nullable: true })
   commentary: string | null;
-
-//  @ManyToOne(() => Place, { nullable: true })
-//  @JoinColumn({ name: 'place' })
-//  placeRelation?: Place;
 }

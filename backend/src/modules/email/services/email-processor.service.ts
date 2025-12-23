@@ -40,6 +40,7 @@ export class EmailProcessor {
           email_from: emailFrom,
           received_at: new Date(),
           doc_type: analysis.docType,
+          zavod: analysis.zavod,
           sklad: analysis.sklad,
           is_inventory: isInventory
         };
