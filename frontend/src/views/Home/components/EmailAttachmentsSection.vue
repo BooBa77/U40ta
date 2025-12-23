@@ -119,7 +119,7 @@ const connectToSSE = () => {
       const data = JSON.parse(event.data);
       console.log('Распарсено SSE-событие:', data);
       
-      if (data.message === 'email-attachments-updated') {
+      if (data.type === 'email-attachments-updated') {
         console.log('получено SSE на обновление списка файлов');
         loadFiles(); // Перезагружаем список файлов
       }

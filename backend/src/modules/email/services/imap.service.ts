@@ -146,12 +146,12 @@ export class ImapService {
   private async processAttachment(attachment: any, email: any) {
     try {
       // 1. Сохраняем файл на диск
-      const filePath = await this.saveFileToDisk(attachment);
+      const { filePath, uniqueFilename } = await this.saveFileToDisk(attachment);
       
       // 2. Вызываем сервис анализа для создания записи в БД
       await this.emailProcessor.analyzeAndSaveAttachment(
         filePath,
-        attachment.filename,
+        uniqueFilename,
         email.from?.value?.[0]?.address,
         email.subject // передаем тему письма для определения ключевого слова "Инвентаризация"
       );
@@ -164,7 +164,7 @@ export class ImapService {
   /**
    * Сохраняет файл вложения на диск
    */
-  private async saveFileToDisk(attachment: any): Promise<string> {
+  private async saveFileToDisk(attachment: any): Promise<{ filePath: string, uniqueFilename: string }> {
     const attachmentsDir = path.join(process.cwd(), '..', 'email-attachments');
 
     // Создаем уникальное имя файла, используем timestamp + случайное число
@@ -177,6 +177,6 @@ export class ImapService {
     await fs.promises.writeFile(filePath, attachment.content);
     console.log('Сохранен файл:', uniqueFilename);
 
-    return filePath;
+    return { filePath, uniqueFilename };
   }
 }
