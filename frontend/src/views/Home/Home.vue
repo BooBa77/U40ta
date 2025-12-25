@@ -3,6 +3,7 @@
     <header class="home-header">
       <ExitButton />
       <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
+      <FlightModeToggle />
     </header>
 
     <main class="home-main">
@@ -44,6 +45,7 @@ import ExitButton from '@/components/ui/ExitButton.vue'
 import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 import QrScannerButton from '@/components/ui/QrScannerButton.vue'
 import DBToolsButton from '@/components/ui/DBToolsButton.vue'
+import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 
 const router = useRouter()
