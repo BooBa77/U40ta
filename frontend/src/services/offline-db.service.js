@@ -4,20 +4,15 @@ class OfflineDBService {
   constructor() {
     this.db = new Dexie('u40ta_offline_db')
     
-    // Версия 1 - базовая схема
-    this.db.version(1).stores({
+    this.db.stores({
       // Основные таблицы
-      objects: '++id, zavod, inv_number, party_number, place, have_object',
-      
-      // Очередь синхронизации
-      syncQueue: '++id, table, operation, data, timestamp, synced',
-      
-      // Метаданные (последняя синхронизация и т.д.)
-      metadata: 'key, value'
+      objects: 'id, zavod, sklad, buh_name, inv_number, party_number, sn, place, commentary',
+      places: 'id, ter, pos, cab, user',
+      processed_statements: 'id, zavod, sklad, doc_type, inv_number, party_number, buh_name, have_object, is_ignore, is_exceed',
+      object_changes: 'id, object_id, story_line, changed_at, changed_by',
+      object_offline_changes: '++id, object_id, story_line, changed_at',
+      qr_codes: 'id, qr_value, object_id'
     })
-    
-    this.initializeMetadata()
-  }
   
   // Инициализация метаданных
   async initializeMetadata() {
