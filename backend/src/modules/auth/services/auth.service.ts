@@ -38,6 +38,8 @@ export class AuthService {
    * Для одобренных пользователей генерирует JWT токен
    */
   async telegramLogin(loginData: any) {
+    console.log('Telegram loginData:', loginData);
+    console.log('loginData.id:', loginData.id, 'тип:', typeof loginData.id);
     this.logger.log(`Начало обработки Telegram логина для пользователя: ${loginData.first_name}`);
 
     // Проверяем есть ли пользователь в таблице одобренных пользователей
