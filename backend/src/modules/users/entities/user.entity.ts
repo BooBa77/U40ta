@@ -5,8 +5,8 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'telegram_user_id', nullable: true, unique: true })
-  telegramUserId: number;
+  @Column({ name: 'telegram_id', nullable: true, unique: true })
+  telegramId: number;
 
   @Column({ name: 'last_name' })
   lastName: string;
