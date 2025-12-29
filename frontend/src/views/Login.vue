@@ -15,7 +15,7 @@
         <div class="pending-icon">⏳</div>
         <h2 class="pending-title">Заявка принята!</h2>
         <p class="pending-text">
-          Ожидайте уведомления в Telegram.<br>
+          Нужно немного подождать<br>
         </p>
       </div>
       

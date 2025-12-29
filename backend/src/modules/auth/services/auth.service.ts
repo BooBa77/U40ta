@@ -42,7 +42,7 @@ export class AuthService {
 
     // Проверяем есть ли пользователь в таблице одобренных пользователей
     // Используем UsersService для поиска по telegram_id
-    const approvedUser = await this.usersService.findByTelegramUserId(loginData.id);
+    const approvedUser = await this.usersService.findByTelegramUsersId(loginData.id);
     
     if (approvedUser) {
       this.logger.log(`Пользователь одобрен, начинаем генерацию JWT: ${approvedUser.firstName}`);
