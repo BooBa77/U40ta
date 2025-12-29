@@ -10,15 +10,15 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
-  async findByTelegramUserId(telegramUserId: number): Promise<User | null> {
+  async findByTelegramUserId(telegramUsersId: number): Promise<User | null> {
     return this.usersRepository.findOne({
-      where: { telegramUserId },
+      where: { telegramUsersId },
     });
   }
 
-  async findByTelegramId(telegramUserId: number): Promise<User | null> {
+  async findByTelegramId(telegramUsersId: number): Promise<User | null> {
     return this.usersRepository.findOne({
-      where: { telegramUserId: telegramUserId }
+      where: { telegramUsersId: telegramUsersId }
     });
   }
 
