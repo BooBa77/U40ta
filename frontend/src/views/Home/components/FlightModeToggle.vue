@@ -26,7 +26,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { offlineCache } from '@/services/offline-cache.service'
+import { offlineCache } from '../../../services/OfflineCacheService.js'// '@/services/offline-cache.service.js'
 
 // Константы
 const FLIGHT_MODE_KEY = 'u40ta_flight_mode'

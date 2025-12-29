@@ -103,7 +103,7 @@ export function useQrCamera(emit) {
           formatsToSupport: allSupportedFormats
         },
         (result) => {
-          console.log('✅ Найден код:', result)
+          console.log('Найден код:', result)
           emit('scan', result)
           stopCameraScan()
         },
@@ -113,7 +113,7 @@ export function useQrCamera(emit) {
       )
 
     } catch (error) {
-      console.error('❌ Ошибка камеры:', error)
+      console.error('Ошибка камеры:', error)
       emit('error', 'Ошибка камеры: ' + error.message)
       stopCameraScan()
     }

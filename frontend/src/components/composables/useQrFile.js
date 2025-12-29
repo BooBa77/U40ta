@@ -44,12 +44,12 @@ export function useQrFile(emit) {
 
   const processFile = async (file) => {
     try {
-      console.log('🖼️ Файл:', file.name)
+      console.log('Файл:', file.name)
       const result = await scanWithHtml5Qrcode(file)
-      console.log('✅ Результат:', result)
+      console.log('Результат:', result)
       emit('scan', result)
     } catch (error) {
-      console.log('❌ Ошибка:', error)
+      console.log('Ошибка:', error)
       emit('error', error.message)
     }
   }

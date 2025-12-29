@@ -5,6 +5,17 @@ class OfflineCacheService {
     this.db = new Dexie('u40ta_offline_db')
     
     // Схема базы данных (snake_case для единообразия с бэкендом)
+    // stores должен быть в version() или использовать dbStores
+    this.db.version(1).stores({
+      objects: 'id, zavod, sklad, buh_name, inv_number, party_number, sn, place, commentary',
+      places: 'id, ter, pos, cab, user',
+      processed_statements: 'id, zavod, sklad, doc_type, inv_number, party_number, buh_name, have_object, is_ignore, is_excess',
+      object_changes: 'id, object_id, story_line, changed_at, changed_by',
+      object_offline_changes: '++id, object_id, story_line, changed_at',
+      qr_codes: 'id, qr_value, object_id'
+    })    
+
+    /*     // Схема базы данных (snake_case для единообразия с бэкендом)
     this.db.stores({
       objects: 'id, zavod, sklad, buh_name, inv_number, party_number, sn, place, commentary',
       places: 'id, ter, pos, cab, user',
@@ -12,7 +23,7 @@ class OfflineCacheService {
       object_changes: 'id, object_id, story_line, changed_at, changed_by',
       object_offline_changes: '++id, object_id, story_line, changed_at',
       qr_codes: 'id, qr_value, object_id'
-    })
+    }) */
   }
   
   /**
