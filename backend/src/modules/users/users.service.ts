@@ -13,23 +13,19 @@ export class UsersService {
   async findByTelegramUserId(telegramUserId: number): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { telegramUserId },
-      relations: ['telegramUser']
     });
   }
 
   async findByTelegramId(telegramId: number): Promise<User | null> {
-    // Ищем через связь с telegram_users
-    return this.usersRepository
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('user.telegramUser', 'telegramUser')
-      .where('telegramUser.telegram_id = :telegramId', { telegramId })
-      .getOne();
+    return this.usersRepository.findOne({
+      where: { telegramUserId: telegramId }
+    });
   }
 
   async findById(id: number): Promise<User | null> {
-  return this.usersRepository.findOne({
-    where: { id }
-  });
+    return this.usersRepository.findOne({
+      where: { id }
+    });
   }
 
   async findAll(): Promise<User[]> {
