@@ -1,12 +1,13 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'telegram_id', nullable: true, unique: true })
-  telegramId: number;
+  @Column({ name: 'telegram_users_id', nullable: true, unique: true })
+  telegramUsersId: number; // id из telegram_users
 
   @Column({ name: 'last_name' })
   lastName: string;
