@@ -38,14 +38,14 @@ export class AuthService {
    * Для одобренных пользователей генерирует JWT токен
    */
   async telegramLogin(loginData: any) {
-    console.log('Telegram loginData:', loginData);
-    console.log('loginData.id:', loginData.id, 'тип:', typeof loginData.id);
-    this.logger.log(`Начало обработки Telegram логина для пользователя: ${loginData.first_name}`);
 
     // Проверяем есть ли пользователь в таблице одобренных пользователей
     // Используем UsersService для поиска по telegram_id
-    const approvedUser = await this.usersService.findByTelegramUsersId(loginData.id);
-    
+    // 1. Сначала создаем/находим запись в telegram_users
+    const { user: telegramUser, isNew } = await this.telegramAuthService.createOrFind(loginData);
+    // 2. telegramUser.id - это id из telegram_users, который хранится в users.telegram_users_id
+    const approvedUser = await this.usersService.findByTelegramUsersId(telegramUser.id);
+
     if (approvedUser) {
       this.logger.log(`Пользователь одобрен, начинаем генерацию JWT: ${approvedUser.firstName}`);
       

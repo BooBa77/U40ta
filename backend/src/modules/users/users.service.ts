@@ -16,9 +16,9 @@ export class UsersService {
     });
   }
 
-  async findByTelegramId(telegramUsersId: number): Promise<User | null> {
+  async findByTelegramId(telegramId: number): Promise<User | null> {
     return this.usersRepository.findOne({
-      where: { telegramUsersId: telegramUsersId }
+      where: { telegramId: telegramId }
     });
   }
 
