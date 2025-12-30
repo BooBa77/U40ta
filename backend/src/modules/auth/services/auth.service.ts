@@ -42,9 +42,10 @@ export class AuthService {
     // Проверяем есть ли пользователь в таблице одобренных пользователей
     // Используем UsersService для поиска по telegram_id
     // 1. Сначала создаем/находим запись в telegram_users
-    const { user: telegramUser, isNew } = await this.telegramAuthService.createOrFind(loginData);
+    const telegramAuthResult = await this.telegramAuthService.createOrFind(loginData);
+    console.log(telegramAuthResult);
     // 2. telegramUser.id - это id из telegram_users, который хранится в users.telegram_users_id
-    const approvedUser = await this.usersService.findByTelegramUsersId(telegramUser.id);
+    const approvedUser = await this.usersService.findByTelegramUsersId(telegramAuthResult.user.id);
 
     if (approvedUser) {
       this.logger.log(`Пользователь одобрен, начинаем генерацию JWT: ${approvedUser.firstName}`);
