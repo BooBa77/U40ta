@@ -38,41 +38,34 @@ export class AuthService {
    * Для одобренных пользователей генерирует JWT токен
    */
   async telegramLogin(loginData: any) {
+    this.logger.log(`=== telegramLogin START ===`);
+    this.logger.log(`loginData: ${JSON.stringify(loginData)}`);
+    this.logger.log(`loginData.id (telegram_id): ${loginData.id}`);
 
-    // Проверяем есть ли пользователь в таблице одобренных пользователей
-    // Используем UsersService для поиска по telegram_id
     // 1. Сначала создаем/находим запись в telegram_users
+    this.logger.log(`Вызываем telegramAuthService.createOrFind...`);
     const telegramAuthResult = await this.telegramAuthService.createOrFind(loginData);
-    console.log(telegramAuthResult);
-    // 2. telegramUser.id - это id из telegram_users, который хранится в users.telegram_users_id
+    this.logger.log(`telegramAuthResult: ${JSON.stringify(telegramAuthResult)}`);
+    this.logger.log(`telegram_users.id: ${telegramAuthResult.user.id}`);
+
+    // 2. Ищем пользователя в users по telegram_users_id
+    this.logger.log(`Ищем пользователя в users по telegram_users_id = ${telegramAuthResult.user.id}`);
     const approvedUser = await this.usersService.findByTelegramUsersId(telegramAuthResult.user.id);
+    this.logger.log(`approvedUser: ${JSON.stringify(approvedUser)}`);
 
     if (approvedUser) {
-      this.logger.log(`Пользователь одобрен, начинаем генерацию JWT: ${approvedUser.firstName}`);
-      
-      // Генерируем JWT токен для одобренного пользователя
+      this.logger.log(`Пользователь одобрен: ${approvedUser.firstName}`);
       const token = await this.generateJwtToken(approvedUser);
-      
-      this.logger.log(`JWT токен успешно сгенерирован для пользователя: ${approvedUser.firstName}`);
-      
-      // Возвращаем успешный результат с JWT токеном
+      this.logger.log(`=== telegramLogin SUCCESS ===`);
       return {
         status: 'success',
         access_token: token
       };
     }
 
-    this.logger.log(`Пользователь не найден в одобренных, проверяем заявки для Telegram ID: ${loginData.id}`);
-    
-    // Если пользователь не одобрен, работаем с заявками через TelegramAuthService
-    const { user: telegramUser, isNew } = await this.telegramAuthService.createOrFind(loginData);
-    
-    this.logger.log(`Обработка заявки завершена, пользователь: ${telegramUser.first_name}, новая заявка: ${isNew}`);
-    
-    // Для непринятых пользователей возвращаем статус pending без JWT токена
-    return {
-      status: 'pending'
-    };
+    this.logger.log(`Пользователь НЕ найден в таблице users`);
+    this.logger.log(`=== telegramLogin PENDING ===`);
+    return { status: 'pending' };
   }
 
   /**
