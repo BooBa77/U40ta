@@ -1,140 +1,157 @@
 <template>
   <div class="login-page">
     <div class="login-container">
+      
       <h1 class="login-title">U40TA</h1>
-      <p class="login-subtitle">Временная заглушка</p>
       
-      <!-- ТЕСТОВАЯ КНОПКА -->
-      <button @click="testAuth" class="telegram-btn">
-        🔐 Тестовая авторизация
-      </button>
-      
-      <!-- ПРОВЕРКА БЭКЕНДА -->
-      <div style="margin-top: 20px;">
-        <button @click="checkBackend" style="background: #666;">
-          Проверить бэкенд
-        </button>
-        <div v-if="backendStatus" style="margin-top: 10px; color: #4CAF50;">
-          {{ backendStatus }}
-        </div>
+      <!-- ОБЫЧНЫЙ РЕЖИМ -->
+      <div v-if="!isPending" class="telegram-btn-container">
+        <p class="login-subtitle">добро пожаловать</p>
+        <div ref="telegramWidget"></div>
       </div>
+      
+      <!-- РЕЖИМ ОЖИДАНИЯ -->
+      <div v-else class="pending-state">
+        <div class="pending-icon">⏳</div>
+        <h2 class="pending-title">Заявка принята!</h2>
+        <p class="pending-text">
+          Нужно немного подождать<br>
+        </p>
+      </div>
+      
+      <!-- PWA Кнопка -->
+      <PWAInstallButton />
+      
     </div>
   </div>
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
+
+const BOT_USERNAME = 'u40ta_bot'
+
+// Глобальные переменные устройства (нативный подход)
+const isMobile = ref(JSON.parse(localStorage.getItem('device_isMobile') || 'false'))
+const hasCamera = ref(JSON.parse(localStorage.getItem('device_hasCamera') || 'false'))
 
 export default {
   name: 'Login',
+  components: {
+    PWAInstallButton
+  },
   setup() {
     const router = useRouter()
-    const backendStatus = ref('')
-    
-    const testAuth = async () => {
-      console.log('=== ТЕСТ АВТОРИЗАЦИИ ===')
+    const telegramWidget = ref(null)
+    const isPending = ref(false)
+
+    const checkAuthStatus = () => {
+      const pendingToken = localStorage.getItem('pending_token')
+      const authToken = localStorage.getItem('auth_token')
       
-      const testUser = {
-        id: 588376617,
-        first_name: "Тест",
-        last_name: "Пользователь",
-        username: "testuser"
+      if (authToken) {
+        router.push('/')
+        return
       }
       
-      console.log('Тестовые данные:', testUser)
+      if (pendingToken) {
+        isPending.value = true
+      }
+    }
+
+    const initTelegramWidget = () => {
+      if (isPending.value) return
       
+      const script = document.createElement('script')
+      script.src = 'https://telegram.org/js/telegram-widget.js?22'
+      script.setAttribute('data-telegram-login', BOT_USERNAME)
+      script.setAttribute('data-size', 'large')
+      script.setAttribute('data-auth-url', '/api/auth/telegram')
+      script.setAttribute('data-request-access', 'write')
+      script.setAttribute('data-userpic', 'true')
+      script.setAttribute('data-radius', '20')
+      script.setAttribute('data-onauth', 'onTelegramAuth(user)')
+      script.async = true
+
+      if (telegramWidget.value) {
+        telegramWidget.value.innerHTML = ''
+        telegramWidget.value.appendChild(script)
+      }
+    }
+
+    const onTelegramAuth = async (user) => {
+      console.log('Telegram auth success:', user)
+
+      if (!user || !user.id) {
+        console.error('Invalid user data received')
+        return
+      }
+
       try {
         const response = await fetch('/api/auth/telegram', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(testUser)
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(user)
         })
-        
-        console.log('Статус:', response.status)
+
         const data = await response.json()
-        console.log('Ответ:', data)
-        
+        console.log('Backend response:', data)
+
         if (data.status === 'success' && data.access_token) {
           localStorage.setItem('auth_token', data.access_token)
-          alert('✅ Успех! Токен получен')
           router.push('/')
+        } else if (data.status === 'pending') {
+          localStorage.setItem('pending_token', 'true')
+          isPending.value = true
         } else {
-          alert('❌ Ошибка: ' + (data.message || data.status))
+          alert('Ошибка авторизации: ' + (data.message || 'Неизвестная ошибка'))
         }
       } catch (error) {
-        console.error('Ошибка:', error)
-        alert('❌ Ошибка сети')
+        console.error('Backend error:', error)
+        alert('Ошибка соединения с сервером')
       }
     }
-    
-    const checkBackend = async () => {
-      console.log('Проверка бэкенда...')
+
+    // Функция определения устройства
+    const detectDevice = async () => {
+      // Проверка мобилы
+      const userAgent = navigator.userAgent
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
+      isMobile.value = mobileRegex.test(userAgent) || ('ontouchstart' in window)
+      
+      // Проверка камеры
       try {
-        const response = await fetch('/api/auth/telegram', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ test: true })
-        })
-        backendStatus.value = `Бэкенд доступен. Статус: ${response.status}`
-        console.log('Бэкенд ответил:', response.status)
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        hasCamera.value = devices.some(device => device.kind === 'videoinput')
       } catch (error) {
-        backendStatus.value = '❌ Бэкенд недоступен'
-        console.error('Бэкенд недоступен:', error)
+        hasCamera.value = false
       }
+      
+      // Сохраняем в localStorage
+      localStorage.setItem('device_isMobile', JSON.stringify(isMobile.value))
+      localStorage.setItem('device_hasCamera', JSON.stringify(hasCamera.value))
     }
-    
+
+    onMounted(() => {
+      checkAuthStatus()
+      initTelegramWidget()
+      detectDevice()
+      
+      window.onTelegramAuth = onTelegramAuth
+    })
+
     return {
-      testAuth,
-      checkBackend,
-      backendStatus
+      isPending,
+      telegramWidget
     }
   }
 }
 </script>
 
 <style scoped>
-.login-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: #f5f5f5;
-}
-
-.login-container {
-  background: white;
-  padding: 40px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  text-align: center;
-  max-width: 400px;
-  width: 100%;
-}
-
-.login-title {
-  color: #333;
-  margin-bottom: 10px;
-}
-
-.login-subtitle {
-  color: #666;
-  margin-bottom: 30px;
-}
-
-.telegram-btn {
-  background: #0088cc;
-  color: white;
-  border: none;
-  padding: 15px 30px;
-  border-radius: 10px;
-  font-size: 16px;
-  cursor: pointer;
-  width: 100%;
-  transition: background 0.3s;
-}
-
-.telegram-btn:hover {
-  background: #006699;
-}
+@import url('/css/login.css');
 </style>
