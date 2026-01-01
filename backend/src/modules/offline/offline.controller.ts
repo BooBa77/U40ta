@@ -13,10 +13,16 @@ export class OfflineController {
    * GET /api/offline/data
    */
   @Get('data')
-  async getOfflineData(): Promise<OfflineDataResponseDto> {
+  async getOfflineData(@Req() request: any): Promise<OfflineDataResponseDto> {
     try {
-      // Получаем ВСЕ данные без фильтрации по пользователю
-      const data = await this.offlineService.getOfflineData();
+      const userId = request.user?.sub || request.user?.userId;
+      
+      if (!userId) {
+        throw new Error('Не удалось определить пользователя');
+      }
+
+      // Передаем userId в сервис
+      const data = await this.offlineService.getOfflineData(userId);
       
       return {
         success: true,

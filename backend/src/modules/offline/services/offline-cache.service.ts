@@ -7,6 +7,7 @@ import { Place } from '../../places/entities/place.entity';
 import { ProcessedStatement } from '../../statements/entities/processed-statement.entity';
 import { ObjectChange } from '../../object_changes/entities/object-change.entity';
 import { QrCode } from '../../qr-codes/entities/qr-code.entity';
+import { MolAccess } from '../../statements/entities/mol-access.entity';
 
 @Injectable()
 export class OfflineCacheService {
@@ -25,70 +26,89 @@ export class OfflineCacheService {
     
     @InjectRepository(QrCode)
     private qrCodesRepository: Repository<QrCode>,
+    
+    @InjectRepository(MolAccess)
+    private molAccessRepository: Repository<MolAccess>,
   ) {}
 
   /**
-   * Собирает ВСЕ данные для офлайн-режима
-   * Включает все объекты, места, ведомости, историю изменений и QR-коды
+   * Собирает данные для офлайн-режима для конкретного пользователя
+   * ВСЕ объекты, места, история, QR-коды + ведомости по mol_access
+   * @param userId ID пользователя для фильтрации ведомостей
    * @returns Объект со всеми данными для кэширования
    */
-  async getAllData(): Promise<any> {
-    console.log(`OfflineCacheService: получение ВСЕХ данных для офлайн-режима`);
+  async getAllData(userId: number): Promise<any> {
+    console.log(`OfflineCacheService: получение данных для пользователя ${userId}`);
     
     try {
-      // 1. Получаем ВСЕ объекты
+      // 1. Получаем доступные склады пользователя из mol_access
+      const userAccess = await this.molAccessRepository.find({
+        where: { userId },
+        select: ['zavod', 'sklad'],
+      });
+      
+      console.log(`OfflineCacheService: пользователь имеет доступ к ${userAccess.length} складам`);
+      
+      // 2. Получаем ВСЕ объекты (без фильтрации)
       const objects = await this.objectsRepository.find({
         relations: ['placeEntity'],
         order: { id: 'ASC' },
       });
       
-      console.log(`OfflineCacheService: загружено объектов: ${objects.length}`);
+      console.log(`OfflineCacheService: загружено ВСЕХ объектов: ${objects.length}`);
       
-      // 2. Получаем ВСЕ места
+      // 3. Получаем ВСЕ места
       const places = await this.placesRepository.find({
         order: { id: 'ASC' },
       });
       
-      console.log(`OfflineCacheService: загружено мест: ${places.length}`);
-      
-      // 3. Получаем ВСЕ ведомости (активные, без фильтрации по доступности)
-      // Находим email_attachment_id ВСЕХ активных ведомостей
-      const activeStatements = await this.statementsRepository
-        .createQueryBuilder('ps')
-        .select('DISTINCT ps.emailAttachmentId', 'attachmentId')
-        .where('ps.emailAttachmentId IS NOT NULL')
-        .getRawMany();
-      
-      const activeAttachmentIds = activeStatements.map(s => s.attachmentId);
-      
-      let statements: ProcessedStatement[] = [];
-      if (activeAttachmentIds.length > 0) {
-        statements = await this.statementsRepository.find({
-          where: { 
-            emailAttachmentId: activeAttachmentIds,
-            is_excess: false, // Только основные записи, не избыточные
-          },
-          order: { id: 'ASC' },
-        });
-      }
-      
-      console.log(`OfflineCacheService: загружено ведомостей: ${statements.length}`);
+      console.log(`OfflineCacheService: загружено ВСЕХ мест: ${places.length}`);
       
       // 4. Получаем ВСЮ историю изменений (без ограничения по времени)
       const objectChanges = await this.objectChangesRepository.find({
         order: { changed_at: 'DESC' },
       });
       
-      console.log(`OfflineCacheService: загружено записей истории: ${objectChanges.length}`);
+      console.log(`OfflineCacheService: загружено ВСЕЙ истории: ${objectChanges.length}`);
       
       // 5. Получаем ВСЕ QR-коды
       const qrCodes = await this.qrCodesRepository.find({
         order: { id: 'ASC' },
       });
       
-      console.log(`OfflineCacheService: загружено QR-кодов: ${qrCodes.length}`);
+      console.log(`OfflineCacheService: загружено ВСЕХ QR-кодов: ${qrCodes.length}`);
       
-      // 6. Формируем ответ
+      // 6. Получаем ведомости ТОЛЬКО по доступным складам (mol_access)
+      let statements: ProcessedStatement[] = [];
+      
+      if (userAccess.length > 0) {
+        // Собираем уникальные пары zavod/sklad
+        const uniqueAccess = Array.from(
+          new Set(userAccess.map(access => `${access.zavod}|${access.sklad}`))
+        ).map(key => {
+          const [zavod, sklad] = key.split('|');
+          return { zavod: parseInt(zavod), sklad };
+        });
+        
+        // Получаем ведомости для каждого доступного склада
+        const statementPromises = uniqueAccess.map(({ zavod, sklad }) => 
+          this.statementsRepository.find({
+            where: { 
+              zavod,
+              sklad,
+              is_excess: false, // Только основные записи
+            },
+            order: { id: 'ASC' },
+          })
+        );
+        
+        const results = await Promise.all(statementPromises);
+        statements = results.flat();
+      }
+      
+      console.log(`OfflineCacheService: загружено ведомостей (по mol_access): ${statements.length}`);
+      
+      // 7. Формируем ответ
       return {
         objects: this.serializeObjects(objects),
         places,
@@ -96,22 +116,25 @@ export class OfflineCacheService {
         object_changes: objectChanges,
         qr_codes: qrCodes,
         meta: {
+          userId,
           fetchedAt: new Date().toISOString(),
           totalObjects: objects.length,
+          totalPlaces: places.length,
           totalStatements: statements.length,
           totalObjectChanges: objectChanges.length,
           totalQrCodes: qrCodes.length,
+          accessibleSklads: userAccess.length,
         }
       };
       
     } catch (error) {
-      console.error('OfflineCacheService: ошибка при получении ВСЕХ данных:', error);
+      console.error('OfflineCacheService: ошибка при получении данных:', error);
       throw new Error(`Не удалось получить данные для офлайн-режима: ${error.message}`);
     }
   }
   
   /**
-   * Сериализует объекты для безопасной передачи (убирает циклические зависимости)
+   * Сериализует объекты для безопасной передачи
    * @param objects Массив объектов InventoryObject
    * @returns Сериализованные объекты
    */

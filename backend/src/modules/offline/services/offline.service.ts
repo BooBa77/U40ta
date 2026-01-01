@@ -15,11 +15,11 @@ export class OfflineService {
    * Не фильтрует по пользователю - отдает ВСЕ данные
    * @returns Данные для офлайн-режима
    */
-  async getOfflineData(): Promise<any> {
+  async getOfflineData(userId): Promise<any> {
     console.log(`OfflineService: получение ВСЕХ данных для офлайн-режима`);
     
     try {
-      const data = await this.offlineCacheService.getAllData();
+      const data = await this.offlineCacheService.getAllData(userId);
       
       console.log(`OfflineService: ВСЕ данные успешно получены`);
       console.log(`  - Объектов: ${data.objects.length}`);

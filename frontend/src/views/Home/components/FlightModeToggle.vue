@@ -81,25 +81,32 @@ async function enableFlightMode() {
   try {
     console.log('Включаем режим полёта...')
     
-    // Параллельно загружаем все данные с сервера
-    const [objects, places, processed_statements, object_changes, qr_codes] = await Promise.all([
-      fetchWithAuth('/api/objects'),
-      fetchWithAuth('/api/places'),
-      fetchWithAuth('/api/statements'),
-      fetchWithAuth('/api/object-changes'),
-      fetchWithAuth('/api/qr-codes')
-    ])
+    // Загружаем ВСЕ данные одним запросом через эндпоинт offline/data
+    const response = await fetch('/api/offline/data', {
+      headers: { 
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}` 
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Ошибка ${response.status}: ${response.statusText}`)
+    }
+    
+    const result = await response.json()
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Ошибка загрузки данных')
+    }
     
     console.log('Данные загружены, начинаем кэширование...')
+    console.log('Объектов:', result.data.objects.length)
+    console.log('Мест:', result.data.places.length)
+    console.log('Ведомостей:', result.data.processed_statements.length)
+    console.log('Истории изменений:', result.data.object_changes.length)
+    console.log('QR-кодов:', result.data.qr_codes.length)
     
-    // Кэшируем данные
-    await offlineCache.cacheAllData({
-      objects,
-      places,
-      processed_statements,
-      object_changes,
-      qr_codes
-    })
+    // Кэшируем все данные из одного ответа
+    await offlineCache.cacheAllData(result.data)
     
     console.log('Режим полёта успешно включен')
     

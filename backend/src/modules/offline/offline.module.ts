@@ -1,4 +1,3 @@
-// app/src/modules/offline/offline.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OfflineController } from './offline.controller';
@@ -12,6 +11,7 @@ import { Place } from '../places/entities/place.entity';
 import { ProcessedStatement } from '../statements/entities/processed-statement.entity';
 import { ObjectChange } from '../object_changes/entities/object-change.entity';
 import { QrCode } from '../qr-codes/entities/qr-code.entity';
+import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { MolAccess } from '../statements/entities/mol-access.entity';
 import { ObjectsModule } from '../objects/objects.module';
 import { PlacesModule } from '../places/places.module';
@@ -21,7 +21,7 @@ import { QrCodesModule } from '../qr-codes/qr-codes.module';
 
 @Module({
   imports: [
-    // Регистрируем все необходимые сущности (убрали MolAccess)
+    // Регистрируем ВСЕ необходимые сущности
     TypeOrmModule.forFeature([
       ObjectOfflineChange,
       InventoryObject,
@@ -29,9 +29,11 @@ import { QrCodesModule } from '../qr-codes/qr-codes.module';
       ProcessedStatement,
       ObjectChange,
       QrCode,
+      MolAccess, // Добавьте MolAccess в forFeature
     ]),
     
-    // Импортируем внешние модули
+    // Импортируем внешние модули для доступа к их сервисам
+    JwtAuthModule,
     ObjectsModule,
     PlacesModule,
     StatementsModule,
