@@ -13,21 +13,15 @@ export class OfflineController {
    * GET /api/offline/data
    */
   @Get('data')
-  async getOfflineData(@Req() request: any): Promise<OfflineDataResponseDto> {
+  async getOfflineData(): Promise<OfflineDataResponseDto> {
     try {
-      // Получаем userId из JWT payload (так же как в других контроллерах)
-      const userId = request.user?.sub || request.user?.userId;
-      
-      if (!userId) {
-        throw new Error('Не удалось определить пользователя');
-      }
-
-      const data = await this.offlineService.getOfflineData(userId);
+      // Получаем ВСЕ данные без фильтрации по пользователю
+      const data = await this.offlineService.getOfflineData();
       
       return {
         success: true,
         data,
-        message: 'Данные для офлайн-режима успешно загружены',
+        message: 'ВСЕ данные для офлайн-режима успешно загружены',
       };
       
     } catch (error) {
@@ -45,6 +39,7 @@ export class OfflineController {
       };
     }
   }
+
 
   /**
    * Синхронизация изменений из офлайн-режима
