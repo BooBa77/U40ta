@@ -1,9 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { InventoryObject } from './object.entity';
+import { InventoryObject } from '../../objects/entities/object.entity';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('object_changes')
-export class ObjectChange {
+@Entity('offline_object_changes')
+export class ObjectOfflineChange {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 
