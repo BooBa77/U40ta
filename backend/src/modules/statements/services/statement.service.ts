@@ -5,6 +5,7 @@ import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { StatementParserService } from './statement-parser.service';
 import { StatementObjectsService } from './statement-objects.service';
 import { AppEventsService } from '../../app-events/app-events.service';
+import { ProcessedStatementDto } from '../dto/statement-response.dto';
 
 @Injectable()
 export class StatementService {
@@ -20,7 +21,7 @@ export class StatementService {
    * Основной метод: открывает/обрабатывает ведомость
    * GET /api/statements/:attachmentId
    */
-  async parseStatement(attachmentId: number) {
+  async parseStatement(attachmentId: number): Promise<ProcessedStatementDto[]> {
     console.log(`StatementService: запрос на ведомость ID: ${attachmentId}`);
 
     // 1. Находим вложение
@@ -41,6 +42,7 @@ export class StatementService {
     // 3. Если ведомость уже в работе - возвращаем существующие записи
     if (attachment.in_process) {
       console.log(`StatementService: ведомость уже в работе, возвращаем существующие записи`);
+      
       const statements = await this.parserService.getExistingStatements(attachmentId);
       
       // Фоновое обновление флагов (не блокирует ответ)
@@ -72,6 +74,7 @@ export class StatementService {
       }
       
       console.log(`StatementService: ведомость успешно обработана, записей: ${statements.length}`);
+
       return statements;
       
     } catch (error) {

@@ -13,22 +13,22 @@ export class ProcessedStatement {
   @Column({ name: 'email_attachment_id' })
   emailAttachmentId: number;
 
-  @Column({ type: 'integer', nullable: true })
+  @Column({ type: 'integer' })
   zavod: number; // например 4030
 
-  @Column({ type: 'varchar', length: 4, nullable: true })
+  @Column({ type: 'varchar', length: 4 })
   sklad: string; // Код склада (например "s010")
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
+  @Column({ type: 'varchar', length: 10 })
   doc_type: string; // "ОСВ", "ОС"
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255 })
   inv_number: string; // инвентарный номер
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255 })
   party_number: string; // номер партии
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text' })
   buh_name: string; // бухгалтерское наименование
 
   @Column({ type: 'boolean', default: false })
@@ -38,5 +38,6 @@ export class ProcessedStatement {
   is_ignore: boolean; // игнорировать ли эту строку
 
   @Column({ type: 'boolean', default: false })
-  is_excess: boolean; // дополнительная запись, не входящая в ведомость. Это объект уже не числится на складе. Завели, чтобы подсветить проблему - объект требуется переместить 
+  is_excess: boolean; // дополнительная запись, не входящая в ведомость. 
+  // Это объект уже не числится на складе. Завели, чтобы подсветить проблему - объект требуется переместить 
 }

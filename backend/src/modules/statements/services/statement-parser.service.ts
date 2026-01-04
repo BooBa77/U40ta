@@ -8,6 +8,9 @@ import * as process from 'process';
 import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { AppEventsService } from '../../app-events/app-events.service';
+import { ParsedExcelRowDto } from '../dto/parsed-excel-row.dto';
+import { CreateProcessedStatementDto } from '../dto/create-processed-statement.dto';
+import { ProcessedStatementDto } from '../dto/statement-response.dto';
 
 @Injectable()
 export class StatementParserService {
@@ -28,18 +31,21 @@ export class StatementParserService {
    * Публичный метод: возвращает существующие записи ведомости
    * Используется когда ведомость уже в работе (in_process = true)
    */
-  async getExistingStatements(attachmentId: number): Promise<ProcessedStatement[]> {
-    return await this.processedStatementRepo.find({
+  async getExistingStatements(attachmentId: number): Promise<ProcessedStatementDto[]> {
+    const entities = await this.processedStatementRepo.find({
       where: { emailAttachmentId: attachmentId },
       order: { id: 'ASC' },
     });
+    
+    // Преобразуем Entity в DTO
+    return ProcessedStatementDto.fromEntities(entities);
   }
 
   /**
    * Публичный метод: основной парсинг ведомости
    * Создает записи в processed_statements
    */
-  async parseStatement(attachmentId: number): Promise<ProcessedStatement[]> {
+  async parseStatement(attachmentId: number): Promise<ProcessedStatementDto[]> {
     console.log(`StatementParserService: парсинг ведомости ID: ${attachmentId}`);
     
     // 1. Находим вложение
@@ -77,10 +83,10 @@ export class StatementParserService {
     }
     
     // 6. Транзакция (все операции атомарно)
-    let savedStatements: ProcessedStatement[] = [];
+    let savedEntities: ProcessedStatement[] = [];
     
     try {
-      savedStatements = await this.entityManager.transaction(
+      savedEntities = await this.entityManager.transaction(
         async (transactionalEntityManager) => {
           
           // 6.1. Находим старую активную ведомость
@@ -115,16 +121,16 @@ export class StatementParserService {
             console.log(`StatementParserService: сброшен флаг in_process у ведомости ID: ${oldAttachmentId}`);
           }
           
-          // 6.4. Парсим Excel
-          const excelRows = this.parseExcel(filePath);
-          const newStatements = this.createStatementsFromExcel(excelRows, attachment);
+          // 6.4. Парсим Excel (используем типизацию DTO)
+          const excelRows: ParsedExcelRowDto[] = this.parseExcel(filePath);
+          const newEntities = this.createStatementsFromExcel(excelRows, attachment);
           
-          // 6.5. Сохраняем новые записи
-          const createdStatements = await transactionalEntityManager.save(
+          // 6.5. Сохраняем новые записи (Entity в БД)
+          const createdEntities = await transactionalEntityManager.save(
             ProcessedStatement,
-            newStatements,
+            newEntities,
           );
-          console.log(`StatementParserService: сохранено записей: ${createdStatements.length}`);
+          console.log(`StatementParserService: сохранено записей: ${createdEntities.length}`);
           
           // 6.6. Устанавливаем флаг у текущей ведомости
           await transactionalEntityManager.update(
@@ -134,7 +140,7 @@ export class StatementParserService {
           );
           console.log(`StatementParserService: установлен флаг in_process у ведомости ID: ${attachmentId}`);
           
-          return createdStatements;
+          return createdEntities;
         },
       );
       
@@ -142,7 +148,9 @@ export class StatementParserService {
       this.appEventsService.notifyEmailAttachmentsUpdated();
       console.log('StatementParserService: отправлено SSE уведомление');
       
-      return savedStatements;
+      // 8. Преобразуем сохранённые Entity в DTO для возврата
+      const resultDtos = ProcessedStatementDto.fromEntities(savedEntities);
+      return resultDtos;
       
     } catch (error) {
       console.error('StatementParserService: ошибка в транзакции:', error);
@@ -165,14 +173,14 @@ export class StatementParserService {
   /**
    * Приватный метод: читает и парсит Excel файл
    */
-  private parseExcel(filePath: string): any[] {
+  private parseExcel(filePath: string): ParsedExcelRowDto[] {
     console.log(`StatementParserService: чтение Excel файла: ${filePath}`);
     
     try {
       const workbook = XLSX.readFile(filePath);
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet);
+      const data: ParsedExcelRowDto[] = XLSX.utils.sheet_to_json(worksheet);
       
       console.log(`StatementParserService: прочитано строк: ${data.length}`);
       return data;
@@ -187,13 +195,14 @@ export class StatementParserService {
    * Приватный метод: создает объекты из данных Excel
    */
   private createStatementsFromExcel(
-    excelRows: any[], 
+    excelRows: ParsedExcelRowDto[],
     attachment: EmailAttachment,
   ): ProcessedStatement[] {
     const statements: ProcessedStatement[] = [];
     
     for (const row of excelRows) {
-      const zavod = row['Завод'] ? parseInt(row['Завод']) : null;
+      // ТИПИЗИРОВАННЫЙ ДОСТУП К ПОЛЯМ
+      const zavod = row['Завод'] ? parseInt(row['Завод'].toString()) : 0; // ВСЕГДА ЧИСЛО
       const sklad = row['Склад']?.toString() || attachment.sklad || '';
       const buhName = row['КрТекстМатериала']?.toString() || row['Материал']?.toString() || '';
       const invNumber = row['Материал']?.toString() || '';
@@ -205,7 +214,7 @@ export class StatementParserService {
         continue;
       }
       
-      // Парсим количество
+      // Парсим количество (типизировано)
       let quantity = 1;
       const quantityValue = row['Запас на конец периода'];
       if (quantityValue !== undefined && quantityValue !== null) {
@@ -221,7 +230,7 @@ export class StatementParserService {
         statement.emailAttachmentId = attachment.id;
         statement.sklad = sklad;
         statement.doc_type = attachment.doc_type || 'ОСВ';
-        statement.zavod = zavod || 0;
+        statement.zavod = zavod; // всегда число
         statement.buh_name = buhName;
         statement.inv_number = invNumber;
         statement.party_number = partyNumber;
