@@ -9,7 +9,7 @@ import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { AppEventsService } from '../../app-events/app-events.service';
 import { ParsedExcelRowDto } from '../dto/parsed-excel-row.dto';
-import { CreateProcessedStatementDto } from '../dto/create-processed-statement.dto';
+//import { CreateProcessedStatementDto } from '../dto/create-processed-statement.dto';
 import { ProcessedStatementDto } from '../dto/statement-response.dto';
 
 @Injectable()
