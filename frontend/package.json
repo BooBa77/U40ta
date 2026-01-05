@@ -10,8 +10,9 @@
   },
   "dependencies": {
     "@ericblade/quagga2": "^1.8.4",
-    "@tanstack/vue-table": "^8.20.5",
     "@tanstack/virtual-core": "^3.6.3",
+    "@tanstack/vue-table": "^8.21.3",
+    "@tanstack/vue-virtual": "^3.13.16",
     "@zxing/library": "^0.21.3",
     "autoprefixer": "^10.4.20",
     "dexie": "^4.0.4",

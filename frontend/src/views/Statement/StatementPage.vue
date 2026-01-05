@@ -1,61 +1,70 @@
+<!-- src/views/Statement/StatementPage.vue -->
 <template>
-  <div class="statement-page">
-    <h1>Ведомость #{{ attachmentId }}</h1>
-    
-    <!-- Загрузка -->
-    <div v-if="isLoading">
-      Загрузка ведомости...
+  <div class="statement-page p-4">
+    <!-- Заголовок -->
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Тестовая таблица</h1>
+      </div>
+      <button
+        @click="$router.push('/')"
+        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+      >
+        ← Назад
+      </button>
     </div>
-    
-    <!-- Ошибка -->
-    <div v-if="errorMessage" class="error">
-      {{ errorMessage }}
-      <button @click="loadStatement">Повторить</button>
+
+    <!-- Тестовая таблица -->
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Страны и столицы</h2>
+      <DataTable 
+        :table="testTable" 
+        :rows="testRows"
+        :columnFilters="testColumnFilters"
+        :clearFilters="testClearFilters"
+      />
     </div>
-    
-    <!-- Данные -->
-    <div v-if="!isLoading && !errorMessage">
-      <p>Загружено строк: {{ statements.length }}</p>
-      <!-- Позже здесь будет таблица -->
-    </div>
-    
-    <button @click="$router.push('/')">← Назад</button>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref } from 'vue'
+import { createColumnHelper } from '@tanstack/vue-table'
+import { useDataTable } from '@/composables/useDataTable'
+import DataTable from '@/components/ui/DataTable.vue'
 
-const route = useRoute()
-const attachmentId = route.params.id
+const testData = ref([
+  { id: 1, country: 'Россия', capital: 'Москва' },
+  { id: 2, country: 'Германия', capital: 'Берлин' },
+  { id: 3, country: 'Франция', capital: 'Париж' },
+  { id: 4, country: 'Австралия', capital: 'Сидней' },  
+])
 
-const statements = ref([])
-const isLoading = ref(true)
-const errorMessage = ref('')
+const columnHelper = createColumnHelper()
+const testColumns = [
+  columnHelper.accessor('country', { 
+    header: 'Страна',
+    enableColumnFilter: true 
+  }),
+  columnHelper.accessor('capital', { 
+    header: 'Столица',
+    enableColumnFilter: true 
+  })
+]
 
-const loadStatement = async () => {
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    const response = await fetch(`/api/statements/${attachmentId}`)
-    
-    if (!response.ok) {
-      throw new Error(`Ошибка ${response.status}`)
-    }
-    
-    const data = await response.json()
-    statements.value = data.statements
-    
-  } catch (error) {
-    errorMessage.value = error.message
-  } finally {
-    isLoading.value = false
-  }
-}
-
-onMounted(() => {
-  loadStatement()
-})
+const { 
+  table: testTable, 
+  rows: testRows, 
+  columnFilters: testColumnFilters,
+  clearFilters: testClearFilters,
+  setFilterValue: testSetFilterValue,
+  getFilterValue: testGetFilterValue
+} = useDataTable(testData, testColumns, 'country')
 </script>
+
+<style scoped>
+.statement-page {
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+</style>
