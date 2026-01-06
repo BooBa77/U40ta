@@ -1,36 +1,19 @@
-import { ref } from 'vue'
-import { useVueTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel } from '@tanstack/vue-table'
+import { useVueTable, getCoreRowModel, getSortedRowModel } from '@tanstack/vue-table'
 
 export function useDataTable(data, columns, sortBy = null) {
   const sorting = sortBy ? [{ id: sortBy, desc: false }] : []
-  const columnFilters = ref([])
 
   const table = useVueTable({
     data: data.value,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    state: {
-      sorting,
-      columnFilters: columnFilters.value,
-    },
+    state: { sorting },
     onSortingChange: () => {},
-    onColumnFiltersChange: (updater) => {
-      columnFilters.value = typeof updater === 'function' 
-        ? updater(columnFilters.value) 
-        : updater
-    },
   })
-
-  const clearFilters = () => {
-    columnFilters.value = []
-  }
 
   return {
     table,
-    rows: table.getRowModel().rows,
-    columnFilters,
-    clearFilters
+    rows: table.getRowModel().rows
   }
 }
