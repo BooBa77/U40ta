@@ -51,15 +51,27 @@ export default {
       const pendingToken = localStorage.getItem('pending_token')
       const authToken = localStorage.getItem('auth_token')
       
+      // Если есть authToken, переходим на главную
       if (authToken) {
         router.push('/')
         return
       }
       
+      // Если pending_token есть, но ему больше 24 часов — удаляем
       if (pendingToken) {
+        const pendingTimestamp = localStorage.getItem('pending_timestamp')
+        if (pendingTimestamp) {
+          const hoursPassed = (Date.now() - parseInt(pendingTimestamp)) / (1000 * 60 * 60)
+          if (hoursPassed > 24) {
+            localStorage.removeItem('pending_token')
+            localStorage.removeItem('pending_timestamp')
+            isPending.value = false
+            return
+          }
+        }
         isPending.value = true
       }
-    }
+    }    
 
     const initTelegramWidget = () => {
       if (isPending.value) return
