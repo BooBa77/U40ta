@@ -1,148 +1,136 @@
-<!-- src/views/Statement/components/StatementTable.vue -->
 <template>
-  <div class="statement-table-container">
-    <!-- Заголовок ведомости -->
-    <div class="statement-header">
-      <h2>Ведомость #{{ attachmentId }}</h2>
-      <div class="statement-info">
-        <div>Завод: {{ zavod }}</div>
-        <div>Склад: {{ sklad }}</div>
-        <div>Тип: {{ doc_type }}</div>
-      </div>
-    </div>
-
-    <!-- Таблица -->
-    <div class="table-wrapper">
-      <table>
+  <div class="statement-table">
+    <!-- Отдельный контейнер для шапки -->
+    <div class="table-header-container" ref="headerContainer">
+      <table class="header-table">
         <thead>
           <tr>
-            <th v-for="col in columns" :key="col.id" :style="{ width: col.size + 'px' }">
-              {{ col.header }}
+            <th 
+              v-for="header in table.getFlatHeaders()" 
+              :key="header.id"
+              :colspan="header.colSpan"
+              :style="{ width: `${header.getSize()}px` }"
+              @click="handleHeaderClick(header)"
+            >
+              {{ header.column.columnDef.header }}
             </th>
           </tr>
         </thead>
+      </table>
+    </div>
+    
+    <!-- Контейнер для тела с скроллом -->
+    <div class="table-body-container" ref="bodyContainer" @scroll="syncScroll">
+      <table class="body-table">
         <tbody>
-          <tr 
-            v-for="row in tableData" 
-            :key="row.id"
-            :class="getRowClass(row)"
-            @click="handleRowClick(row)"
-          >
-            <td v-for="col in columns" :key="col.id" :style="{ width: col.size + 'px' }">
-              {{ col.cell ? col.cell({ row: { original: row } }) : row[col.accessorKey] }}
+          <tr v-for="row in table.getRowModel().rows" :key="row.id">
+            <td 
+              v-for="cell in row.getVisibleCells()" 
+              :key="cell.id"
+              :style="{ width: `${cell.column.getSize()}px` }"
+              @click="handleRowClick(row)"
+            >
+              <div v-if="cell.column.id === 'qr_action'">
+                [QR]
+              </div>
+              <div v-else-if="cell.column.id === 'is_ignore'">
+                <input 
+                  type="checkbox" 
+                  :checked="cell.getValue()"
+                  @change="handleCheckboxChange(row.original.id, $event.target.checked)"
+                />
+              </div>
+              <span v-else>
+                {{ cell.getValue() ?? '—' }}
+              </span>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+    
+    <div class="scroll-indicator">
+      Показано {{ table.getRowModel().rows.length }} строк
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { useStatementData } from '../composables/useStatementData';
-import { useStatementColumns } from '../composables/useStatementColumns';
+import { ref, watch, onMounted, nextTick } from 'vue'
+import { 
+  useVueTable, 
+  getCoreRowModel 
+} from '@tanstack/vue-table'
 
 const props = defineProps({
   statements: {
     type: Array,
-    required: true
+    required: true,
+    default: () => []
   },
-  attachmentId: String,
-  zavod: Number,
-  sklad: String,
-  doc_type: String
-});
+  columns: {
+    type: Array,
+    required: true,
+    default: () => []
+  }
+})
 
-// Обработка данных
-const { sortedData, getRowColor } = useStatementData(props.statements);
-const { columns } = useStatementColumns();
+const headerContainer = ref(null)
+const bodyContainer = ref(null)
 
-const tableData = computed(() => sortedData.value);
+const table = useVueTable({
+  data: props.statements,
+  columns: props.columns,
+  getCoreRowModel: getCoreRowModel(),
+})
 
-const getRowClass = (row) => {
-  const color = getRowColor(row);
-  return `row-${color}`;
-};
+const handleHeaderClick = (header) => {
+  console.log('Клик по заголовку:', header.column.id)
+}
 
 const handleRowClick = (row) => {
-  console.log('Открыть модалку для:', row);
-};
+  console.log('Клик по строке:', row.original)
+}
+
+const handleCheckboxChange = (rowId, checked) => {
+  console.log('Чекбокс изменился:', rowId, checked)
+}
+
+// Синхронизация горизонтального скролла шапки и тела
+const syncScroll = () => {
+  if (headerContainer.value && bodyContainer.value) {
+    headerContainer.value.scrollLeft = bodyContainer.value.scrollLeft
+  }
+}
+
+// Установка одинаковой ширины колонок в шапке и теле
+const syncColumnWidths = () => {
+  nextTick(() => {
+    const headerTable = headerContainer.value?.querySelector('.header-table')
+    const bodyTable = bodyContainer.value?.querySelector('.body-table')
+    
+    if (headerTable && bodyTable) {
+      // Устанавливаем одинаковую ширину таблиц
+      const tableWidth = headerTable.offsetWidth
+      bodyTable.style.width = `${tableWidth}px`
+    }
+  })
+}
+
+onMounted(() => {
+  syncColumnWidths()
+  window.addEventListener('resize', syncColumnWidths)
+})
+
+watch(() => props.statements, () => {
+  table.setOptions(prev => ({
+    ...prev,
+    data: props.statements
+  }))
+  syncColumnWidths()
+}, { deep: true })
 </script>
 
 <style scoped>
-.statement-table-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.statement-header {
-  padding: 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
-  flex-shrink: 0;
-}
-
-.statement-info {
-  display: flex;
-  gap: 20px;
-  margin-top: 8px;
-}
-
-.table-wrapper {
-  flex: 1;
-  overflow: auto;
-  position: relative;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 600px;
-}
-
-thead {
-  position: sticky;
-  top: 0;
-  background: white;
-  z-index: 10;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-th, td {
-  border: 1px solid #dee2e6;
-  padding: 12px;
-  text-align: left;
-  vertical-align: middle;
-}
-
-/* Цвета строк */
-.row-red {
-  background-color: #ffe6e6;
-}
-.row-yellow {
-  background-color: #fff3cd;
-}
-.row-green {
-  background-color: #d4edda;
-}
-.row-gray {
-  background-color: #e9ecef;
-  color: #6c757d;
-}
-
-/* Кнопка QR */
-.qr-button {
-  padding: 6px 12px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.qr-button:hover {
-  background: #0056b3;
-}
+  @import './StatementTable.css';
 </style>

@@ -1,8 +1,6 @@
-// statements.controller.ts
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { StatementService } from './services/statement.service';
-import { GetStatementParamsDto } from './dto/get-statement-params.dto';
 import { StatementResponseDto } from './dto/statement-response.dto';
 
 @Controller('statements')
@@ -15,15 +13,13 @@ export class StatementsController {
    * GET /api/statements/:attachmentId
    */
   @Get(':attachmentId')
-  async getStatement(@Param() params: GetStatementParamsDto): Promise<StatementResponseDto> {
+  async getStatement(
+    @Param('attachmentId', ParseIntPipe) attachmentId: number
+  ): Promise<StatementResponseDto> {
     try {
-      // Преобразуем строку в число (attachmentId из @Param всегда строка)
-      const attachmentId = parseInt(params.attachmentId, 10);
-      
-      // Вызываем сервис
+      // attachmentId число благодаря ParseIntPipe
       const statements = await this.statementService.parseStatement(attachmentId);
       
-      // Возвращаем типизированный ответ
       const response = new StatementResponseDto();
       response.success = true;
       response.attachmentId = attachmentId;
@@ -36,7 +32,7 @@ export class StatementsController {
     } catch (error) {
       const response = new StatementResponseDto();
       response.success = false;
-      response.attachmentId = parseInt(params.attachmentId, 10) || 0;
+      response.attachmentId = attachmentId;
       response.statements = [];
       response.count = 0;
       response.error = error.message;

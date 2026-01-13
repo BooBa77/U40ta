@@ -27,6 +27,7 @@ export class StatementService {
     // 1. Находим вложение
     const attachment = await this.emailAttachmentRepo.findOne({
       where: { id: attachmentId },
+      relations: [], // если понадобятся связи
     });
 
     if (!attachment) {

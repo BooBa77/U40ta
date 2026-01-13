@@ -1,0 +1,129 @@
+.statement-table {
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* растягивается на всё доступное пространство */
+  min-height: 300px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background-color: white;
+  overflow: hidden; /* Чтобы углы скругления работали */
+}
+
+.table-header-container {
+  overflow: hidden;
+  border-bottom: 2px solid #e5e7eb;
+  background-color: #f9fafb;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.table-body-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background-color: white;
+}
+
+.header-table, .body-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* Заголовки */
+th {
+  padding: 14px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #1f2937;
+  border-right: 1px solid #e5e7eb;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+th:hover {
+  background-color: #f3f4f6;
+}
+
+/* Ячейки */
+td {
+  padding: 14px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  border-right: 1px solid #f3f4f6;
+  font-size: 0.875rem;
+  color: #4b5563;
+  vertical-align: middle;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: background-color 0.1s;
+}
+
+td:hover {
+  background-color: #f8fafc;
+}
+
+/* Убираем границу у последних ячеек */
+th:last-child, td:last-child {
+  border-right: none;
+}
+
+/* Эффект при наведении на строку */
+tr:hover td {
+  background-color: #f9fafb;
+}
+
+/* Индикатор скролла */
+.scroll-indicator {
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  flex-shrink: 0;
+}
+
+/* Чекбокс */
+input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: #3b82f6;
+}
+
+/* QR кнопка */
+.qr-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.qr-placeholder:hover {
+  background-color: #2563eb;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+  .statement-table {
+    height: calc(100vh - 180px);
+  }
+  
+  th, td {
+    padding: 10px 6px;
+    font-size: 0.8125rem;
+  }
+}

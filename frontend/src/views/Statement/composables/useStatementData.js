@@ -1,83 +1,53 @@
-import { computed } from 'vue';
+/**
+ * Хук для загрузки данных ведомости
+ * Версия 1: минимальная - только загрузка, без группировки и сортировки
+ * @param {string|number} attachmentId - ID вложения email
+ * @returns {Object} Состояния и методы для работы с данными ведомости
+ */
+import { ref } from 'vue'
+import { statementService } from '../services/statement.service'
 
-export function useStatementData(rawStatements) {
-  // 1. Группировка по inv_number + party_number
-  const groupedData = computed(() => {
-    const groups = {};
-    
-    rawStatements.forEach(statement => {
-      const key = `${statement.inv_number}|${statement.party_number}`;
-      
-      if (!groups[key]) {
-        groups[key] = {
-          ...statement,
-          count: 1,
-          items: [statement]
-        };
-      } else {
-        groups[key].count++;
-        groups[key].items.push(statement);
-      }
-    });
-    
-    return Object.values(groups);
-  });
+export function useStatementData(attachmentId) {
+  // Состояния
+  const loading = ref(true)
+  const error = ref(null)
+  const statements = ref([])
 
-  // 2. Сортировка по 4 группам
-  const sortedData = computed(() => {
-    const groups = {
-      haveObjectFalse: [],   // Красные: have_object = false
-      isExcessTrue: [],      // Жёлтые: is_excess = true
-      haveObjectTrue: [],    // Зелёные: have_object = true
-      isIgnoreTrue: []       // Серые: is_ignore = true
-    };
+  /**
+   * Загружает данные ведомости
+   */
+  const loadData = async () => {
+    loading.value = true
+    error.value = null
 
-    groupedData.value.forEach(group => {
-      if (group.is_ignore) {
-        groups.isIgnoreTrue.push(group);
-      } else if (!group.have_object) {
-        groups.haveObjectFalse.push(group);
-      } else if (group.is_excess) {
-        groups.isExcessTrue.push(group);
-      } else {
-        groups.haveObjectTrue.push(group);
-      }
-    });
+    try {
+      const data = await statementService.fetchStatement(attachmentId)
+      statements.value = data
+    } catch (err) {
+      error.value = err.message || 'Ошибка загрузки ведомости'
+      console.error('[useStatementData] Ошибка:', err)
+    } finally {
+      loading.value = false
+    }
+  }
 
-    // Сортировка внутри групп по buh_name
-    Object.keys(groups).forEach(key => {
-      groups[key].sort((a, b) => 
-        a.buh_name.localeCompare(b.buh_name, 'ru')
-      );
-    });
+  /**
+   * Перезагружает данные
+   */
+  const reload = () => {
+    loadData()
+  }
 
-    // Объединяем в нужном порядке
-    return [
-      ...groups.haveObjectFalse,
-      ...groups.isExcessTrue,
-      ...groups.haveObjectTrue,
-      ...groups.isIgnoreTrue
-    ];
-  });
-
-  // 3. Цвета строк
-  const getRowColor = (item) => {
-    if (item.is_ignore) return 'gray';
-    if (!item.have_object) return 'red';
-    if (item.is_excess) return 'yellow';
-    return 'green';
-  };
-
-  // 4. Фильтр "игнорировать" для всей группы
-  const getIgnoreStatus = (inv_number) => {
-    const groupItems = rawStatements.filter(s => s.inv_number === inv_number);
-    return groupItems.every(item => item.is_ignore);
-  };
+  // Автоматическая загрузка при инициализации
+  loadData()
 
   return {
-    groupedData,
-    sortedData,
-    getRowColor,
-    getIgnoreStatus
-  };
+    // Состояния
+    loading,
+    error,
+    statements,
+    
+    // Методы
+    reload
+  }
 }
