@@ -118,6 +118,7 @@ export default {
           router.push('/')
         } else if (data.status === 'pending') {
           localStorage.setItem('pending_token', 'true')
+          localStorage.setItem('pending_timestamp', Date.now().toString()) // Добавляем метку времени
           isPending.value = true
         } else {
           alert('Ошибка авторизации: ' + (data.message || 'Неизвестная ошибка'))
