@@ -17,9 +17,6 @@ export function useStatementColumns() {
       id: 'qr_action',
       header: 'QR',
       accessorKey: 'id', // используем id как ключ для сканирования
-      size: 70,
-      minSize: 60,
-      maxSize: 80,
       cell: ({ row }) => h(QrScannerButton, {
         size: 'small',
         // Можно передать данные строки для предзаполнения
@@ -35,9 +32,6 @@ export function useStatementColumns() {
       id: 'is_ignore',
       header: 'Игнор',
       accessorKey: 'is_ignore',
-      size: 70,
-      minSize: 60,
-      maxSize: 80,
       cell: ({ row }) => {
         const isChecked = row.original.is_ignore || row.original.isIgnore || false
         
@@ -57,9 +51,6 @@ export function useStatementColumns() {
       id: 'inv_number',
       header: 'Инв. номер',
       accessorKey: 'inv_number',
-      size: 150,
-      minSize: 120,
-      maxSize: 200,
       cell: ({ getValue }) => {
         const value = getValue()
         return value || '—'
@@ -71,9 +62,6 @@ export function useStatementColumns() {
       id: 'party_number',
       header: 'Партия',
       accessorKey: 'party_number',
-      size: 120,
-      minSize: 100,
-      maxSize: 150,
       cell: ({ getValue }) => {
         const value = getValue()
         return value || '—'
@@ -85,9 +73,6 @@ export function useStatementColumns() {
       id: 'buh_name',
       header: 'Наименование',
       accessorKey: 'buh_name',
-      size: 300,
-      minSize: 200,
-      maxSize: 400,
       cell: ({ getValue }) => {
         const value = getValue()
         return value || '—'
@@ -99,9 +84,6 @@ export function useStatementColumns() {
       id: 'quantity',
       header: 'Кол-во',
       accessorKey: 'quantity',
-      size: 80,
-      minSize: 70,
-      maxSize: 100,
       cell: () => '—' // Заглушка, будет вычисляться при группировке
     }
   ]

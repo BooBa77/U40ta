@@ -9,7 +9,6 @@
               v-for="header in table.getFlatHeaders()" 
               :key="header.id"
               :colspan="header.colSpan"
-              :style="{ width: `${header.getSize()}px` }"
               @click="handleHeaderClick(header)"
             >
               {{ header.column.columnDef.header }}
@@ -27,7 +26,6 @@
             <td 
               v-for="cell in row.getVisibleCells()" 
               :key="cell.id"
-              :style="{ width: `${cell.column.getSize()}px` }"
               @click="handleRowClick(row)"
             >
               <div v-if="cell.column.id === 'qr_action'">
