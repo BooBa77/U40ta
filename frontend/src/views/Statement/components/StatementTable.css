@@ -1,42 +1,37 @@
 .statement-table {
-  display: flex;
-  flex-direction: column;
+  display: block;
   flex: 1;
   min-height: 300px;
+  max-height: 100%;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background-color: white;
-  overflow: hidden;
-}
-
-.table-header-container {
-  overflow: hidden;
-  border-bottom: 2px solid #e5e7eb;
-  background-color: #f9fafb;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 10;
-}
-
-.table-body-container {
-  flex: 1;
   overflow: auto;
   position: relative;
-  background-color: white;
 }
 
-.header-table, .body-table {
+.statement-table table {
+  width: 100%;
   border-collapse: collapse;
-  table-layout: fixed; /* Важно: фиксированная раскладка для синхронизации */
+  table-layout: fixed;
 }
 
-/* Заголовки таблицы */
-th {
+/* Заголовок таблицы с фиксацией при скролле */
+.table-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f9fafb;
+}
+
+/* Заголовки колонок */
+.table-header th {
   padding: 14px 10px;
   text-align: left;
   font-weight: 600;
   font-size: 0.875rem;
   color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
   border-right: 1px solid #e5e7eb;
   cursor: pointer;
   user-select: none;
@@ -44,15 +39,61 @@ th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-sizing: border-box; /* Учитываем padding и border в ширине */
+  box-sizing: border-box;
 }
 
-th:hover {
+.table-header th:hover {
   background-color: #f3f4f6;
 }
 
+.table-header th:last-child {
+  border-right: none;
+}
+
+/* Фиксированные ширины колонок */
+.table-header th:nth-child(1),
+.statement-table tbody td:nth-child(1) {
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+}
+
+.table-header th:nth-child(2),
+.statement-table tbody td:nth-child(2) {
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+}
+
+.table-header th:nth-child(3),
+.statement-table tbody td:nth-child(3) {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+}
+
+.table-header th:nth-child(4),
+.statement-table tbody td:nth-child(4) {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.table-header th:nth-child(5),
+.statement-table tbody td:nth-child(5) {
+  width: auto;
+  min-width: 200px;
+}
+
+.table-header th:nth-child(6),
+.statement-table tbody td:nth-child(6) {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+}
+
 /* Ячейки таблицы */
-td {
+.statement-table tbody td {
   padding: 14px 10px;
   border-bottom: 1px solid #f3f4f6;
   border-right: 1px solid #f3f4f6;
@@ -62,68 +103,32 @@ td {
   cursor: pointer;
   line-height: 1.4;
   transition: background-color 0.1s;
-  box-sizing: border-box; /* Учитываем padding и border в ширине */
+  box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-td:hover {
+.statement-table tbody td:hover {
   background-color: #f8fafc;
 }
 
-/* Убираем границу у последних ячеек */
-th:last-child, td:last-child {
+.statement-table tbody td:last-child {
   border-right: none;
 }
 
 /* Эффект при наведении на строку */
-tr:hover td {
+.statement-table tbody tr:hover td {
   background-color: #f9fafb;
-}
-
-/* Минимальные ширины колонок по умолчанию */
-th:nth-child(1), td:nth-child(1) { /* QR (1-я колонка) */
-  min-width: 60px;
-}
-
-th:nth-child(2), td:nth-child(2) { /* Игнор (2-я колонка) */
-  min-width: 60px;
-}
-
-th:nth-child(3), td:nth-child(3) { /* Инв. номер (3-я колонка) */
-  min-width: 140px;
-}
-
-th:nth-child(4), td:nth-child(4) { /* Партия (4-я колонка) */
-  min-width: 100px;
-}
-
-th:nth-child(5), td:nth-child(5) { /* Наименование (5-я колонка) */
-  min-width: 200px;
-}
-
-th:nth-child(6), td:nth-child(6) { /* Кол-во (6-я колонка) */
-  min-width: 70px;
-}
-
-/* Индикатор скролла */
-.scroll-indicator {
-  padding: 10px 12px;
-  font-size: 0.75rem;
-  color: #6b7280;
-  text-align: center;
-  border-top: 1px solid #e5e7eb;
-  background-color: #f9fafb;
-  flex-shrink: 0;
 }
 
 /* Чекбокс */
-input[type="checkbox"] {
+.statement-table input[type="checkbox"] {
   cursor: pointer;
   width: 18px;
   height: 18px;
   accent-color: #3b82f6;
+  margin: 0;
 }
 
 /* QR кнопка */
@@ -147,35 +152,39 @@ input[type="checkbox"] {
 
 /* Цветовые группы строк в стиле Excel */
 .row-group-1 td { 
-  background-color: #FFC7CE; /* светло-красный фон */
-  color: #9C0006; /* тёмно-красный текст */
+  background-color: #FFC7CE;
+  color: #9C0006;
 }
+
 .row-group-1:hover td { 
-  background-color: #FFB6C1; /* немного темнее при наведении */
+  background-color: #FFB6C1;
 }
 
 .row-group-2 td { 
-  background-color: #FFEB9C; /* светло-жёлтый фон */
-  color: #9C6500; /* тёмно-оранжевый текст */
+  background-color: #FFEB9C;
+  color: #9C6500;
 }
+
 .row-group-2:hover td { 
-  background-color: #FFE484; /* немного темнее при наведении */
+  background-color: #FFE484;
 }
 
 .row-group-3 td { 
-  background-color: #C6EFCE; /* светло-зелёный фон */
-  color: #006100; /* тёмно-зелёный текст */
+  background-color: #C6EFCE;
+  color: #006100;
 }
+
 .row-group-3:hover td { 
-  background-color: #B7E4B5; /* немного темнее при наведении */
+  background-color: #B7E4B5;
 }
 
 .row-group-4 td { 
-  background-color: #F2F2F2; /* светло-серый фон */
-  color: #7F7F7F; /* серый текст */
+  background-color: #F2F2F2;
+  color: #7F7F7F;
 }
+
 .row-group-4:hover td { 
-  background-color: #E6E6E6; /* немного темнее при наведении */
+  background-color: #E6E6E6;
 }
 
 /* Мобильная адаптация */
@@ -184,8 +193,49 @@ input[type="checkbox"] {
     height: calc(100vh - 180px);
   }
   
-  th, td {
+  .table-header th,
+  .statement-table tbody td {
     padding: 10px 6px;
     font-size: 0.8125rem;
+  }
+  
+  .table-header th:nth-child(1),
+  .statement-table tbody td:nth-child(1) {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+  }
+  
+  .table-header th:nth-child(2),
+  .statement-table tbody td:nth-child(2) {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+  }
+  
+  .table-header th:nth-child(3),
+  .statement-table tbody td:nth-child(3) {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+  
+  .table-header th:nth-child(4),
+  .statement-table tbody td:nth-child(4) {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+  }
+  
+  .table-header th:nth-child(5),
+  .statement-table tbody td:nth-child(5) {
+    min-width: 150px;
+  }
+  
+  .table-header th:nth-child(6),
+  .statement-table tbody td:nth-child(6) {
+    width: 70px;
+    min-width: 70px;
+    max-width: 70px;
   }
 }
