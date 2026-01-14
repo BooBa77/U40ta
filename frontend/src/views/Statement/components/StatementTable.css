@@ -76,9 +76,9 @@
 /* 3. Инвентарный номер + партия */
 .table-header th:nth-child(3),
 .statement-table tbody td:nth-child(3) {
-  width: 140px;
-  min-width: 140px;
-  max-width: 140px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
   padding: 8px 6px;
 }
 
