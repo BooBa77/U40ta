@@ -27,6 +27,7 @@
         v-if="statements.length > 0"
         :statements="statements"
         :columns="columns"
+        :get-row-group="getRowGroup"
       />
       
       <div v-else class="empty">
@@ -46,7 +47,7 @@ const route = useRoute()
 const attachmentId = route.params.id
 
 // Загружаем данные
-const { loading, error, statements, reload } = useStatementData(attachmentId)
+const { loading, error, statements, reload, getRowGroup } = useStatementData(attachmentId)
 
 // Получаем колонки
 const columns = useStatementColumns()

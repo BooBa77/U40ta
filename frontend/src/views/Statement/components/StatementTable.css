@@ -26,12 +26,11 @@
 }
 
 .header-table, .body-table {
-  width: 100%;
   border-collapse: collapse;
-  table-layout: auto;
+  table-layout: fixed; /* Важно: фиксированная раскладка для синхронизации */
 }
 
-/* Заголовки */
+/* Заголовки таблицы */
 th {
   padding: 14px 10px;
   text-align: left;
@@ -45,13 +44,14 @@ th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-sizing: border-box; /* Учитываем padding и border в ширине */
 }
 
 th:hover {
   background-color: #f3f4f6;
 }
 
-/* Ячейки */
+/* Ячейки таблицы */
 td {
   padding: 14px 10px;
   border-bottom: 1px solid #f3f4f6;
@@ -62,6 +62,10 @@ td {
   cursor: pointer;
   line-height: 1.4;
   transition: background-color 0.1s;
+  box-sizing: border-box; /* Учитываем padding и border в ширине */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 td:hover {
@@ -78,44 +82,30 @@ tr:hover td {
   background-color: #f9fafb;
 }
 
-/* === ДОБАВЛЯЕМ ЭТОТ БЛОК === */
-/* Ширины колонок по номеру */
+/* Минимальные ширины колонок по умолчанию */
 th:nth-child(1), td:nth-child(1) { /* QR (1-я колонка) */
-  width: 70px;
   min-width: 60px;
-  max-width: 80px;
 }
 
 th:nth-child(2), td:nth-child(2) { /* Игнор (2-я колонка) */
-  width: 70px;
   min-width: 60px;
-  max-width: 80px;
 }
 
 th:nth-child(3), td:nth-child(3) { /* Инв. номер (3-я колонка) */
-  width: auto; /* Гибкая ширина */
   min-width: 140px;
-  max-width: 250px;
 }
 
 th:nth-child(4), td:nth-child(4) { /* Партия (4-я колонка) */
-  width: 120px;
   min-width: 100px;
-  max-width: 150px;
 }
 
 th:nth-child(5), td:nth-child(5) { /* Наименование (5-я колонка) */
-  width: auto; /* Гибкая ширина */
   min-width: 200px;
-  max-width: none;
 }
 
 th:nth-child(6), td:nth-child(6) { /* Кол-во (6-я колонка) */
-  width: 80px;
   min-width: 70px;
-  max-width: 100px;
 }
-/* === КОНЕЦ БЛОКА === */
 
 /* Индикатор скролла */
 .scroll-indicator {
@@ -153,6 +143,39 @@ input[type="checkbox"] {
 
 .qr-placeholder:hover {
   background-color: #2563eb;
+}
+
+/* Цветовые группы строк в стиле Excel */
+.row-group-1 td { 
+  background-color: #FFC7CE; /* светло-красный фон */
+  color: #9C0006; /* тёмно-красный текст */
+}
+.row-group-1:hover td { 
+  background-color: #FFB6C1; /* немного темнее при наведении */
+}
+
+.row-group-2 td { 
+  background-color: #FFEB9C; /* светло-жёлтый фон */
+  color: #9C6500; /* тёмно-оранжевый текст */
+}
+.row-group-2:hover td { 
+  background-color: #FFE484; /* немного темнее при наведении */
+}
+
+.row-group-3 td { 
+  background-color: #C6EFCE; /* светло-зелёный фон */
+  color: #006100; /* тёмно-зелёный текст */
+}
+.row-group-3:hover td { 
+  background-color: #B7E4B5; /* немного темнее при наведении */
+}
+
+.row-group-4 td { 
+  background-color: #F2F2F2; /* светло-серый фон */
+  color: #7F7F7F; /* серый текст */
+}
+.row-group-4:hover td { 
+  background-color: #E6E6E6; /* немного темнее при наведении */
 }
 
 /* Мобильная адаптация */
