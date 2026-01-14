@@ -4,8 +4,20 @@
       <!-- Заголовок таблицы с position: sticky -->
       <thead class="table-header">
         <tr>
+          <!-- QR колонка - без видимого текста на десктопе, пустая на мобильных -->
+          <th @click="handleHeaderClick(table.getFlatHeaders()[0])">
+            <span class="sr-only">QR</span>
+          </th>
+          
+          <!-- Игнор колонка - "X" на мобильных, "Игнор" на десктопе -->
+          <th @click="handleHeaderClick(table.getFlatHeaders()[1])">
+            <span class="full-text">Игнор</span>
+            <span class="short-text">X</span>
+          </th>
+          
+          <!-- Остальные заголовки -->
           <th 
-            v-for="header in table.getFlatHeaders()" 
+            v-for="header in table.getFlatHeaders().slice(2)" 
             :key="header.id"
             :colspan="header.colSpan"
             @click="handleHeaderClick(header)"
@@ -38,6 +50,7 @@
                 :checked="cell.getValue()"
                 @change="handleCheckboxChange(row.original.id, $event.target.checked)"
                 @click.stop
+                :aria-label="`Игнорировать ${row.original.inv_number || row.original.invNumber || ''}`"
               />
             </div>
             <span v-else>
@@ -51,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { 
   useVueTable, 
   getCoreRowModel 
@@ -87,7 +100,9 @@ const table = useVueTable({
  * Обработчик клика по заголовку колонки
  */
 const handleHeaderClick = (header) => {
+  if (!header) return
   console.log('Клик по заголовку:', header.column.id)
+  // Здесь будет сортировка
 }
 
 /**
@@ -130,4 +145,17 @@ watch(() => props.statements, () => {
 
 <style scoped>
 @import './StatementTable.css';
+
+/* Скрытый текст для скринридеров */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>

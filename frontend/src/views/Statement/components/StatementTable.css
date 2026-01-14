@@ -8,12 +8,14 @@
   background-color: white;
   overflow: auto;
   position: relative;
+  -webkit-overflow-scrolling: touch; /* Для плавного скролла на iOS */
 }
 
 .statement-table table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  min-width: 600px; /* Минимальная ширина таблицы */
 }
 
 /* Заголовок таблицы с фиксацией при скролле */
@@ -26,7 +28,7 @@
 
 /* Заголовки колонок */
 .table-header th {
-  padding: 14px 10px;
+  padding: 12px 8px;
   text-align: left;
   font-weight: 600;
   font-size: 0.875rem;
@@ -40,6 +42,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   box-sizing: border-box;
+  height: 44px; /* Фиксированная высота для заголовков */
 }
 
 .table-header th:hover {
@@ -50,51 +53,94 @@
   border-right: none;
 }
 
-/* Фиксированные ширины колонок */
-.table-header th:nth-child(1),
+/* Адаптивные ширины колонок */
+.table-header th:nth-child(1), /* QR */
 .statement-table tbody td:nth-child(1) {
-  width: 70px;
-  min-width: 70px;
-  max-width: 70px;
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  text-align: center;
+  padding: 8px 4px;
 }
 
-.table-header th:nth-child(2),
+/* Скрываем текст заголовка QR на всех экранах */
+.table-header th:nth-child(1) {
+  font-size: 0; /* Скрываем текст */
+}
+
+/* Показываем только иконку или символ для QR */
+.table-header th:nth-child(1)::before {
+  content: "QR";
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Для мобильных - еще компактнее */
+@media (max-width: 768px) {
+  .table-header th:nth-child(1)::before {
+    content: ""; /* На мобильных скрываем полностью */
+  }
+}
+
+.table-header th:nth-child(2), /* Игнор (X) */
 .statement-table tbody td:nth-child(2) {
-  width: 70px;
-  min-width: 70px;
-  max-width: 70px;
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  text-align: center;
+  padding: 8px 4px;
 }
 
-.table-header th:nth-child(3),
+/* Для заголовка "Игнор" показываем только "X" на мобильных */
+.table-header th:nth-child(2) .full-text {
+  display: inline;
+}
+
+.table-header th:nth-child(2) .short-text {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .table-header th:nth-child(2) .full-text {
+    display: none;
+  }
+  
+  .table-header th:nth-child(2) .short-text {
+    display: inline;
+  }
+}
+
+.table-header th:nth-child(3), /* Инв. номер */
 .statement-table tbody td:nth-child(3) {
   width: 140px;
-  min-width: 140px;
-  max-width: 140px;
+  min-width: 100px;
+  max-width: 200px;
 }
 
-.table-header th:nth-child(4),
+.table-header th:nth-child(4), /* Партия */
 .statement-table tbody td:nth-child(4) {
   width: 120px;
-  min-width: 120px;
-  max-width: 120px;
-}
-
-.table-header th:nth-child(5),
-.statement-table tbody td:nth-child(5) {
-  width: auto;
-  min-width: 200px;
-}
-
-.table-header th:nth-child(6),
-.statement-table tbody td:nth-child(6) {
-  width: 80px;
   min-width: 80px;
+  max-width: 150px;
+}
+
+.table-header th:nth-child(5), /* Наименование */
+.statement-table tbody td:nth-child(5) {
+  width: auto; /* Занимает оставшееся пространство */
+  min-width: 150px;
+}
+
+.table-header th:nth-child(6), /* Кол-во */
+.statement-table tbody td:nth-child(6) {
+  width: 70px;
+  min-width: 60px;
   max-width: 80px;
+  text-align: center;
 }
 
 /* Ячейки таблицы */
 .statement-table tbody td {
-  padding: 14px 10px;
+  padding: 12px 8px;
   border-bottom: 1px solid #f3f4f6;
   border-right: 1px solid #f3f4f6;
   font-size: 0.875rem;
@@ -104,9 +150,23 @@
   line-height: 1.4;
   transition: background-color 0.1s;
   box-sizing: border-box;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Разные настройки переноса для колонок */
+.statement-table tbody td:nth-child(1), /* QR */
+.statement-table tbody td:nth-child(2), /* Игнор */
+.statement-table tbody td:nth-child(6) { /* Кол-во */
+  white-space: nowrap;
+}
+
+.statement-table tbody td:nth-child(3), /* Инв. номер */
+.statement-table tbody td:nth-child(4), /* Партия */
+.statement-table tbody td:nth-child(5) { /* Наименование */
+  white-space: normal;
+  word-wrap: break-word;
+  hyphens: auto;
 }
 
 .statement-table tbody td:hover {
@@ -125,10 +185,11 @@
 /* Чекбокс */
 .statement-table input[type="checkbox"] {
   cursor: pointer;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   accent-color: #3b82f6;
   margin: 0;
+  vertical-align: middle;
 }
 
 /* QR кнопка */
@@ -144,6 +205,7 @@
   font-size: 0.75rem;
   cursor: pointer;
   transition: background-color 0.2s;
+  margin: 0 auto;
 }
 
 .qr-placeholder:hover {
@@ -190,52 +252,119 @@
 /* Мобильная адаптация */
 @media (max-width: 768px) {
   .statement-table {
-    height: calc(100vh - 180px);
+    height: calc(100vh - 160px);
+    border-radius: 4px;
+  }
+  
+  .statement-table table {
+    min-width: 500px; /* Уменьшаем минимальную ширину для мобильных */
   }
   
   .table-header th,
   .statement-table tbody td {
-    padding: 10px 6px;
+    padding: 8px 6px;
     font-size: 0.8125rem;
   }
   
   .table-header th:nth-child(1),
   .statement-table tbody td:nth-child(1) {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 6px 2px;
   }
   
   .table-header th:nth-child(2),
   .statement-table tbody td:nth-child(2) {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 6px 2px;
   }
   
   .table-header th:nth-child(3),
   .statement-table tbody td:nth-child(3) {
-    width: 120px;
-    min-width: 120px;
+    width: 100px;
+    min-width: 80px;
     max-width: 120px;
+    font-size: 0.75rem;
   }
   
   .table-header th:nth-child(4),
   .statement-table tbody td:nth-child(4) {
-    width: 100px;
-    min-width: 100px;
+    width: 80px;
+    min-width: 60px;
     max-width: 100px;
+    font-size: 0.75rem;
   }
   
   .table-header th:nth-child(5),
   .statement-table tbody td:nth-child(5) {
-    min-width: 150px;
+    min-width: 120px;
+    font-size: 0.8125rem;
   }
   
   .table-header th:nth-child(6),
   .statement-table tbody td:nth-child(6) {
-    width: 70px;
-    min-width: 70px;
+    width: 60px;
+    min-width: 50px;
     max-width: 70px;
+    padding: 6px 2px;
+    font-size: 0.75rem;
+  }
+  
+  /* Уменьшаем QR кнопку на мобильных */
+  .qr-placeholder {
+    width: 28px;
+    height: 28px;
+    font-size: 0.6875rem;
+  }
+  
+  /* Уменьшаем чекбокс на мобильных */
+  .statement-table input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Очень маленькие экраны (телефоны в портретной ориентации) */
+@media (max-width: 480px) {
+  .statement-table table {
+    min-width: 450px;
+  }
+  
+  .table-header th:nth-child(3),
+  .statement-table tbody td:nth-child(3) {
+    min-width: 70px;
+    max-width: 100px;
+  }
+  
+  .table-header th:nth-child(4),
+  .statement-table tbody td:nth-child(4) {
+    min-width: 50px;
+    max-width: 80px;
+  }
+  
+  .table-header th:nth-child(5),
+  .statement-table tbody td:nth-child(5) {
+    min-width: 100px;
+  }
+}
+
+/* Индикатор горизонтального скролла для мобильных */
+@media (max-width: 768px) {
+  .statement-table::after {
+    content: "← прокрутите →";
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 0.75rem;
+    color: #6b7280;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 4px 8px;
+    border-radius: 12px;
+    pointer-events: none;
+    opacity: 0.8;
+    z-index: 5;
   }
 }

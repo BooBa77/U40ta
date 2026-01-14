@@ -12,14 +12,13 @@ export function useStatementColumns() {
    * Формат колонок для TanStack Table v8
    */
   const columns = [
-    // 1. Колонка QR-кнопки
+    // 1. Колонка QR-кнопки - без заголовка (будет скрыт в CSS)
     {
       id: 'qr_action',
-      header: 'QR',
-      accessorKey: 'id', // используем id как ключ для сканирования
+      header: '', // Пустой заголовок - будет скрыт в CSS
+      accessorKey: 'id',
       cell: ({ row }) => h(QrScannerButton, {
         size: 'small',
-        // Можно передать данные строки для предзаполнения
         initialData: {
           inv_number: row.original.inv_number || row.original.invNumber,
           party_number: row.original.party_number || row.original.partyNumber
@@ -30,7 +29,7 @@ export function useStatementColumns() {
     // 2. Колонка чекбокса "Игнорировать"
     {
       id: 'is_ignore',
-      header: 'Игнор',
+      header: 'Игнор', // На мобильных будет "X"
       accessorKey: 'is_ignore',
       cell: ({ row }) => {
         const isChecked = row.original.is_ignore || row.original.isIgnore || false
@@ -39,7 +38,6 @@ export function useStatementColumns() {
           type: 'checkbox',
           checked: isChecked,
           onChange: (event) => {
-            // TODO: Обновление на сервере через statementService.updateFlags()
             console.log('Изменили is_ignore для строки', row.original.id, 'на', event.target.checked)
           }
         })
@@ -68,7 +66,7 @@ export function useStatementColumns() {
       }
     },
     
-    // 5. Колонка наименования (бухгалтерского)
+    // 5. Колонка наименования (бухгалтерского) - самая широкая
     {
       id: 'buh_name',
       header: 'Наименование',
@@ -79,12 +77,12 @@ export function useStatementColumns() {
       }
     },
     
-    // 6. Колонка количества (пока заглушка - будет для группированных строк)
+    // 6. Колонка количества
     {
       id: 'quantity',
       header: 'Кол-во',
       accessorKey: 'quantity',
-      cell: () => '—' // Заглушка, будет вычисляться при группировке
+      cell: () => '—'
     }
   ]
 
