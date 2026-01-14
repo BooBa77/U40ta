@@ -1,21 +1,11 @@
-/**
- * Хук для определения колонок таблицы ведомостей
- * Используется с TanStack Table
- * @returns {Array} Массив определений колонок для TanStack Table
- */
 import { h } from 'vue'
 import QrScannerButton from '../../../components/ui/QrScannerButton.vue'
 
 export function useStatementColumns() {
-  /**
-   * Определяем колонки таблицы
-   * Формат колонок для TanStack Table v8
-   */
   const columns = [
-    // 1. Колонка QR-кнопки - без заголовка (будет скрыт в CSS)
     {
       id: 'qr_action',
-      header: '', // Пустой заголовок - будет скрыт в CSS
+      header: '',
       accessorKey: 'id',
       cell: ({ row }) => h(QrScannerButton, {
         size: 'small',
@@ -25,15 +15,12 @@ export function useStatementColumns() {
         }
       })
     },
-    
-    // 2. Колонка чекбокса "Игнорировать"
     {
       id: 'is_ignore',
-      header: 'Игнор', // На мобильных будет "X"
+      header: 'X',
       accessorKey: 'is_ignore',
       cell: ({ row }) => {
         const isChecked = row.original.is_ignore || row.original.isIgnore || false
-        
         return h('input', {
           type: 'checkbox',
           checked: isChecked,
@@ -43,30 +30,23 @@ export function useStatementColumns() {
         })
       }
     },
-    
-    // 3. Колонка инвентарного номера
     {
-      id: 'inv_number',
+      id: 'inv_party_combined',
       header: 'Инв. номер',
-      accessorKey: 'inv_number',
-      cell: ({ getValue }) => {
-        const value = getValue()
-        return value || '—'
+      accessorFn: (row) => {
+        const inv = row.inv_number || row.invNumber || ''
+        const party = row.party_number || row.partyNumber || ''
+        return `${inv}\n${party}`
+      },
+      cell: ({ row }) => {
+        const inv = row.original.inv_number || row.original.invNumber || '—'
+        const party = row.original.party_number || row.original.partyNumber || '—'
+        return h('div', { class: 'inv-party-cell' }, [
+          h('div', { class: 'inv-number' }, inv),
+          h('div', { class: 'party-number' }, party)
+        ])
       }
     },
-    
-    // 4. Колонка номера партии
-    {
-      id: 'party_number',
-      header: 'Партия',
-      accessorKey: 'party_number',
-      cell: ({ getValue }) => {
-        const value = getValue()
-        return value || '—'
-      }
-    },
-    
-    // 5. Колонка наименования (бухгалтерского) - самая широкая
     {
       id: 'buh_name',
       header: 'Наименование',
@@ -76,8 +56,6 @@ export function useStatementColumns() {
         return value || '—'
       }
     },
-    
-    // 6. Колонка количества
     {
       id: 'quantity',
       header: 'Кол-во',

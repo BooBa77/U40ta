@@ -19,19 +19,17 @@ export function useStatementData(attachmentId) {
    * @returns {number} номер группы (1-4)
    */
   const getRowGroup = (row) => {
-    // snake_case из кэша или camelCase из API
     const haveObject = row.have_object ?? row.haveObject
     const isExcess = row.is_excess ?? row.isExcess
     const isIgnore = row.is_ignore ?? row.isIgnore
     
-    if (haveObject === false) return 1 // красный
-    if (isExcess === true) return 2    // жёлтый
-    if (haveObject === true) return 3  // зелёный
-    if (isIgnore === true) return 4    // серый
+    if (haveObject === false) return 1
+    if (isExcess === true) return 2
+    if (haveObject === true) return 3
+    if (isIgnore === true) return 4
     
-    return 3 // по умолчанию зелёный
+    return 3
   }
-
   /**
    * Сортирует statements по группам и наименованию
    * @param {Array} statements - массив строк ведомости
@@ -39,22 +37,32 @@ export function useStatementData(attachmentId) {
    */
   const sortStatements = (statements) => {
     return [...statements].sort((a, b) => {
-      // 1. Сортировка по группе (1-4)
       const groupA = getRowGroup(a)
       const groupB = getRowGroup(b)
       
       if (groupA !== groupB) {
-        return groupA - groupB // 1,2,3,4 порядок
+        return groupA - groupB
       }
       
-      // 2. Внутри группы - сортировка по наименованию
       const nameA = (a.buh_name ?? a.buhName ?? '').toLowerCase()
       const nameB = (b.buh_name ?? b.buhName ?? '').toLowerCase()
       
-      return nameA.localeCompare(nameB)
+      if (nameA !== nameB) {
+        return nameA.localeCompare(nameB)
+      }
+      
+      const invA = (a.inv_number ?? a.invNumber ?? '').toLowerCase()
+      const invB = (b.inv_number ?? b.invNumber ?? '').toLowerCase()
+      const partyA = (a.party_number ?? a.partyNumber ?? '').toLowerCase()
+      const partyB = (b.party_number ?? b.partyNumber ?? '').toLowerCase()
+      
+      if (invA !== invB) {
+        return invA.localeCompare(invB)
+      }
+      
+      return partyA.localeCompare(partyB)
     })
   }
-
   /**
    * Загружает данные ведомости
    */

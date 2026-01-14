@@ -8,17 +8,16 @@
   background-color: white;
   overflow: auto;
   position: relative;
-  -webkit-overflow-scrolling: touch; /* Для плавного скролла на iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 .statement-table table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  min-width: 600px; /* Минимальная ширина таблицы */
+  min-width: 500px;
 }
 
-/* Заголовок таблицы с фиксацией при скролле */
 .table-header {
   position: sticky;
   top: 0;
@@ -26,9 +25,8 @@
   background-color: #f9fafb;
 }
 
-/* Заголовки колонок */
 .table-header th {
-  padding: 12px 8px;
+  padding: 12px 6px;
   text-align: left;
   font-weight: 600;
   font-size: 0.875rem;
@@ -42,7 +40,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   box-sizing: border-box;
-  height: 44px; /* Фиксированная высота для заголовков */
+  height: 44px;
 }
 
 .table-header th:hover {
@@ -53,120 +51,60 @@
   border-right: none;
 }
 
-/* Адаптивные ширины колонок */
-.table-header th:nth-child(1), /* QR */
+.table-header th:nth-child(1),
 .statement-table tbody td:nth-child(1) {
   width: 50px;
   min-width: 50px;
   max-width: 50px;
   text-align: center;
-  padding: 8px 4px;
+  padding: 8px 2px;
 }
 
-/* Скрываем текст заголовка QR на всех экранах */
-.table-header th:nth-child(1) {
-  font-size: 0; /* Скрываем текст */
-}
-
-/* Показываем только иконку или символ для QR */
-.table-header th:nth-child(1)::before {
-  content: "QR";
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-/* Для мобильных - еще компактнее */
-@media (max-width: 768px) {
-  .table-header th:nth-child(1)::before {
-    content: ""; /* На мобильных скрываем полностью */
-  }
-}
-
-.table-header th:nth-child(2), /* Игнор (X) */
+.table-header th:nth-child(2),
 .statement-table tbody td:nth-child(2) {
-  width: 50px;
-  min-width: 50px;
-  max-width: 50px;
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
   text-align: center;
-  padding: 8px 4px;
+  padding: 8px 2px;
 }
 
-/* Для заголовка "Игнор" показываем только "X" на мобильных */
-.table-header th:nth-child(2) .full-text {
-  display: inline;
-}
-
-.table-header th:nth-child(2) .short-text {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .table-header th:nth-child(2) .full-text {
-    display: none;
-  }
-  
-  .table-header th:nth-child(2) .short-text {
-    display: inline;
-  }
-}
-
-.table-header th:nth-child(3), /* Инв. номер */
+.table-header th:nth-child(3),
 .statement-table tbody td:nth-child(3) {
-  width: 140px;
-  min-width: 100px;
-  max-width: 200px;
-}
-
-.table-header th:nth-child(4), /* Партия */
-.statement-table tbody td:nth-child(4) {
-  width: 120px;
-  min-width: 80px;
-  max-width: 150px;
-}
-
-.table-header th:nth-child(5), /* Наименование */
-.statement-table tbody td:nth-child(5) {
-  width: auto; /* Занимает оставшееся пространство */
+  width: 200px;
   min-width: 150px;
+  max-width: 300px;
+  padding: 8px 6px;
 }
 
-.table-header th:nth-child(6), /* Кол-во */
-.statement-table tbody td:nth-child(6) {
+.table-header th:nth-child(4),
+.statement-table tbody td:nth-child(4) {
+  width: auto;
+  min-width: 150px;
+  padding: 8px 6px;
+}
+
+.table-header th:nth-child(5),
+.statement-table tbody td:nth-child(5) {
   width: 70px;
   min-width: 60px;
   max-width: 80px;
   text-align: center;
+  padding: 8px 2px;
 }
 
-/* Ячейки таблицы */
 .statement-table tbody td {
-  padding: 12px 8px;
+  padding: 10px 6px;
   border-bottom: 1px solid #f3f4f6;
   border-right: 1px solid #f3f4f6;
   font-size: 0.875rem;
   color: #4b5563;
-  vertical-align: middle;
+  vertical-align: top;
   cursor: pointer;
-  line-height: 1.4;
+  line-height: 1.2;
   transition: background-color 0.1s;
   box-sizing: border-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Разные настройки переноса для колонок */
-.statement-table tbody td:nth-child(1), /* QR */
-.statement-table tbody td:nth-child(2), /* Игнор */
-.statement-table tbody td:nth-child(6) { /* Кол-во */
-  white-space: nowrap;
-}
-
-.statement-table tbody td:nth-child(3), /* Инв. номер */
-.statement-table tbody td:nth-child(4), /* Партия */
-.statement-table tbody td:nth-child(5) { /* Наименование */
-  white-space: normal;
-  word-wrap: break-word;
-  hyphens: auto;
 }
 
 .statement-table tbody td:hover {
@@ -177,12 +115,25 @@
   border-right: none;
 }
 
-/* Эффект при наведении на строку */
 .statement-table tbody tr:hover td {
   background-color: #f9fafb;
 }
 
-/* Чекбокс */
+.inv-party-cell {
+  line-height: 1.3;
+}
+
+.inv-party-cell .inv-number {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.inv-party-cell .party-number {
+  font-size: 0.8em;
+  color: #6b7280;
+  line-height: 1.1;
+}
+
 .statement-table input[type="checkbox"] {
   cursor: pointer;
   width: 20px;
@@ -192,7 +143,6 @@
   vertical-align: middle;
 }
 
-/* QR кнопка */
 .qr-placeholder {
   display: inline-flex;
   align-items: center;
@@ -212,7 +162,6 @@
   background-color: #2563eb;
 }
 
-/* Цветовые группы строк в стиле Excel */
 .row-group-1 td { 
   background-color: #FFC7CE;
   color: #9C0006;
@@ -249,7 +198,6 @@
   background-color: #E6E6E6;
 }
 
-/* Мобильная адаптация */
 @media (max-width: 768px) {
   .statement-table {
     height: calc(100vh - 160px);
@@ -257,12 +205,12 @@
   }
   
   .statement-table table {
-    min-width: 500px; /* Уменьшаем минимальную ширину для мобильных */
+    min-width: 400px;
   }
   
   .table-header th,
   .statement-table tbody td {
-    padding: 8px 6px;
+    padding: 6px 4px;
     font-size: 0.8125rem;
   }
   
@@ -271,100 +219,87 @@
     width: 40px;
     min-width: 40px;
     max-width: 40px;
-    padding: 6px 2px;
+    padding: 6px 1px;
   }
   
   .table-header th:nth-child(2),
   .statement-table tbody td:nth-child(2) {
-    width: 40px;
-    min-width: 40px;
-    max-width: 40px;
-    padding: 6px 2px;
+    width: 35px;
+    min-width: 35px;
+    max-width: 35px;
+    padding: 6px 1px;
   }
   
   .table-header th:nth-child(3),
   .statement-table tbody td:nth-child(3) {
-    width: 100px;
-    min-width: 80px;
-    max-width: 120px;
-    font-size: 0.75rem;
+    width: 150px;
+    min-width: 120px;
+    max-width: 200px;
   }
   
   .table-header th:nth-child(4),
   .statement-table tbody td:nth-child(4) {
-    width: 80px;
-    min-width: 60px;
-    max-width: 100px;
-    font-size: 0.75rem;
+    min-width: 120px;
   }
   
   .table-header th:nth-child(5),
   .statement-table tbody td:nth-child(5) {
-    min-width: 120px;
-    font-size: 0.8125rem;
-  }
-  
-  .table-header th:nth-child(6),
-  .statement-table tbody td:nth-child(6) {
     width: 60px;
     min-width: 50px;
     max-width: 70px;
-    padding: 6px 2px;
-    font-size: 0.75rem;
+    padding: 6px 1px;
   }
   
-  /* Уменьшаем QR кнопку на мобильных */
+  .inv-party-cell .inv-number {
+    font-size: 0.85em;
+  }
+  
+  .inv-party-cell .party-number {
+    font-size: 0.75em;
+  }
+  
   .qr-placeholder {
     width: 28px;
     height: 28px;
     font-size: 0.6875rem;
   }
   
-  /* Уменьшаем чекбокс на мобильных */
   .statement-table input[type="checkbox"] {
     width: 18px;
     height: 18px;
   }
 }
 
-/* Очень маленькие экраны (телефоны в портретной ориентации) */
 @media (max-width: 480px) {
   .statement-table table {
-    min-width: 450px;
+    min-width: 350px;
   }
   
   .table-header th:nth-child(3),
   .statement-table tbody td:nth-child(3) {
-    min-width: 70px;
-    max-width: 100px;
-  }
-  
-  .table-header th:nth-child(4),
-  .statement-table tbody td:nth-child(4) {
-    min-width: 50px;
-    max-width: 80px;
-  }
-  
-  .table-header th:nth-child(5),
-  .statement-table tbody td:nth-child(5) {
     min-width: 100px;
+    max-width: 180px;
   }
 }
 
-/* Индикатор горизонтального скролла для мобильных */
+.statement-table::after {
+  content: "← прокрутите →";
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 3px 6px;
+  border-radius: 10px;
+  pointer-events: none;
+  opacity: 0.7;
+  z-index: 5;
+  display: none;
+}
+
 @media (max-width: 768px) {
   .statement-table::after {
-    content: "← прокрутите →";
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    font-size: 0.75rem;
-    color: #6b7280;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 4px 8px;
-    border-radius: 12px;
-    pointer-events: none;
-    opacity: 0.8;
-    z-index: 5;
+    display: block;
   }
 }

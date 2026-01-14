@@ -1,33 +1,25 @@
 <template>
   <div class="statement-table" ref="tableContainer">
     <table>
-      <!-- Заголовок таблицы с position: sticky -->
       <thead class="table-header">
         <tr>
-          <!-- QR колонка - без видимого текста на десктопе, пустая на мобильных -->
           <th @click="handleHeaderClick(table.getFlatHeaders()[0])">
-            <span class="sr-only">QR</span>
+            <!-- QR заголовок пустой -->
           </th>
-          
-          <!-- Игнор колонка - "X" на мобильных, "Игнор" на десктопе -->
           <th @click="handleHeaderClick(table.getFlatHeaders()[1])">
-            <span class="full-text">Игнор</span>
-            <span class="short-text">X</span>
+            X
           </th>
-          
-          <!-- Остальные заголовки -->
-          <th 
-            v-for="header in table.getFlatHeaders().slice(2)" 
-            :key="header.id"
-            :colspan="header.colSpan"
-            @click="handleHeaderClick(header)"
-          >
-            {{ header.column.columnDef.header }}
+          <th @click="handleInvHeaderClick(table.getFlatHeaders()[2])">
+            Инв. номер
+          </th>
+          <th @click="handleHeaderClick(table.getFlatHeaders()[3])">
+            Наименование
+          </th>
+          <th @click="handleHeaderClick(table.getFlatHeaders()[4])">
+            Кол-во
           </th>
         </tr>
       </thead>
-      
-      <!-- Тело таблицы -->
       <tbody>
         <tr 
           v-for="row in table.getRowModel().rows"
@@ -35,27 +27,30 @@
           :class="`row-group-${getRowGroup(row.original)}`"
           @click="handleRowClick(row)"
         >
-          <td 
-            v-for="cell in row.getVisibleCells()" 
-            :key="cell.id"
-          >
-            <div v-if="cell.column.id === 'qr_action'">
-              <div class="qr-placeholder" @click.stop="handleQrClick(row.original)">
-                [QR]
-              </div>
+          <td>
+            <div class="qr-placeholder" @click.stop="handleQrClick(row.original)">
+              [QR]
             </div>
-            <div v-else-if="cell.column.id === 'is_ignore'">
-              <input 
-                type="checkbox" 
-                :checked="cell.getValue()"
-                @change="handleCheckboxChange(row.original.id, $event.target.checked)"
-                @click.stop
-                :aria-label="`Игнорировать ${row.original.inv_number || row.original.invNumber || ''}`"
-              />
+          </td>
+          <td>
+            <input 
+              type="checkbox" 
+              :checked="getCheckboxValue(row.original)"
+              @change="handleCheckboxChange(row.original.id, $event.target.checked)"
+              @click.stop
+            />
+          </td>
+          <td>
+            <div class="inv-party-cell">
+              <div class="inv-number">{{ getInvNumber(row.original) }}</div>
+              <div class="party-number">{{ getPartyNumber(row.original) }}</div>
             </div>
-            <span v-else>
-              {{ cell.getValue() ?? '—' }}
-            </span>
+          </td>
+          <td>
+            {{ getBuhName(row.original) }}
+          </td>
+          <td>
+            {{ getQuantity(row.original) }}
           </td>
         </tr>
       </tbody>
@@ -89,52 +84,58 @@ const props = defineProps({
 
 const tableContainer = ref(null)
 
-// Инициализация таблицы TanStack Table
 const table = useVueTable({
   data: props.statements,
   columns: props.columns,
   getCoreRowModel: getCoreRowModel(),
 })
 
-/**
- * Обработчик клика по заголовку колонки
- */
 const handleHeaderClick = (header) => {
   if (!header) return
   console.log('Клик по заголовку:', header.column.id)
-  // Здесь будет сортировка
 }
 
-/**
- * Обработчик клика по строке таблицы
- */
+const handleInvHeaderClick = (header) => {
+  if (!header) return
+  console.log('Клик по заголовку Инв.номер - открыть модалку фильтрации')
+}
+
 const handleRowClick = (row) => {
   console.log('Клик по строке:', row.original)
 }
 
-/**
- * Обработчик клика по QR кнопке
- */
 const handleQrClick = (rowData) => {
   console.log('QR клик по строке:', rowData)
-  // Здесь будет вызов сканера QR
 }
 
-/**
- * Обработчик изменения состояния чекбокса
- */
 const handleCheckboxChange = (rowId, checked) => {
   console.log('Чекбокс изменился:', rowId, checked)
 }
 
-/**
- * Получение класса для строки на основе группы
- */
 const getRowGroup = (row) => {
   return props.getRowGroup(row)
 }
 
-// Отслеживание изменения данных
+const getCheckboxValue = (row) => {
+  return row.is_ignore || row.isIgnore || false
+}
+
+const getInvNumber = (row) => {
+  return row.inv_number || row.invNumber || '—'
+}
+
+const getPartyNumber = (row) => {
+  return row.party_number || row.partyNumber || '—'
+}
+
+const getBuhName = (row) => {
+  return row.buh_name || row.buhName || '—'
+}
+
+const getQuantity = (row) => {
+  return row.quantity || '—'
+}
+
 watch(() => props.statements, () => {
   table.setOptions(prev => ({
     ...prev,
@@ -145,17 +146,4 @@ watch(() => props.statements, () => {
 
 <style scoped>
 @import './StatementTable.css';
-
-/* Скрытый текст для скринридеров */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
 </style>
