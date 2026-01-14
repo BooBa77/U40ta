@@ -16,7 +16,6 @@
             Наименование
           </th>
           <th @click="handleHeaderClick(table.getFlatHeaders()[4])">
-            Кол-во
           </th>
         </tr>
       </thead>
@@ -50,7 +49,7 @@
             {{ getBuhName(row.original) }}
           </td>
           <td>
-            {{ getQuantity(row.original) }}
+            {{ getQuantity(row.original) > 1 ? `(${getQuantity(row.original)})` : '' }}
           </td>
         </tr>
       </tbody>
@@ -133,7 +132,8 @@ const getBuhName = (row) => {
 }
 
 const getQuantity = (row) => {
-  return row.quantity || '—'
+  const qty = row.quantity || row.qty || 1;
+  return qty > 1 ? `(${qty})` : '';
 }
 
 watch(() => props.statements, () => {

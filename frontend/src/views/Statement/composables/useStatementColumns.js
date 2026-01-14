@@ -58,9 +58,12 @@ export function useStatementColumns() {
     },
     {
       id: 'quantity',
-      header: 'Кол-во',
+      header: '', // Пустой заголовок
       accessorKey: 'quantity',
-      cell: () => '—'
+      cell: ({ row }) => {
+        const qty = row.original.quantity || row.original.qty || 1;
+        return qty > 1 ? `(${qty})` : '';
+      }
     }
   ]
 
