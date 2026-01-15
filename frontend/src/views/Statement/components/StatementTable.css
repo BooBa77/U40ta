@@ -51,7 +51,7 @@
   border-right: none;
 }
 
-/* Ширины колонок (4 колонки вместо 5) */
+/* Ширины колонок */
 .table-header th:nth-child(1),
 .statement-table tbody td:nth-child(1) {
   width: 50px;
@@ -73,8 +73,8 @@
 .table-header th:nth-child(3),
 .statement-table tbody td:nth-child(3) {
   width: 100px;
-  /*min-width: 150px;
-  max-width: 300px;*/
+  min-width: 150px;
+  max-width: 300px;
   padding: 8px 6px;
 }
 
@@ -84,8 +84,6 @@
   min-width: 200px;
   padding: 8px 6px;
 }
-
-/* Убрали стили для 5-й колонки (Кол-во) */
 
 .statement-table tbody td {
   padding: 10px 6px;
@@ -232,9 +230,9 @@
   
   .table-header th:nth-child(3),
   .statement-table tbody td:nth-child(3) {
-    width: 150px;
-    min-width: 120px;
-    max-width: 200px;
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
   }
   
   .table-header th:nth-child(4),
@@ -270,7 +268,7 @@
   .table-header th:nth-child(3),
   .statement-table tbody td:nth-child(3) {
     min-width: 100px;
-    max-width: 180px;
+    max-width: 100px;
   }
 }
 
