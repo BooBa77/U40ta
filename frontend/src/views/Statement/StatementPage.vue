@@ -18,18 +18,51 @@
     
     <!-- Данные -->
     <div v-else class="content">
-      <div class="stats">
-        <p>Загружено строк: {{ statements.length }}</p>
+      <!-- Панель управления фильтрами -->
+      <div class="controls-panel">
+        <div class="stats">
+          Загружено строк: {{ statements.length }}
+          <span 
+            v-if="hasActiveFilters" 
+            class="filtered-count"
+          >
+            (Показано: {{ filteredStatementsCount }})
+          </span>
+        </div>
+        
+        <!-- Кнопка сброса фильтров -->
+        <button 
+          v-if="hasActiveFilters"
+          @click="resetAllFilters"
+          class="reset-filters-btn"
+          title="Сбросить все фильтры"
+        >
+          ⚡ Сбросить фильтры
+        </button>
       </div>
+      
+      <!-- Модалка фильтра -->
+      <FilterModal
+        v-if="showFilterModal"
+        :is-open="showFilterModal"
+        :title="modalTitle"
+        :options="filterOptions"
+        :selected-values="currentFilterValues"
+        :is-loading="isLoadingOptions"
+        @close="closeFilterModal"
+        @apply="applyFilter"
+        @reset="resetCurrentFilter"
+      />
       
       <!-- Таблица -->
       <StatementTable 
         v-if="statements.length > 0"
-        :statements="statements"
+        :statements="displayStatements"
         :columns="columns"
         :get-row-group="getRowGroup"
+        :active-filters="activeFiltersObj"
+        @filter-click="openFilterModal"
       />
-      
       <div v-else class="empty">
         В ведомости нет данных
       </div>
@@ -38,10 +71,13 @@
 </template>
 
 <script setup>
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import StatementTable from './components/StatementTable.vue'
+import FilterModal from './components/FilterModal.vue'
 import { useStatementData } from './composables/useStatementData'
 import { useStatementColumns } from './composables/useStatementColumns'
+import { useStatementFilters } from './composables/filters/useStatementFilters'
 
 const route = useRoute()
 const attachmentId = route.params.id
@@ -49,8 +85,129 @@ const attachmentId = route.params.id
 // Загружаем данные
 const { loading, error, statements, reload, getRowGroup } = useStatementData(attachmentId)
 
-// Получаем колонки
+// Колонки таблицы
 const columns = useStatementColumns()
+
+// Фильтры - инициализируем позже, когда данные загрузятся
+const filters = ref(null)
+
+// Вычисляемые свойства
+const activeFiltersObj = computed(() => {
+  return filters.value?.activeFilters || {}
+})
+
+const hasActiveFilters = computed(() => {
+  if (!filters.value) return false
+  const active = filters.value.activeFilters
+  return Object.values(active).some(values => values && values.length > 0)
+})
+
+const filteredStatementsCount = computed(() => {
+  return filters.value?.filteredStatements?.length || 0
+})
+
+// Вычисляемое свойство для отображения данных
+const displayStatements = computed(() => {
+  if (!filters.value) return statements.value || []
+  
+  if (hasActiveFilters.value) {
+    return filters.value.filteredStatements || []
+  }
+  
+  return statements.value || []
+})
+
+// Ждём загрузки данных
+watch(statements, (newStatements) => {
+  if (newStatements && newStatements.length > 0 && !filters.value) {
+    // Инициализируем фильтры только после загрузки данных
+    const filterResult = useStatementFilters(attachmentId, newStatements)
+    filters.value = filterResult
+  }
+}, { immediate: true })
+
+// Состояние модалки фильтра
+const showFilterModal = ref(false)
+const currentFilterColumn = ref('')
+const modalTitle = ref('')
+const filterOptions = ref([])
+const currentFilterValues = ref([])
+const isLoadingOptions = ref(false)
+
+/**
+ * Открывает модалку фильтра для колонки
+ */
+const openFilterModal = async (columnId) => {
+  if (!filters.value) return
+  
+  currentFilterColumn.value = columnId
+  modalTitle.value = getModalTitle(columnId)
+  isLoadingOptions.value = true
+  showFilterModal.value = true
+  
+  // Получаем текущие значения фильтра
+  currentFilterValues.value = filters.value.getActiveFilter(columnId)
+  
+  // Загружаем опции для фильтра
+  try {
+    filterOptions.value = filters.value.getFilterOptions(columnId)
+  } catch (err) {
+    console.error('Ошибка загрузки опций фильтра:', err)
+    filterOptions.value = []
+  } finally {
+    isLoadingOptions.value = false
+  }
+}
+
+/**
+ * Закрывает модалку фильтра
+ */
+const closeFilterModal = () => {
+  showFilterModal.value = false
+  currentFilterColumn.value = ''
+  filterOptions.value = []
+  currentFilterValues.value = []
+}
+
+/**
+ * Применяет фильтр из модалки
+ */
+const applyFilter = (selectedValues) => {
+  if (filters.value) {
+    filters.value.applyFilter(currentFilterColumn.value, selectedValues)
+  }
+  closeFilterModal()
+}
+
+/**
+ * Сбрасывает текущий фильтр
+ */
+const resetCurrentFilter = () => {
+  if (filters.value) {
+    filters.value.resetFilter(currentFilterColumn.value)
+  }
+  closeFilterModal()
+}
+
+/**
+ * Сбрасывает все фильтры
+ */
+const resetAllFilters = () => {
+  if (filters.value) {
+    filters.value.resetAllFilters()
+  }
+}
+
+/**
+ * Получает заголовок для модалки
+ */
+const getModalTitle = (columnId) => {
+  const titles = {
+    'inv_party_combined': 'Фильтр по инвентарному номеру',
+    'buh_name': 'Фильтр по наименованию'
+  }
+  return titles[columnId] || `Фильтр по ${columnId}`
+}
 </script>
 
 <style scoped>

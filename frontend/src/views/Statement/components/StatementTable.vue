@@ -3,17 +3,25 @@
     <table>
       <thead class="table-header">
         <tr>
-          <th @click="handleHeaderClick(table.getFlatHeaders()[0])">
-            <!-- QR заголовок пустой -->
-          </th>
-          <th @click="handleHeaderClick(table.getFlatHeaders()[1])">
-            X
-          </th>
-          <th @click="handleInvHeaderClick(table.getFlatHeaders()[2])">
+          <th><!-- QR заголовок пустой --></th>
+          <th>X</th>
+          <th 
+            @click="handleHeaderClick('inv_party_combined')"
+            class="filterable-header"
+          >
             Инв. номер
+            <span v-if="hasFilter('inv_party_combined')" class="filter-indicator">
+              ⚡
+            </span>
           </th>
-          <th @click="handleHeaderClick(table.getFlatHeaders()[3])">
+          <th 
+            @click="handleHeaderClick('buh_name')"
+            class="filterable-header"
+          >
             Наименование
+            <span v-if="hasFilter('buh_name')" class="filter-indicator">
+              ⚡
+            </span>
           </th>
         </tr>
       </thead>
@@ -75,8 +83,14 @@ const props = defineProps({
   getRowGroup: { 
     type: Function,
     required: true
+  },
+  activeFilters: {
+    type: Object,
+    default: () => ({})
   }
 })
+
+const emit = defineEmits(['filter-click'])
 
 const tableContainer = ref(null)
 
@@ -86,14 +100,30 @@ const table = useVueTable({
   getCoreRowModel: getCoreRowModel(),
 })
 
-const handleHeaderClick = (header) => {
-  if (!header) return
-  console.log('Клик по заголовку:', header.column.id)
+/**
+ * Обработчик клика по заголовку
+ */
+const handleHeaderClick = (columnId) => {
+  // Только эти колонки открывают фильтр
+  if (columnId === 'inv_party_combined' || columnId === 'buh_name') {
+    emit('filter-click', columnId)
+  } else {
+    // QR, Игнор - не открывают фильтр
+    console.log('Клик по нефильтруемой колонке:', columnId)
+  }
 }
 
-const handleInvHeaderClick = (header) => {
-  if (!header) return
-  console.log('Клик по заголовку Инв.номер - открыть модалку фильтрации')
+/**
+ * Проверяет есть ли фильтр для колонки
+ */
+const hasFilter = (columnId) => {
+  if (columnId === 'inv_party_combined') {
+    // Для объединённой колонки проверяем фильтр по inv_number
+    return props.activeFilters.inv_number && props.activeFilters.inv_number.length > 0
+  }
+  
+  // Для остальных колонок проверяем по их ID
+  return props.activeFilters[columnId] && props.activeFilters[columnId].length > 0
 }
 
 const handleRowClick = (row) => {
@@ -145,8 +175,6 @@ const getBuhName = (row) => {
   return row.buh_name || row.buhName || '—'
 }
 
-// Убрали getQuantity
-
 watch(() => props.statements, () => {
   table.setOptions(prev => ({
     ...prev,
@@ -157,4 +185,36 @@ watch(() => props.statements, () => {
 
 <style scoped>
 @import './StatementTable.css';
+
+/* Стили для заголовков с фильтрами */
+.filterable-header {
+  cursor: pointer;
+  position: relative;
+}
+
+.filterable-header:hover {
+  background-color: #f3f4f6;
+}
+
+.filter-indicator {
+  margin-left: 6px;
+  font-size: 0.9em;
+  color: #3b82f6;
+  display: inline-block;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+  .filter-indicator {
+    font-size: 0.8em;
+    margin-left: 4px;
+  }
+}
 </style>
