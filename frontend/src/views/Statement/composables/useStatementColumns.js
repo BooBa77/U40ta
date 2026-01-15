@@ -11,7 +11,8 @@ export function useStatementColumns() {
         size: 'small',
         initialData: {
           inv_number: row.original.inv_number || row.original.invNumber,
-          party_number: row.original.party_number || row.original.partyNumber
+          party_number: row.original.party_number || row.original.partyNumber,
+          quantity: row.original.quantity || 1
         }
       })
     },
@@ -36,14 +37,37 @@ export function useStatementColumns() {
       accessorFn: (row) => {
         const inv = row.inv_number || row.invNumber || ''
         const party = row.party_number || row.partyNumber || ''
-        return `${inv}\n${party}`
+        const quantity = row.quantity || 1
+        
+        if (party && quantity > 1) {
+          return `${inv}\n${party} (${quantity} шт.)`
+        }
+        if (party) {
+          return `${inv}\n${party}`
+        }
+        return inv
       },
       cell: ({ row }) => {
         const inv = row.original.inv_number || row.original.invNumber || '—'
-        const party = row.original.party_number || row.original.partyNumber || '—'
+        const party = row.original.party_number || row.original.partyNumber || ''
+        const quantity = row.original.quantity || 1
+        
+        // Формируем содержимое для партии
+        let partyContent = ''
+        if (party) {
+          if (quantity > 1) {
+            partyContent = `${party} (${quantity} шт.)`
+          } else {
+            partyContent = party
+          }
+        }
+        
         return h('div', { class: 'inv-party-cell' }, [
           h('div', { class: 'inv-number' }, inv),
-          h('div', { class: 'party-number' }, party)
+          partyContent ? h('div', { class: 'party-number' }, [
+            party,
+            quantity > 1 ? h('span', { class: 'quantity' }, ` (${quantity} шт.)`) : null
+          ]) : null
         ])
       }
     },
@@ -54,15 +78,6 @@ export function useStatementColumns() {
       cell: ({ getValue }) => {
         const value = getValue()
         return value || '—'
-      }
-    },
-    {
-      id: 'quantity',
-      header: '', // Пустой заголовок
-      accessorKey: 'quantity',
-      cell: ({ row }) => {
-        const qty = row.original.quantity || row.original.qty || 1;
-        return qty > 1 ? `(${qty})` : '';
       }
     }
   ]

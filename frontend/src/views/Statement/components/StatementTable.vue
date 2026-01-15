@@ -15,8 +15,6 @@
           <th @click="handleHeaderClick(table.getFlatHeaders()[3])">
             Наименование
           </th>
-          <th @click="handleHeaderClick(table.getFlatHeaders()[4])">
-          </th>
         </tr>
       </thead>
       <tbody>
@@ -42,14 +40,13 @@
           <td>
             <div class="inv-party-cell">
               <div class="inv-number">{{ getInvNumber(row.original) }}</div>
-              <div class="party-number">{{ getPartyNumber(row.original) }}</div>
+              <div class="party-number" v-if="hasPartyOrQuantity(row.original)">
+                {{ getPartyNumber(row.original) }}
+              </div>
             </div>
           </td>
           <td>
             {{ getBuhName(row.original) }}
-          </td>
-          <td>
-            {{ getQuantity(row.original) > 1 ? `(${getQuantity(row.original)})` : '' }}
           </td>
         </tr>
       </tbody>
@@ -124,17 +121,31 @@ const getInvNumber = (row) => {
 }
 
 const getPartyNumber = (row) => {
-  return row.party_number || row.partyNumber || '—'
+  const party = row.party_number || row.partyNumber || ''
+  const quantity = row.quantity || 1
+  
+  if (!party) return ''
+  
+  if (quantity > 1) {
+    return `${party} (${quantity} шт.)`
+  }
+  
+  return party
+}
+
+const hasPartyOrQuantity = (row) => {
+  const party = row.party_number || row.partyNumber || ''
+  const quantity = row.quantity || 1
+  
+  // Показываем блок, если есть партия ИЛИ quantity > 1
+  return party !== '' || quantity > 1
 }
 
 const getBuhName = (row) => {
   return row.buh_name || row.buhName || '—'
 }
 
-const getQuantity = (row) => {
-  const qty = row.quantity || row.qty || 1;
-  return qty > 1 ? `(${qty})` : '';
-}
+// Убрали getQuantity
 
 watch(() => props.statements, () => {
   table.setOptions(prev => ({

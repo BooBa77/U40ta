@@ -51,9 +51,7 @@
   border-right: none;
 }
 
-/* === ФИКСИРОВАННЫЕ ШИРИНЫ КОЛОНОК (одинаковые для всех устройств) === */
-
-/* 1. QR колонка */
+/* Ширины колонок (4 колонки вместо 5) */
 .table-header th:nth-child(1),
 .statement-table tbody td:nth-child(1) {
   width: 50px;
@@ -63,7 +61,6 @@
   padding: 8px 2px;
 }
 
-/* 2. Игнор колонка */
 .table-header th:nth-child(2),
 .statement-table tbody td:nth-child(2) {
   width: 40px;
@@ -73,34 +70,23 @@
   padding: 8px 2px;
 }
 
-/* 3. Инвентарный номер + партия */
 .table-header th:nth-child(3),
 .statement-table tbody td:nth-child(3) {
   width: 100px;
-  min-width: 100px;
-  max-width: 100px;
+  /*min-width: 150px;
+  max-width: 300px;*/
   padding: 8px 6px;
 }
 
-/* 4. Наименование */
 .table-header th:nth-child(4),
 .statement-table tbody td:nth-child(4) {
   width: auto;
-  min-width: 150px;
+  min-width: 200px;
   padding: 8px 6px;
 }
 
-/* 5. Кол-во (пустой заголовок, только цифры если >1) */
-.table-header th:nth-child(5),
-.statement-table tbody td:nth-child(5) {
-  width: 50px;
-  min-width: 50px;
-  max-width: 50px;
-  text-align: center;
-  padding: 8px 2px;
-}
+/* Убрали стили для 5-й колонки (Кол-во) */
 
-/* Ячейки таблицы */
 .statement-table tbody td {
   padding: 10px 6px;
   border-bottom: 1px solid #f3f4f6;
@@ -127,7 +113,6 @@
   background-color: #f9fafb;
 }
 
-/* Стили для объединенной ячейки инв.номер + партия */
 .inv-party-cell {
   line-height: 1.3;
 }
@@ -143,7 +128,12 @@
   line-height: 1.1;
 }
 
-/* Чекбокс */
+/* Стиль для количества */
+.inv-party-cell .quantity {
+  font-weight: bold;
+  margin-left: 2px;
+}
+
 .statement-table input[type="checkbox"] {
   cursor: pointer;
   width: 20px;
@@ -153,7 +143,6 @@
   vertical-align: middle;
 }
 
-/* QR кнопка */
 .qr-placeholder {
   display: inline-flex;
   align-items: center;
@@ -173,7 +162,6 @@
   background-color: #2563eb;
 }
 
-/* Цветовые группы строк */
 .row-group-1 td { 
   background-color: #FFC7CE;
   color: #9C0006;
@@ -210,7 +198,6 @@
   background-color: #E6E6E6;
 }
 
-/* ========== МОБИЛЬНАЯ АДАПТАЦИЯ ========== */
 @media (max-width: 768px) {
   .statement-table {
     height: calc(100vh - 160px);
@@ -218,45 +205,43 @@
   }
   
   .statement-table table {
-    min-width: 400px;
+    min-width: 350px; /* Уменьшили для мобильных */
   }
   
-  /* Общие стили для заголовков и ячеек на мобильных */
   .table-header th,
   .statement-table tbody td {
     padding: 6px 4px;
     font-size: 0.8125rem;
   }
   
-  /* Ширины колонок НЕ МЕНЯЕМ - остаются такими же как на десктопе */
-  /* Но можно уменьшить padding для компактности */
-  
   .table-header th:nth-child(1),
   .statement-table tbody td:nth-child(1) {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
     padding: 6px 1px;
   }
   
   .table-header th:nth-child(2),
   .statement-table tbody td:nth-child(2) {
+    width: 35px;
+    min-width: 35px;
+    max-width: 35px;
     padding: 6px 1px;
   }
   
   .table-header th:nth-child(3),
   .statement-table tbody td:nth-child(3) {
-    padding: 6px 4px;
+    width: 150px;
+    min-width: 120px;
+    max-width: 200px;
   }
   
   .table-header th:nth-child(4),
   .statement-table tbody td:nth-child(4) {
-    padding: 6px 4px;
+    min-width: 150px;
   }
   
-  .table-header th:nth-child(5),
-  .statement-table tbody td:nth-child(5) {
-    padding: 6px 1px;
-  }
-  
-  /* Уменьшаем шрифт для инв.номера и партии на мобильных */
   .inv-party-cell .inv-number {
     font-size: 0.85em;
   }
@@ -265,28 +250,30 @@
     font-size: 0.75em;
   }
   
-  /* Уменьшаем QR кнопку */
   .qr-placeholder {
     width: 28px;
     height: 28px;
     font-size: 0.6875rem;
   }
   
-  /* Уменьшаем чекбокс */
   .statement-table input[type="checkbox"] {
     width: 18px;
     height: 18px;
   }
 }
 
-/* Очень маленькие экраны */
 @media (max-width: 480px) {
   .statement-table table {
-    min-width: 350px;
+    min-width: 300px;
+  }
+  
+  .table-header th:nth-child(3),
+  .statement-table tbody td:nth-child(3) {
+    min-width: 100px;
+    max-width: 180px;
   }
 }
 
-/* Индикатор горизонтального скролла для мобильных */
 .statement-table::after {
   content: "← прокрутите →";
   position: absolute;
