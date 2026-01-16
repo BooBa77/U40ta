@@ -63,7 +63,7 @@
 }
 
 /* ============================================
-   4. СПИСОК ЧЕКБОКСОВ (Grid вариант)
+   4. СПИСОК ЧЕКБОКСОВ (Flex вариант)
 ============================================== */
 .checkbox-list {
   display: flex;
@@ -78,16 +78,15 @@
 }
 
 .checkbox-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto; /* чекбокс | текст | счетчик */
-  grid-template-rows: auto;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px;
   border-radius: 4px;
   transition: background-color 0.2s;
   user-select: none;
   min-height: 44px;
+  flex-wrap: nowrap; /* Запрещаем перенос */
 }
 
 .checkbox-item:hover {
@@ -99,8 +98,8 @@
   width: 18px;
   height: 18px;
   accent-color: #3b82f6;
-  grid-column: 1;
-  justify-self: start;
+  flex-shrink: 0;
+  margin-top: 3px;
 }
 
 .checkbox-label {
@@ -108,60 +107,60 @@
   font-size: 14px;
   color: #374151;
   line-height: 1.5;
-  grid-column: 2;
-  min-width: 0;
-  display: contents; /* Это заставит дочерние элементы участвовать в grid */
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0; /* Критически важно для text-overflow */
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .checkbox-text {
-  grid-column: 2;
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  word-break: break-all;
+  word-break: break-all; /* Ломаем длинные слова */
 }
 
 .option-count {
   font-size: 12px;
   color: #6b7280;
   white-space: nowrap;
-  grid-column: 3;
-  justify-self: end;
-  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+/* Только на очень узких экранах разрешаем перенос */
+@media (max-width: 400px) {
+  .checkbox-label {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  
+  .checkbox-text {
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: clip;
+    flex-basis: 100%;
+  }
+  
+  .option-count {
+    flex-basis: 100%;
+    margin-top: 4px;
+  }
 }
 
 /* Адаптивные настройки */
 @media (max-width: 480px) {
   .checkbox-item {
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto auto;
-    gap: 8px 12px;
-  }
-  
-  .checkbox-input {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    align-self: start;
-    margin-top: 3px;
+    padding: 10px;
+    gap: 10px;
   }
   
   .checkbox-text {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: end;
-    white-space: normal;
-    word-break: break-word;
-    overflow: visible;
-    text-overflow: clip;
-  }
-  
-  .option-count {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: start;
-    margin-left: 0;
-    align-self: start;
+    font-size: 13px;
   }
 }
 
