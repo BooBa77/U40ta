@@ -16,11 +16,9 @@
           :placeholder="searchPlaceholder"
           class="search-input"
           enterkeyhint="search"
-          @input="handleSearchInputImmediate"
-          @keyup="handleSearchInputImmediate"
-          @keydown.enter="handleSearchInputImmediate"
-          @change="handleSearchInputImmediate"
-          @blur="performSearchFilter" 
+          @input="handleSearchInput"
+          @keydown.enter="handleEnterKey"
+          @blur="handleBlurSearch"
         />
       </div>
       
@@ -92,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onUnmounted, onMounted } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
 const props = defineProps({
@@ -139,11 +137,44 @@ const emit = defineEmits(['close', 'apply', 'reset'])
 // Локальное состояние
 const searchQuery = ref('')
 const internalSelected = ref([])
-const originalSelected = ref([])
+const originalSelected = ref([]) // Для отмены изменений
 const searchInput = ref(null)
-let searchTimeout = null
 
-// Отфильтрованные опции по поиску
+
+// --- Инициализация и синхронизация состояния ---
+
+const focusSearchInput = () => {
+  if (searchInput.value) {
+    // Используем nextTick, чтобы убедиться, что инпут отрендерен и доступен
+    nextTick(() => {
+      searchInput.value.focus()
+    })
+  }
+}
+
+// Синхронизация при открытии модального окна
+watch(() => props.isOpen, (isOpen) => {
+  if (isOpen) {
+    // Сохраняем исходное состояние для отмены
+    originalSelected.value = [...props.selectedValues]
+    
+    // Инициализация внутреннего состояния выбора
+    if (props.selectedValues.length === 0) {
+      // Если проп пуст, выбираем ВСЕ опции по умолчанию (согласно вашей предыдущей логике)
+      internalSelected.value = [...props.options.map(opt => opt.value)]
+    } else {
+      internalSelected.value = [...props.selectedValues]
+    }
+    
+    searchQuery.value = '' // Очищаем поиск
+    focusSearchInput() // Фокусируем инпут
+  }
+}, { immediate: true })
+
+
+// --- Методы поиска (Реальное время) ---
+
+// Отфильтрованные опции: реактивно обновляется при изменении searchQuery
 const filteredOptions = computed(() => {
   if (!searchQuery.value.trim()) {
     return props.options
@@ -156,38 +187,24 @@ const filteredOptions = computed(() => {
   )
 })
 
-// Обработка ввода (с debounce 200ms)
-/*const handleSearchInput = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    performSearchFilter()
-  }, 200)
-}*/
-const handleSearchInputImmediate = () => {
-  // УБИРАЕМ ВСЕ ТАЙМАУТЫ - фильтрация мгновенная
-  // computed свойство filteredOptions само обновится
-  clearTimeout(searchTimeout)
+// Обработчик @input: v-model уже обновляет searchQuery, 
+// поэтому здесь ничего делать не нужно для клиентской фильтрации в реальном времени.
+const handleSearchInput = () => {
+    // Пусто, полагаемся на v-model и computed
 }
 
-// Нажатие Enter (на мобильных "Готово/Найти")
+// Нажатие Enter: закрываем клавиатуру
 const handleEnterKey = () => {
-  clearTimeout(searchTimeout)
-  searchInput.value?.blur() // Скрываем клавиатуру
-  performSearchFilter()
+  searchInput.value?.blur() 
 }
 
-// Фильтрация по поисковому запросу (без изменения выбранных значений)
-const performSearchFilter = () => {
-  // Эта функция только фильтрует отображение, не изменяет выбранные значения
-  // Логика фильтрации уже в computed filteredOptions
-}
 
-// Проверка выбрана ли опция
+// --- Методы выбора ---
+
 const isOptionSelected = (value) => {
   return internalSelected.value.includes(value)
 }
 
-// Переключение выбора опции
 const toggleOption = (value) => {
   const index = internalSelected.value.indexOf(value)
   if (index === -1) {
@@ -197,18 +214,18 @@ const toggleOption = (value) => {
   }
 }
 
-// Выбрать все отфильтрованные
 const selectAllFiltered = () => {
   const filteredValues = filteredOptions.value.map(option => option.value)
   internalSelected.value = [...new Set([...internalSelected.value, ...filteredValues])]
 }
 
-// Снять все
 const deselectAll = () => {
-  internalSelected.value = []
+  const filteredValues = filteredOptions.value.map(option => option.value)
+  internalSelected.value = internalSelected.value.filter(val => !filteredValues.includes(val))
 }
 
-// Обработчики действий
+// --- Обработчики кнопок ---
+
 const handleApply = () => {
   emit('apply', [...internalSelected.value])
 }
@@ -220,7 +237,7 @@ const handleReset = () => {
 }
 
 const handleCancel = () => {
-  // Возвращаем исходное состояние при отмене
+  // Возвращаем исходное состояние
   internalSelected.value = [...originalSelected.value]
   searchQuery.value = ''
   emit('close')
@@ -229,38 +246,6 @@ const handleCancel = () => {
 const handleClose = () => {
   handleCancel()
 }
-
-// Фокус на поле поиска при открытии
-const focusSearchInput = () => {
-  if (searchInput.value) {
-    nextTick(() => {
-      searchInput.value.focus()
-    })
-  }
-}
-
-// Инициализация при открытии
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen) {
-    // Сохраняем исходное состояние
-    originalSelected.value = [...props.selectedValues]
-    
-    // Если при открытии selectedValues пустые, выбираем ВСЕ опции
-    if (props.selectedValues.length === 0) {
-      internalSelected.value = [...props.options.map(opt => opt.value)]
-    } else {
-      internalSelected.value = [...props.selectedValues]
-    }
-    
-    searchQuery.value = ''
-    focusSearchInput()
-  }
-}, { immediate: true })
-
-// Очистка при размонтировании
-onUnmounted(() => {
-  clearTimeout(searchTimeout)
-})
 </script>
 
 <style scoped>
