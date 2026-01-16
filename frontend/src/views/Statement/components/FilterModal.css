@@ -110,7 +110,16 @@
   line-height: 1.5;
   grid-column: 2;
   min-width: 0;
+  display: contents; /* Это заставит дочерние элементы участвовать в grid */
+}
+
+.checkbox-text {
+  grid-column: 2;
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all;
 }
 
 .option-count {
@@ -137,10 +146,14 @@
     margin-top: 3px;
   }
   
-  .checkbox-label {
+  .checkbox-text {
     grid-column: 2;
     grid-row: 1;
     align-self: end;
+    white-space: normal;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: clip;
   }
   
   .option-count {

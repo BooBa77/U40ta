@@ -45,9 +45,9 @@
             :for="'filter-option-' + option.value"
             class="checkbox-label"
           >
-            {{ option.label }}
+            <span class="checkbox-text">{{ option.label }}</span>
             <span class="option-count" v-if="option.count">({{ option.count }})</span>
-          </label>
+          </label>          
         </div>
         
         <!-- Сообщение если ничего не найдено -->
