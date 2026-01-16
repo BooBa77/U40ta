@@ -17,7 +17,9 @@
           class="search-input"
           enterkeyhint="search"
           @input="handleSearchInputImmediate"
+          @keyup="handleSearchInputImmediate"
           @keydown.enter="handleEnterKey"
+          @change="handleSearchInputImmediate"
           @blur="performSearchFilter" 
         />
       </div>
