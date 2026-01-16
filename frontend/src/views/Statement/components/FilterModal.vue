@@ -11,14 +11,14 @@
       <div class="search-section" v-if="showSearch">
         <input
           ref="searchInput"
-          type="search"
+          type="text" <!-- Изменено с search на text -->
           v-model="searchQuery"
           :placeholder="searchPlaceholder"
           class="search-input"
-          enterkeyhint="search"
+          enterkeyhint="done" <!-- Изменено с search на done -->
           @input="handleSearchInput"
           @keydown.enter="handleEnterKey"
-          @blur="performSearchFilter" 
+          @keyup="handleSearchInput" <!-- Добавлено для мобильных устройств -->
         />
       </div>
       
@@ -154,25 +154,29 @@ const filteredOptions = computed(() => {
   )
 })
 
-// Обработка ввода (с debounce 200ms)
+// Обработка ввода (с debounce 150ms для более быстрого отклика)
 const handleSearchInput = () => {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
-    performSearchFilter()
-  }, 200)
+    // Фильтрация происходит автоматически через computed свойство
+    // Для мобильных устройств дополнительно скроллим к началу списка
+    if (searchInput.value && document.activeElement === searchInput.value) {
+      // В мобильных браузерах может потребоваться небольшой таймаут для корректной работы
+      setTimeout(() => {
+        const listElement = document.querySelector('.checkbox-list')
+        if (listElement) {
+          listElement.scrollTop = 0
+        }
+      }, 10)
+    }
+  }, 150)
 }
 
-// Нажатие Enter (на мобильных "Готово/Найти")
-const handleEnterKey = () => {
+// Нажатие Enter (на мобильных "Готово")
+const handleEnterKey = (event) => {
   clearTimeout(searchTimeout)
-  searchInput.value?.blur() // Скрываем клавиатуру
-  performSearchFilter()
-}
-
-// Фильтрация по поисковому запросу (без изменения выбранных значений)
-const performSearchFilter = () => {
-  // Эта функция только фильтрует отображение, не изменяет выбранные значения
-  // Логика фильтрации уже в computed filteredOptions
+  event.target?.blur() // Скрываем клавиатуру
+  // Не вызываем performSearchFilter, так как фильтрация уже работает в реальном времени
 }
 
 // Проверка выбрана ли опция
@@ -228,6 +232,12 @@ const focusSearchInput = () => {
   if (searchInput.value) {
     nextTick(() => {
       searchInput.value.focus()
+      // На мобильных устройствах иногда нужно небольшое ожидание для корректного фокуса
+      setTimeout(() => {
+        if (searchInput.value) {
+          searchInput.value.focus()
+        }
+      }, 50)
     })
   }
 }
@@ -257,6 +267,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Существующие стили остаются без изменений */
 .filter-modal-content {
   display: flex;
   flex-direction: column;
@@ -450,6 +461,20 @@ onUnmounted(() => {
     min-width: 70px;
     padding: 8px 12px;
     font-size: 13px;
+  }
+  
+  /* Улучшение для мобильных устройств */
+  .search-input {
+    font-size: 16px; /* Увеличиваем для лучшей читаемости на мобильных */
+    padding: 12px 14px;
+  }
+  
+  .checkbox-item {
+    padding: 10px 14px;
+  }
+  
+  .checkbox-label {
+    font-size: 15px; /* Чуть больше текст на мобильных */
   }
 }
 
