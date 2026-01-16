@@ -93,15 +93,6 @@
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
-// Нативная функция debounce
-const debounce = (fn, delay) => {
-  let timeoutId
-  return (...args) => {
-    clearTimeout(timeoutId)
-    timeoutId = setTimeout(() => fn(...args), delay)
-  }
-}
-
 const props = defineProps({
   isOpen: {
     type: Boolean,
@@ -180,13 +171,18 @@ const handleEnterKey = () => {
 
 // Мгновенное применение фильтра
 const applyFilterImmediately = () => {
-  if (!searchQuery.value.trim()) {
+  const query = searchQuery.value.toLowerCase().trim()
+  
+  if (!query) {
     // Пустой поиск = выбираем всё
     internalSelected.value = [...props.options.map(opt => opt.value)]
   } else {
     // Выбираем только совпадающие
-    const filteredValues = filteredOptions.value.map(opt => opt.value)
-    internalSelected.value = filteredValues
+    const filtered = props.options.filter(option => 
+      String(option.label).toLowerCase().includes(query) ||
+      String(option.value).toLowerCase().includes(query)
+    )
+    internalSelected.value = filtered.map(opt => opt.value)
   }
 }
 
