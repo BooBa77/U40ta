@@ -136,7 +136,7 @@ const emit = defineEmits(['close', 'apply', 'reset'])
 // Локальное состояние
 const searchQuery = ref('')
 const internalSelected = ref([])
-const originalSelected = ref([]) // Для отмены изменений
+const originalSelected = ref([]) 
 const searchInput = ref(null)
 
 
@@ -155,6 +155,7 @@ watch(() => props.isOpen, (isOpen) => {
     originalSelected.value = [...props.selectedValues]
     
     if (props.selectedValues.length === 0) {
+      // Если проп пуст, выбираем ВСЕ опции по умолчанию
       internalSelected.value = [...props.options.map(opt => opt.value)]
     } else {
       internalSelected.value = [...props.selectedValues]
@@ -180,11 +181,15 @@ const filteredOptions = computed(() => {
   )
 })
 
-// handleSearchInput теперь не нужен, так как v-model сам обновляет searchQuery
+// *** КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Ручное обновление searchQuery ***
+const handleSearchInput = (event) => {
+    searchQuery.value = event.target.value; // Немедленное обновление реактивной переменной
+}
 
 const handleEnterKey = () => {
   searchInput.value?.blur() 
 }
+
 
 // --- Методы выбора ---
 
@@ -224,7 +229,6 @@ const handleReset = () => {
 }
 
 const handleCancel = () => {
-  // Возвращаем исходное состояние
   internalSelected.value = [...originalSelected.value]
   searchQuery.value = ''
   emit('close')
