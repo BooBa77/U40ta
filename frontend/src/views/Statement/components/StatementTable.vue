@@ -7,21 +7,15 @@
           <th>X</th>
           <th 
             @click="handleHeaderClick('inv_party_combined')"
-            class="filterable-header"
+            :class="['filterable-header', { 'filtered': hasFilter('inv_party_combined') }]"
           >
             Инв. номер
-            <span v-if="hasFilter('inv_party_combined')" class="filter-indicator">
-              ⚡
-            </span>
           </th>
           <th 
             @click="handleHeaderClick('buh_name')"
-            class="filterable-header"
+            :class="['filterable-header', { 'filtered': hasFilter('buh_name') }]"
           >
             Наименование
-            <span v-if="hasFilter('buh_name')" class="filter-indicator">
-              ⚡
-            </span>
           </th>
         </tr>
       </thead>
@@ -185,36 +179,4 @@ watch(() => props.statements, () => {
 
 <style scoped>
 @import './StatementTable.css';
-
-/* Стили для заголовков с фильтрами */
-.filterable-header {
-  cursor: pointer;
-  position: relative;
-}
-
-.filterable-header:hover {
-  background-color: #f3f4f6;
-}
-
-.filter-indicator {
-  margin-left: 6px;
-  font-size: 0.9em;
-  color: #3b82f6;
-  display: inline-block;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-/* Мобильная адаптация */
-@media (max-width: 768px) {
-  .filter-indicator {
-    font-size: 0.8em;
-    margin-left: 4px;
-  }
-}
 </style>

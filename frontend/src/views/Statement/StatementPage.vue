@@ -1,8 +1,16 @@
 <template>
   <div class="statement-page">
     <div class="header">
-      <button @click="$router.push('/')">← Назад</button>
-      <h1>Ведомость #{{ attachmentId }}</h1>
+      <button class="back-button" @click="$router.push('/')">← Назад</button>
+      <h1>{{ statementTitle }}</h1>
+      <button 
+        v-if="hasActiveFilters"
+        @click="resetAllFilters"
+        class="reset-filters-btn"
+        title="Сбросить все фильтры"
+      >
+        Сбросить фильтры
+      </button>
     </div>
     
     <!-- Загрузка -->
@@ -18,29 +26,6 @@
     
     <!-- Данные -->
     <div v-else class="content">
-      <!-- Панель управления фильтрами -->
-      <div class="controls-panel">
-        <div class="stats">
-          Загружено строк: {{ statements.length }}
-          <span 
-            v-if="hasActiveFilters" 
-            class="filtered-count"
-          >
-            (Показано: {{ filteredStatementsCount }})
-          </span>
-        </div>
-        
-        <!-- Кнопка сброса фильтров -->
-        <button 
-          v-if="hasActiveFilters"
-          @click="resetAllFilters"
-          class="reset-filters-btn"
-          title="Сбросить все фильтры"
-        >
-          ⚡ Сбросить фильтры
-        </button>
-      </div>
-      
       <!-- Модалка фильтра -->
       <FilterModal
         v-if="showFilterModal"
@@ -85,6 +70,19 @@ const attachmentId = route.params.id
 // Загружаем данные
 const { loading, error, statements, reload, getRowGroup } = useStatementData(attachmentId)
 
+// Заголовок ведомости
+const statementTitle = computed(() => {
+  if (!statements.value || statements.value.length === 0) {
+    return `Ведомость #${attachmentId}`
+  }
+  
+  const firstRow = statements.value[0]
+  const type = firstRow.doc_type
+  const warehouse = firstRow.sklad
+  
+  return `Ведомость ${type} ${warehouse}`
+})
+
 // Колонки таблицы
 const columns = useStatementColumns()
 
@@ -98,12 +96,8 @@ const activeFiltersObj = computed(() => {
 
 const hasActiveFilters = computed(() => {
   if (!filters.value) return false
-  const active = filters.value.activeFilters
+  const active = activeFiltersObj.value
   return Object.values(active).some(values => values && values.length > 0)
-})
-
-const filteredStatementsCount = computed(() => {
-  return filters.value?.filteredStatements?.length || 0
 })
 
 // Вычисляемое свойство для отображения данных

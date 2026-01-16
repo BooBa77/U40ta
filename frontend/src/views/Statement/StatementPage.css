@@ -1,3 +1,4 @@
+/* ============ ОСНОВНОЙ КОНТЕЙНЕР ============ */
 .statement-page {
   height: 100vh;
   display: flex;
@@ -7,9 +8,11 @@
   overflow: hidden;
 }
 
+/* ============ ШАПКА СТРАНИЦЫ ============ */
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
   flex-shrink: 0;
@@ -20,8 +23,11 @@
   font-size: 1.5rem;
   font-weight: 600;
   color: #1f2937;
+  flex-grow: 1;
+  text-align: center;
 }
 
+/* Кнопка "Назад" */
 .back-button {
   padding: 10px 16px;
   background-color: #f3f4f6;
@@ -34,6 +40,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .back-button:hover {
@@ -41,6 +48,28 @@
   border-color: #9ca3af;
 }
 
+/* Кнопка "Сбросить фильтры" */
+.reset-filters-btn {
+  padding: 10px 16px;
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.reset-filters-btn:hover {
+  background-color: #fde68a;
+  border-color: #d97706;
+}
+
+/* ============ СОСТОЯНИЯ ЗАГРУЗКИ ============ */
 .loading, .error, .empty {
   flex: 1;
   display: flex;
@@ -75,6 +104,7 @@
   background-color: #dc2626;
 }
 
+/* ============ ОСНОВНОЙ КОНТЕНТ ============ */
 .content {
   flex: 1;
   display: flex;
@@ -93,78 +123,34 @@
   color: #9ca3af;
 }
 
-/* Мобильная адаптация */
+/* ============ МОБИЛЬНАЯ АДАПТАЦИЯ ============ */
 @media (max-width: 768px) {
   .statement-page {
     padding: 12px;
   }
   
   .header {
+    flex-wrap: wrap;
     margin-bottom: 16px;
+    gap: 12px;
   }
   
   .header h1 {
     font-size: 1.25rem;
+    order: 1;
+    width: 100%;
+    margin-top: 8px;
   }
   
   .back-button {
     padding: 8px 12px;
     font-size: 0.8125rem;
+    order: 0;
   }
-
-
-/* Стили для панели управления */
-    .controls-panel {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    padding: 12px 16px;
-    background-color: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    }
-
-    .stats {
-    font-size: 0.9rem;
-    color: #6b7280;
-    }
-
-    .filtered-count {
-    color: #3b82f6;
-    font-weight: 500;
-    margin-left: 8px;
-    }
-
-    .reset-filters-btn {
-    padding: 6px 12px;
-    background-color: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    transition: all 0.2s;
-    }
-
-    .reset-filters-btn:hover {
-    background-color: #e5e7eb;
-    border-color: #9ca3af;
-    }
-
-    /* Мобильная адаптация */
-    @media (max-width: 768px) {
-    .controls-panel {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-    }
-    
-    .reset-filters-btn {
-        align-self: flex-end;
-    }
-    }
+  
+  .reset-filters-btn {
+    padding: 8px 12px;
+    font-size: 0.8125rem;
+    order: 2;
+  }
 }
