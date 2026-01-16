@@ -16,6 +16,8 @@
   gap: 16px;
   margin-bottom: 24px;
   flex-shrink: 0;
+  flex-wrap: nowrap; /* Запрещаем перенос элементов */
+  min-width: 0; /* Важно для правильной работы flex-элементов */
 }
 
 .header h1 {
@@ -23,16 +25,17 @@
   font-size: 1.5rem;
   font-weight: 600;
   color: #1f2937;
-  flex-grow: 1;
+  flex: 1; /* Занимает всё доступное пространство */
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0; /* Важно для работы text-overflow в flex-контейнере */
 }
 
-/* Кнопка "Назад" */
-.back-button {
+/* Кнопки в шапке - базовая стилизация */
+.header-button {
   padding: 10px 16px;
-  background-color: #f3f4f6;
-  color: #4b5563;
-  border: 1px solid #d1d5db;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.875rem;
@@ -41,6 +44,16 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  border: 1px solid;
+  flex-shrink: 0; /* Запрещаем сжатие кнопок */
+}
+
+/* Кнопка "Назад" */
+.back-button {
+  composes: header-button;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border-color: #d1d5db;
 }
 
 .back-button:hover {
@@ -50,18 +63,10 @@
 
 /* Кнопка "Сбросить фильтры" */
 .reset-filters-btn {
-  padding: 10px 16px;
+  composes: header-button;
   background-color: #fef3c7;
   color: #92400e;
-  border: 1px solid #f59e0b;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
+  border-color: #f59e0b;
 }
 
 .reset-filters-btn:hover {
@@ -69,8 +74,9 @@
   border-color: #d97706;
 }
 
-/* ============ СОСТОЯНИЯ ЗАГРУЗКИ ============ */
-.loading, .error, .empty {
+/* ============ СОСТОЯНИЯ СТРАНИЦЫ ============ */
+/* Общие стили для состояний */
+.page-state {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -80,11 +86,15 @@
   color: #6b7280;
 }
 
+/* Загрузка */
 .loading {
+  composes: page-state;
   color: #3b82f6;
 }
 
+/* Ошибка */
 .error {
+  composes: page-state;
   color: #dc2626;
 }
 
@@ -104,14 +114,7 @@
   background-color: #dc2626;
 }
 
-/* ============ ОСНОВНОЙ КОНТЕНТ ============ */
-.content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* Важно для flex-скролла в дочерних элементах */
-}
-
+/* Пустое состояние */
 .empty {
   flex: 1;
   display: flex;
@@ -121,6 +124,15 @@
   border: 1px dashed #d1d5db;
   border-radius: 6px;
   color: #9ca3af;
+  font-size: 1.1rem;
+}
+
+/* ============ ОСНОВНОЙ КОНТЕНТ ============ */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Важно для flex-скролла в дочерних элементах */
 }
 
 /* ============ МОБИЛЬНАЯ АДАПТАЦИЯ ============ */
@@ -130,16 +142,18 @@
   }
   
   .header {
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* На мобильных тоже запрещаем перенос */
     margin-bottom: 16px;
-    gap: 12px;
+    gap: 8px; /* Уменьшаем отступы */
   }
   
   .header h1 {
-    font-size: 1.25rem;
-    order: 1;
-    width: 100%;
-    margin-top: 8px;
+    font-size: 1.1rem;
+    order: 0; /* Убираем переупорядочивание */
+    width: auto; /* Убираем полную ширину */
+    margin-top: 0; /* Убираем отступ сверху */
+    text-align: left; /* Выравниваем по левому краю */
+    padding: 0 8px; /* Добавляем отступы по бокам */
   }
   
   .back-button {
@@ -151,6 +165,7 @@
   .reset-filters-btn {
     padding: 8px 12px;
     font-size: 0.8125rem;
-    order: 2;
+    order: 0;
+    flex-shrink: 1; /* Разрешаем небольшое сжатие на мобильных */
   }
 }

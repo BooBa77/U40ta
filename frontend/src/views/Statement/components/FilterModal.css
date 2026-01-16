@@ -1,0 +1,293 @@
+/* ============================================
+   FILTER MODAL STYLES
+   Организация стилей компонента FilterModal
+============================================== */
+
+/* ============================================
+   1. КОНТЕЙНЕР И КОМПОНОВКА
+============================================== */
+.filter-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 200px;
+}
+
+/* ============================================
+   2. СЕКЦИЯ ПОИСКА
+============================================== */
+.search-section {
+  margin-bottom: 8px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ============================================
+   3. СОСТОЯНИЕ ЗАГРУЗКИ
+============================================== */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #6b7280;
+  gap: 12px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   4. СПИСОК ЧЕКБОКСОВ (альтернатива для текущего HTML)
+============================================== */
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background-color: #f9fafb;
+}
+
+/* Контейнер чекбокса */
+.checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  user-select: none;
+  min-height: 44px;
+}
+
+.checkbox-item:hover {
+  background-color: #f3f4f6;
+}
+
+/* Сам чекбокс */
+.checkbox-input {
+  margin-right: 12px;
+  margin-top: 3px;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  accent-color: #3b82f6;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+
+/* Метка чекбокса - ключевые изменения здесь */
+.checkbox-label {
+  flex-grow: 1;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+  word-break: break-word;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap; /* Разрешаем перенос */
+  align-items: baseline;
+  gap: 4px; /* Создаем отступ между элементами при переносе */
+  min-width: 0;
+}
+
+/* Счетчик опций - решение проблемы разрыва скобок */
+.option-count {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap; /* Самое важное - скобки и число всегда вместе */
+  flex-shrink: 0; /* Не сжимаем */
+  margin-left: 4px;
+}
+
+/* Для случаев когда текст очень длинный */
+.checkbox-label::before {
+  content: '';
+  flex: 1;
+  min-width: 0;
+  order: 1; /* Текст будет первым */
+}
+
+.option-count {
+  order: 2; /* Счетчик будет вторым */
+}
+
+/* Адаптивные настройки для мобильных */
+@media (max-width: 480px) {
+  .checkbox-label {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .option-count {
+    margin-left: 0;
+    margin-top: 4px;
+    align-self: flex-start;
+  }
+  
+  .checkbox-item {
+    padding: 12px;
+  }
+}
+
+/* Сообщения о пустом состоянии */
+.no-results,
+.empty-list {
+  text-align: center;
+  padding: 32px 20px;
+  color: #6b7280;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ============================================
+   5. КНОПКИ МАССОВОГО ВЫБОРА
+============================================== */
+.bulk-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.bulk-btn {
+  padding: 6px 12px;
+  background-color: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bulk-btn:hover {
+  background-color: #d1d5db;
+}
+
+/* ============================================
+   6. КНОПКИ ФУТЕРА (ACTIONS)
+============================================== */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 80px;
+}
+
+/* Основная кнопка (Применить) */
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.btn-primary:disabled {
+  background-color: #93c5fd;
+  cursor: not-allowed;
+}
+
+/* Вторичная кнопка (Сбросить) */
+.btn-secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #4b5563;
+}
+
+/* Кнопка отмены */
+.btn-cancel {
+  background-color: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.btn-cancel:hover {
+  background-color: #f3f4f6;
+}
+
+/* ============================================
+   7. АДАПТИВНЫЕ СТИЛИ
+============================================== */
+@media (max-width: 768px) {
+  .filter-modal-content {
+    min-height: 150px;
+  }
+  
+  .checkbox-list {
+    max-height: 250px;
+  }
+  
+  .btn {
+    min-width: 70px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+/* ============================================
+   8. КАСТОМНЫЙ СКРОЛЛБАР
+============================================== */
+.checkbox-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.checkbox-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.checkbox-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.checkbox-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Для Firefox */
+.checkbox-list {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
