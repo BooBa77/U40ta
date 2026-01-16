@@ -16,8 +16,10 @@
           :placeholder="searchPlaceholder"
           class="search-input"
           enterkeyhint="search"
-          @input="handleSearchInputDebounced"
-        />        
+          @input="handleSearchInput"
+          @keydown.enter="handleEnterKey"
+          @blur="applyFilterImmediately"
+        />
       </div>
       
       <!-- Состояние загрузки -->
@@ -144,20 +146,9 @@ const emit = defineEmits(['close', 'apply', 'reset'])
 // Локальное состояние
 const searchQuery = ref('')
 const internalSelected = ref([])
-const originalSelected = ref([]) // Сохраняем исходное состояние
+const originalSelected = ref([])
 const searchInput = ref(null)
-
-// Debounced версия обработки поиска
-const handleSearchInputDebounced = debounce(() => {
-  if (!searchQuery.value.trim()) {
-    // Если поле пустое - выбираем ВСЕ значения
-    internalSelected.value = [...props.options.map(opt => opt.value)]
-  } else {
-    // Выбираем только отфильтрованные значения
-    const filteredValues = filteredOptions.value.map(opt => opt.value)
-    internalSelected.value = filteredValues
-  }
-}, 300)
+let searchTimeout = null
 
 // Отфильтрованные опции по поиску
 const filteredOptions = computed(() => {
@@ -171,6 +162,33 @@ const filteredOptions = computed(() => {
     String(option.value).toLowerCase().includes(query)
   )
 })
+
+// Обработка ввода (с debounce 200ms)
+const handleSearchInput = () => {
+  clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    applyFilterImmediately()
+  }, 200)
+}
+
+// Нажатие Enter (на мобильных "Готово/Найти")
+const handleEnterKey = () => {
+  clearTimeout(searchTimeout)
+  searchInput.value?.blur() // Скрываем клавиатуру
+  applyFilterImmediately()
+}
+
+// Мгновенное применение фильтра
+const applyFilterImmediately = () => {
+  if (!searchQuery.value.trim()) {
+    // Пустой поиск = выбираем всё
+    internalSelected.value = [...props.options.map(opt => opt.value)]
+  } else {
+    // Выбираем только совпадающие
+    const filteredValues = filteredOptions.value.map(opt => opt.value)
+    internalSelected.value = filteredValues
+  }
+}
 
 // Проверка выбрана ли опция
 const isOptionSelected = (value) => {
@@ -249,10 +267,7 @@ watch(() => props.isOpen, (isOpen) => {
 
 // Очистка при размонтировании
 onUnmounted(() => {
-  // Очищаем таймаут дебаунса
-  if (handleSearchInputDebounced.timeoutId) {
-    clearTimeout(handleSearchInputDebounced.timeoutId)
-  }
+  clearTimeout(searchTimeout)
 })
 </script>
 
