@@ -1,4 +1,3 @@
-<!-- FilterModal.vue -->
 <template>
   <BaseModal
     :is-open="isOpen"
@@ -12,13 +11,13 @@
       <div class="search-section" v-if="showSearch">
         <input
           ref="searchInput"
-          type="text"
+          type="search"
           v-model="searchQuery"
           :placeholder="searchPlaceholder"
           class="search-input"
-          @keyup.enter="focusFirstItem"
-          @input="handleSearchInput"
-        />
+          enterkeyhint="search"
+          @input="handleSearchInputDebounced"
+        />        
       </div>
       
       <!-- Состояние загрузки -->
@@ -28,7 +27,7 @@
       </div>
       
       <!-- Список чекбоксов -->
-      <div v-else class="checkbox-list" ref="checkboxList">
+      <div v-else class="checkbox-list">
         <div 
           v-for="option in filteredOptions" 
           :key="option.value"
@@ -89,8 +88,17 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+
+// Нативная функция debounce
+const debounce = (fn, delay) => {
+  let timeoutId
+  return (...args) => {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), delay)
+  }
+}
 
 const props = defineProps({
   isOpen: {
@@ -138,7 +146,18 @@ const searchQuery = ref('')
 const internalSelected = ref([])
 const originalSelected = ref([]) // Сохраняем исходное состояние
 const searchInput = ref(null)
-const checkboxList = ref(null)
+
+// Debounced версия обработки поиска
+const handleSearchInputDebounced = debounce(() => {
+  if (!searchQuery.value.trim()) {
+    // Если поле пустое - выбираем ВСЕ значения
+    internalSelected.value = [...props.options.map(opt => opt.value)]
+  } else {
+    // Выбираем только отфильтрованные значения
+    const filteredValues = filteredOptions.value.map(opt => opt.value)
+    internalSelected.value = filteredValues
+  }
+}, 300)
 
 // Отфильтрованные опции по поиску
 const filteredOptions = computed(() => {
@@ -152,18 +171,6 @@ const filteredOptions = computed(() => {
     String(option.value).toLowerCase().includes(query)
   )
 })
-
-// Автоматический выбор при фильтрации
-const handleSearchInput = () => {
-  if (!searchQuery.value.trim()) {
-    // Если поле пустое - выбираем ВСЕ значения
-    internalSelected.value = [...props.options.map(opt => opt.value)]
-  } else {
-    // Выбираем только отфильтрованные значения
-    const filteredValues = filteredOptions.value.map(opt => opt.value)
-    internalSelected.value = filteredValues
-  }
-}
 
 // Проверка выбрана ли опция
 const isOptionSelected = (value) => {
@@ -222,16 +229,6 @@ const focusSearchInput = () => {
   }
 }
 
-// Прокрутка к первому элементу при поиске
-const focusFirstItem = () => {
-  if (checkboxList.value && filteredOptions.value.length > 0) {
-    const firstItem = checkboxList.value.querySelector('.checkbox-item')
-    if (firstItem) {
-      firstItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
-  }
-}
-
 // Инициализация при открытии
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
@@ -249,6 +246,14 @@ watch(() => props.isOpen, (isOpen) => {
     focusSearchInput()
   }
 }, { immediate: true })
+
+// Очистка при размонтировании
+onUnmounted(() => {
+  // Очищаем таймаут дебаунса
+  if (handleSearchInputDebounced.timeoutId) {
+    clearTimeout(handleSearchInputDebounced.timeoutId)
+  }
+})
 </script>
 
 <style scoped>
