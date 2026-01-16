@@ -18,7 +18,7 @@
           enterkeyhint="search"
           @input="handleSearchInput"
           @keydown.enter="handleEnterKey"
-          @blur="applyFilterImmediately"
+          @blur="performSearchFilter" 
         />
       </div>
       
@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted, onMounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
 const props = defineProps({
@@ -158,7 +158,7 @@ const filteredOptions = computed(() => {
 const handleSearchInput = () => {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
-    applyFilterImmediately()
+    performSearchFilter()
   }, 200)
 }
 
@@ -166,24 +166,13 @@ const handleSearchInput = () => {
 const handleEnterKey = () => {
   clearTimeout(searchTimeout)
   searchInput.value?.blur() // Скрываем клавиатуру
-  applyFilterImmediately()
+  performSearchFilter()
 }
 
-// Мгновенное применение фильтра
-const applyFilterImmediately = () => {
-  const query = searchQuery.value.toLowerCase().trim()
-  
-  if (!query) {
-    // Пустой поиск = выбираем всё
-    internalSelected.value = [...props.options.map(opt => opt.value)]
-  } else {
-    // Выбираем только совпадающие
-    const filtered = props.options.filter(option => 
-      String(option.label).toLowerCase().includes(query) ||
-      String(option.value).toLowerCase().includes(query)
-    )
-    internalSelected.value = filtered.map(opt => opt.value)
-  }
+// Фильтрация по поисковому запросу (без изменения выбранных значений)
+const performSearchFilter = () => {
+  // Эта функция только фильтрует отображение, не изменяет выбранные значения
+  // Логика фильтрации уже в computed filteredOptions
 }
 
 // Проверка выбрана ли опция
