@@ -18,7 +18,7 @@
           enterkeyhint="search"
           @input="handleSearchInputImmediate"
           @keyup="handleSearchInputImmediate"
-          @keydown.enter="handleEnterKey"
+          @keydown.enter="handleSearchInputImmediate"
           @change="handleSearchInputImmediate"
           @blur="performSearchFilter" 
         />
