@@ -63,7 +63,7 @@
 }
 
 /* ============================================
-   4. СПИСОК ЧЕКБОКСОВ (альтернатива для текущего HTML)
+   4. СПИСОК ЧЕКБОКСОВ (гарантированно в одну строку)
 ============================================== */
 .checkbox-list {
   display: flex;
@@ -77,11 +77,10 @@
   background-color: #f9fafb;
 }
 
-/* Контейнер чекбокса */
 .checkbox-item {
   display: flex;
-  align-items: flex-start;
-  padding: 10px 12px;
+  align-items: center;
+  padding: 12px;
   border-radius: 4px;
   transition: background-color 0.2s;
   user-select: none;
@@ -92,75 +91,88 @@
   background-color: #f3f4f6;
 }
 
-/* Сам чекбокс */
 .checkbox-input {
   margin-right: 12px;
-  margin-top: 3px;
   cursor: pointer;
   width: 18px;
   height: 18px;
   min-width: 18px;
   accent-color: #3b82f6;
-  pointer-events: auto;
   flex-shrink: 0;
 }
 
-/* Метка чекбокса - ключевые изменения здесь */
+/* Ключевые изменения здесь: */
 .checkbox-label {
-  flex-grow: 1;
+  flex: 1;
   cursor: pointer;
   font-size: 14px;
   color: #374151;
   line-height: 1.5;
-  word-break: break-word;
-  pointer-events: none;
   display: flex;
-  flex-wrap: wrap; /* Разрешаем перенос */
-  align-items: baseline;
-  gap: 4px; /* Создаем отступ между элементами при переносе */
-  min-width: 0;
+  align-items: center;
+  min-width: 0; /* Важно для работы text-overflow */
+  overflow: hidden;
 }
 
-/* Счетчик опций - решение проблемы разрыва скобок */
+/* Контейнер для текста и счетчика */
+.checkbox-content {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Текст названия */
+.checkbox-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all; /* Переносим длинные слова без пробелов */
+}
+
+/* Счетчик - всегда в той же строке */
 .option-count {
   font-size: 12px;
   color: #6b7280;
-  white-space: nowrap; /* Самое важное - скобки и число всегда вместе */
-  flex-shrink: 0; /* Не сжимаем */
-  margin-left: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 6px;
 }
 
-/* Для случаев когда текст очень длинный */
-.checkbox-label::before {
-  content: '';
-  flex: 1;
-  min-width: 0;
-  order: 1; /* Текст будет первым */
-}
-
-.option-count {
-  order: 2; /* Счетчик будет вторым */
-}
-
-/* Адаптивные настройки для мобильных */
+/* На мобильных - показываем полный текст */
 @media (max-width: 480px) {
+  .checkbox-item {
+    align-items: flex-start;
+    padding: 12px;
+  }
+  
   .checkbox-label {
+    align-items: flex-start;
+  }
+  
+  .checkbox-content {
     flex-direction: column;
     align-items: flex-start;
   }
   
-  .option-count {
-    margin-left: 0;
-    margin-top: 4px;
-    align-self: flex-start;
+  .checkbox-text {
+    white-space: normal;
+    word-break: break-word;
+    text-overflow: clip;
+    overflow: visible;
+    margin-bottom: 4px;
+    width: 100%;
   }
   
-  .checkbox-item {
-    padding: 12px;
+  .option-count {
+    margin-left: 0;
+    align-self: flex-start;
   }
 }
 
-/* Сообщения о пустом состоянии */
 .no-results,
 .empty-list {
   text-align: center;

@@ -73,14 +73,14 @@ const { loading, error, statements, reload, getRowGroup } = useStatementData(att
 // Заголовок ведомости
 const statementTitle = computed(() => {
   if (!statements.value || statements.value.length === 0) {
-    return `Ведомость #${attachmentId}`
+    return ``
   }
   
   const firstRow = statements.value[0]
   const type = firstRow.doc_type
   const warehouse = firstRow.sklad
   
-  return `Ведомость ${type} ${warehouse}`
+  return `${type} ${warehouse}`
 })
 
 // Колонки таблицы
