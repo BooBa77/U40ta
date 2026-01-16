@@ -11,14 +11,14 @@
       <div class="search-section" v-if="showSearch">
         <input
           ref="searchInput"
-          type="text" <!-- Изменено с search на text -->
+          type="search"
           v-model="searchQuery"
           :placeholder="searchPlaceholder"
           class="search-input"
-          enterkeyhint="done" <!-- Изменено с search на done -->
-          @input="handleSearchInput"
+          enterkeyhint="search"
+          @input="handleSearchInputImmediate"
           @keydown.enter="handleEnterKey"
-          @keyup="handleSearchInput" <!-- Добавлено для мобильных устройств -->
+          @blur="performSearchFilter" 
         />
       </div>
       
@@ -154,29 +154,30 @@ const filteredOptions = computed(() => {
   )
 })
 
-// Обработка ввода (с debounce 150ms для более быстрого отклика)
-const handleSearchInput = () => {
+// Обработка ввода (с debounce 200ms)
+/*const handleSearchInput = () => {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
-    // Фильтрация происходит автоматически через computed свойство
-    // Для мобильных устройств дополнительно скроллим к началу списка
-    if (searchInput.value && document.activeElement === searchInput.value) {
-      // В мобильных браузерах может потребоваться небольшой таймаут для корректной работы
-      setTimeout(() => {
-        const listElement = document.querySelector('.checkbox-list')
-        if (listElement) {
-          listElement.scrollTop = 0
-        }
-      }, 10)
-    }
-  }, 150)
+    performSearchFilter()
+  }, 200)
+}*/
+const handleSearchInputImmediate = () => {
+  // УБИРАЕМ ВСЕ ТАЙМАУТЫ - фильтрация мгновенная
+  // computed свойство filteredOptions само обновится
+  clearTimeout(searchTimeout)
 }
 
-// Нажатие Enter (на мобильных "Готово")
-const handleEnterKey = (event) => {
+// Нажатие Enter (на мобильных "Готово/Найти")
+const handleEnterKey = () => {
   clearTimeout(searchTimeout)
-  event.target?.blur() // Скрываем клавиатуру
-  // Не вызываем performSearchFilter, так как фильтрация уже работает в реальном времени
+  searchInput.value?.blur() // Скрываем клавиатуру
+  performSearchFilter()
+}
+
+// Фильтрация по поисковому запросу (без изменения выбранных значений)
+const performSearchFilter = () => {
+  // Эта функция только фильтрует отображение, не изменяет выбранные значения
+  // Логика фильтрации уже в computed filteredOptions
 }
 
 // Проверка выбрана ли опция
@@ -232,12 +233,6 @@ const focusSearchInput = () => {
   if (searchInput.value) {
     nextTick(() => {
       searchInput.value.focus()
-      // На мобильных устройствах иногда нужно небольшое ожидание для корректного фокуса
-      setTimeout(() => {
-        if (searchInput.value) {
-          searchInput.value.focus()
-        }
-      }, 50)
     })
   }
 }
@@ -267,7 +262,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Существующие стили остаются без изменений */
 .filter-modal-content {
   display: flex;
   flex-direction: column;
@@ -461,20 +455,6 @@ onUnmounted(() => {
     min-width: 70px;
     padding: 8px 12px;
     font-size: 13px;
-  }
-  
-  /* Улучшение для мобильных устройств */
-  .search-input {
-    font-size: 16px; /* Увеличиваем для лучшей читаемости на мобильных */
-    padding: 12px 14px;
-  }
-  
-  .checkbox-item {
-    padding: 10px 14px;
-  }
-  
-  .checkbox-label {
-    font-size: 15px; /* Чуть больше текст на мобильных */
   }
 }
 
