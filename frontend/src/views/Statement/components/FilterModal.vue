@@ -17,7 +17,7 @@
           class="search-input"
           enterkeyhint="search"
           @keydown.enter="handleEnterKey"
-          @blur="handleBlurSearch"
+          @input="handleSearchInput"
         />
       </div>
       
