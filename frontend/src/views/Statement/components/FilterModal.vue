@@ -16,7 +16,6 @@
           :placeholder="searchPlaceholder"
           class="search-input"
           enterkeyhint="search"
-          @input="handleSearchInput"
           @keydown.enter="handleEnterKey"
           @blur="handleBlurSearch"
         />
@@ -145,36 +144,30 @@ const searchInput = ref(null)
 
 const focusSearchInput = () => {
   if (searchInput.value) {
-    // Используем nextTick, чтобы убедиться, что инпут отрендерен и доступен
     nextTick(() => {
       searchInput.value.focus()
     })
   }
 }
 
-// Синхронизация при открытии модального окна
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    // Сохраняем исходное состояние для отмены
     originalSelected.value = [...props.selectedValues]
     
-    // Инициализация внутреннего состояния выбора
     if (props.selectedValues.length === 0) {
-      // Если проп пуст, выбираем ВСЕ опции по умолчанию (согласно вашей предыдущей логике)
       internalSelected.value = [...props.options.map(opt => opt.value)]
     } else {
       internalSelected.value = [...props.selectedValues]
     }
     
-    searchQuery.value = '' // Очищаем поиск
-    focusSearchInput() // Фокусируем инпут
+    searchQuery.value = '' 
+    focusSearchInput() 
   }
 }, { immediate: true })
 
 
 // --- Методы поиска (Реальное время) ---
 
-// Отфильтрованные опции: реактивно обновляется при изменении searchQuery
 const filteredOptions = computed(() => {
   if (!searchQuery.value.trim()) {
     return props.options
@@ -187,17 +180,11 @@ const filteredOptions = computed(() => {
   )
 })
 
-// Обработчик @input: v-model уже обновляет searchQuery, 
-// поэтому здесь ничего делать не нужно для клиентской фильтрации в реальном времени.
-const handleSearchInput = () => {
-    // Пусто, полагаемся на v-model и computed
-}
+// handleSearchInput теперь не нужен, так как v-model сам обновляет searchQuery
 
-// Нажатие Enter: закрываем клавиатуру
 const handleEnterKey = () => {
   searchInput.value?.blur() 
 }
-
 
 // --- Методы выбора ---
 
