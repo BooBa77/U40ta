@@ -63,7 +63,7 @@
 }
 
 /* ============================================
-   4. СПИСОК ЧЕКБОКСОВ (Flex вариант)
+   4. СПИСОК ЧЕКБОКСОВ (Flex с фиксированным счетчиком)
 ============================================== */
 .checkbox-list {
   display: flex;
@@ -86,7 +86,8 @@
   transition: background-color 0.2s;
   user-select: none;
   min-height: 44px;
-  flex-wrap: nowrap; /* Запрещаем перенос */
+  flex-wrap: nowrap;
+  overflow: hidden; /* Обрезаем что не влезает */
 }
 
 .checkbox-item:hover {
@@ -110,9 +111,10 @@
   display: flex;
   align-items: baseline;
   flex: 1;
-  min-width: 0; /* Критически важно для text-overflow */
+  min-width: 0;
   gap: 8px;
   flex-wrap: nowrap;
+  overflow: hidden; /* Важно для работы text-overflow */
 }
 
 .checkbox-text {
@@ -121,46 +123,51 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  word-break: break-all; /* Ломаем длинные слова */
+  word-break: break-all;
 }
 
+/* ФИКСИРОВАННЫЙ СЧЕТЧИК */
 .option-count {
   font-size: 12px;
   color: #6b7280;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Не сжимается */
+  min-width: 50px; /* Минимальная ширина */
+  text-align: right; /* Выравнивание по правому краю */
+  margin-left: 4px; /* Минимальный отступ от текста */
 }
 
-/* Только на очень узких экранах разрешаем перенос */
-@media (max-width: 400px) {
-  .checkbox-label {
-    flex-wrap: wrap;
-    align-items: flex-start;
+/* Для очень узких экранов - сжимаем отступы */
+@media (max-width: 420px) {
+  .checkbox-item {
+    gap: 8px;
+    padding: 10px 8px;
   }
   
-  .checkbox-text {
-    white-space: normal;
-    word-break: break-word;
-    overflow: visible;
-    text-overflow: clip;
-    flex-basis: 100%;
+  .checkbox-label {
+    gap: 4px;
   }
   
   .option-count {
-    flex-basis: 100%;
-    margin-top: 4px;
-  }
-}
-
-/* Адаптивные настройки */
-@media (max-width: 480px) {
-  .checkbox-item {
-    padding: 10px;
-    gap: 10px;
+    min-width: 45px; /* Чуть уже на мобильных */
+    font-size: 11px;
   }
   
   .checkbox-text {
     font-size: 13px;
+  }
+}
+
+/* Экстремально узкие экраны - ломаем слова сильнее */
+@media (max-width: 360px) {
+  .checkbox-text {
+    word-break: break-all;
+    hyphens: auto;
+  }
+  
+  .option-count {
+    min-width: 40px;
+    margin-left: 2px;
   }
 }
 
