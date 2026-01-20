@@ -1,5 +1,6 @@
 <template>
   <div class="home-page">
+    <FlightModeOverlay />
     <header class="home-header">
       <ExitButton />
       <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>

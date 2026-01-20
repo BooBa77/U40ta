@@ -8,10 +8,11 @@ import { EmailProcessor } from './services/email-processor.service';
 import { EmailFileAnalyzer } from './services/email-file-analyzer.service';
 import { EmailAttachment } from './entities/email-attachment.entity'; // Импортируем сущность (модель) таблицы email_attachments
 import { EmailController } from './email.controller';
+import { MolAccess } from '../statements/entities/mol-access.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EmailAttachment]),
+    TypeOrmModule.forFeature([EmailAttachment, MolAccess]),
     AppEventsModule, // Модуль SSE
     JwtAuthModule,
   ],

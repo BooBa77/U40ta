@@ -2,7 +2,11 @@
   <div class="flight-mode-toggle">
     <button
       class="flight-mode-button"
-      :class="{ active: isFlightMode }"
+      :class="{ 
+        active: isFlightMode,
+        'flight-mode-online': !isFlightMode,
+        'flight-mode-offline': isFlightMode 
+      }"
       @click="toggleFlightMode"
       @mouseenter="showTooltip = true"
       @mouseleave="showTooltip = false"
@@ -10,7 +14,10 @@
       :title="tooltipText"
       :disabled="isLoading"
     >
-      <span class="flight-icon">✈️</span>
+      <!-- Иконка самолёта с анимацией в режиме полёта -->
+      <span class="flight-icon" :class="{ swaying: isFlightMode && !isLoading }">✈️</span>
+      
+      <!-- Индикатор статуса (точка в углу) -->
       <span class="status-indicator" :class="{ active: isFlightMode }"></span>
       
       <!-- Индикатор загрузки -->
@@ -26,7 +33,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { offlineCache } from '../../../services/OfflineCacheService.js'// '@/services/offline-cache.service.js'
+import { offlineCache } from '../../../services/OfflineCacheService.js'
 
 // Константы
 const FLIGHT_MODE_KEY = 'u40ta_flight_mode'
@@ -48,8 +55,8 @@ onMounted(() => {
 const tooltipText = computed(() => {
   if (isLoading.value) return 'Загрузка данных...'
   return isFlightMode.value 
-    ? 'Режим полёта включен (офлайн)' 
-    : 'Режим полёта выключен (онлайн)'
+    ? 'Режим полёта включен (офлайн). Нажмите для выключения' 
+    : 'Режим полёта выключен (онлайн). Нажмите для включения'
 })
 
 const buttonLabel = computed(() => {
@@ -81,7 +88,6 @@ async function enableFlightMode() {
   try {
     console.log('Включаем режим полёта...')
     
-    // Загружаем ВСЕ данные одним запросом через эндпоинт offline/data
     const response = await fetch('/api/offline/data', {
       headers: { 
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}` 
@@ -105,14 +111,12 @@ async function enableFlightMode() {
     console.log('Истории изменений:', result.data.object_changes.length)
     console.log('QR-кодов:', result.data.qr_codes.length)
     
-    // Кэшируем все данные из одного ответа
     await offlineCache.cacheAllData(result.data)
     
     console.log('Режим полёта успешно включен')
     
   } catch (error) {
     console.error('Ошибка при включении режима полёта:', error)
-    // Откатываем изменения
     isFlightMode.value = false
     localStorage.setItem(FLIGHT_MODE_KEY, 'false')
     throw error
@@ -122,18 +126,14 @@ async function enableFlightMode() {
   }
 }
 
-// Выключение режима полёта с проверкой локальных изменений
+// Выключение режима полёта
 async function disableFlightMode() {
   try {
     console.log('Выключаем режим полёта...')
     
-    // 1. Получаем локальные изменения из IndexedDB
-    //const localChanges = await offlineCache.getLocalChanges()
-    //console.log('Найдено локальных изменений:', localChanges.length)
-    const localChanges = [] // временно пустой массив
+    const localChanges = []
     console.log('Локальные изменения временно отключены')
     
-    // 2. Проверяем у сервера, что делать
     const checkResponse = await fetch('/api/offline/check-switch-to-online', {
       method: 'POST',
       headers: { 
@@ -156,13 +156,8 @@ async function disableFlightMode() {
       throw new Error(checkResult.message || 'Ошибка проверки перехода')
     }
     
-    // 3. Если нужна синхронизация
     if (checkResult.needsSync) {
       console.log('Требуется синхронизация изменений')
-      // TODO: Здесь будет отправка изменений на сервер
-      // await syncChangesToServer(localChanges)
-      
-      // Пока просто предупреждаем
       const shouldSync = confirm(
         `Обнаружено ${localChanges.length} локальных изменений.\n` +
         'Требуется синхронизация с сервером.\n\n' +
@@ -174,13 +169,11 @@ async function disableFlightMode() {
       }
     }
     
-    // 4. Если сервер разрешает очистку кэша
     if (checkResult.clearCache) {
       console.log('Сервер разрешил очистку кэша, очищаем...')
       await offlineCache.clearAllCache()
     } else {
       console.log('Сервер НЕ разрешил очистку кэша')
-      // Можно спросить у пользователя
       const shouldClear = confirm(
         'Сервер не разрешил очистку кэша.\n' +
         'Очистить кэш вручную?'
@@ -205,24 +198,19 @@ async function toggleFlightMode() {
   
   try {
     if (isFlightMode.value) {
-      // Выключаем режим полёта
       await disableFlightMode()
       isFlightMode.value = false
     } else {
-      // Включаем режим полёта
       await enableFlightMode()
       isFlightMode.value = true
     }
     
-    // Сохраняем состояние
     localStorage.setItem(FLIGHT_MODE_KEY, JSON.stringify(isFlightMode.value))
     
-    // Отправляем событие для других компонентов
     window.dispatchEvent(new CustomEvent('flight-mode-changed', {
       detail: { isFlightMode: isFlightMode.value }
     }))
     
-    // Также отправляем событие storage для синхронизации между вкладками
     window.dispatchEvent(new StorageEvent('storage', {
       key: FLIGHT_MODE_KEY,
       newValue: JSON.stringify(isFlightMode.value),
@@ -231,7 +219,6 @@ async function toggleFlightMode() {
     
   } catch (error) {
     console.error('Ошибка переключения режима полёта:', error)
-    // Восстанавливаем предыдущее состояние кнопки
     isFlightMode.value = !isFlightMode.value
   }
 }
@@ -243,11 +230,12 @@ async function toggleFlightMode() {
   display: inline-block;
 }
 
+/* Основная кнопка */
 .flight-mode-button {
   position: relative;
   width: 44px;
   height: 44px;
-  border: 2px solid #ccc;
+  border: 3px solid #ccc;
   border-radius: 50%;
   background: white;
   cursor: pointer;
@@ -257,17 +245,31 @@ async function toggleFlightMode() {
   transition: all 0.3s ease;
   padding: 0;
   outline: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Состояние онлайн (режим выключен) */
+.flight-mode-online {
+  border-color: #888888; /* Серый для онлайн */
+  background-color: #f8fff8;
+}
+
+/* Состояние оффлайн (режим включен) */
+.flight-mode-offline {
+  width: 62px; /* Увеличение на 40% */
+  height: 62px; /* Увеличение на 40% */
+  border-color: #0088cc; /* Синий для оффлайн */
+  background-color: #f0f8ff;
+  box-shadow: 0 0 15px rgba(0, 136, 204, 0.4);
 }
 
 .flight-mode-button:hover:not(:disabled) {
-  border-color: #0088cc;
   transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.flight-mode-button.active {
-  border-color: #0088cc;
-  background-color: #f0f8ff;
-  box-shadow: 0 0 10px rgba(0, 136, 204, 0.3);
+.flight-mode-button.active:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(0, 136, 204, 0.6);
 }
 
 .flight-mode-button:disabled {
@@ -275,39 +277,48 @@ async function toggleFlightMode() {
   opacity: 0.6;
 }
 
+/* Иконка самолёта - увеличенная */
 .flight-icon {
   font-size: 20px;
   transition: transform 0.3s ease;
+  display: block;
+}
+
+/* Анимация покачивания в режиме полёта */
+.flight-icon.swaying {
+  animation: airplane-sway 2s ease-in-out infinite;
 }
 
 .flight-mode-button.active .flight-icon {
+  font-size: 28px;
   transform: rotate(45deg);
 }
 
-/* Индикатор статуса (точка в углу) */
+/* Индикатор статуса (точка в углу) - увеличен */
 .status-indicator {
   position: absolute;
-  bottom: 5px;
-  right: 5px;
+  bottom: 8px;
+  right: 8px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background-color: #ccc;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .status-indicator.active {
   background-color: #0088cc;
+  box-shadow: 0 0 8px rgba(0, 136, 204, 0.8);
 }
 
-/* Индикатор загрузки */
+/* Индикатор загрузки - увеличен */
 .loading-indicator {
   position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  border: 2px solid transparent;
+  top: -3px; /* Было -2px */
+  left: -3px; /* Было -2px */
+  right: -3px; /* Было -2px */
+  bottom: -3px; /* Было -2px */
+  border: 3px solid transparent; /* Было 2px */
   border-top-color: #0088cc;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -318,18 +329,34 @@ async function toggleFlightMode() {
   100% { transform: rotate(360deg); }
 }
 
+/* Анимация покачивания самолёта */
+@keyframes airplane-sway {
+  0%, 100% {
+    transform: rotate(45deg) translateX(0) translateY(0);
+  }
+  25% {
+    transform: rotate(45deg) translateX(2px) translateY(-1px);
+  }
+  50% {
+    transform: rotate(45deg) translateX(0) translateY(-2px);
+  }
+  75% {
+    transform: rotate(45deg) translateX(-2px) translateY(-1px);
+  }
+}
+
 /* Всплывающая подсказка */
 .tooltip {
   position: absolute;
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-top: 8px;
-  padding: 6px 12px;
+  margin-top: 12px;
+  padding: 8px 16px;
   background: rgba(0, 0, 0, 0.9);
   color: white;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: 6px;
+  font-size: 14px;
   white-space: nowrap;
   z-index: 1000;
   pointer-events: none;
@@ -341,8 +368,27 @@ async function toggleFlightMode() {
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border-width: 4px;
+  border-width: 6px;
   border-style: solid;
   border-color: transparent transparent rgba(0, 0, 0, 0.9) transparent;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+  .flight-mode-button {
+    width: 56px;
+    height: 56px;
+  }
+  
+  .flight-icon {
+    font-size: 24px;
+  }
+  
+  .status-indicator {
+    width: 10px;
+    height: 10px;
+    bottom: 7px;
+    right: 7px;
+  }
 }
 </style>
