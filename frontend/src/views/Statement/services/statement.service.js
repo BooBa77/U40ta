@@ -26,7 +26,7 @@ export class StatementService {
    * @throws {Error} Ошибка загрузки данных
    */
   async fetchStatement(emailAttachmentId) {
-    const attachmentId = Number(emailAttachmentId)
+    const attachmentId = Number(emailAttachmentId) // Приводим к числу
     
     if (this.isFlightMode()) {
       console.log(`[StatementService] Офлайн-режим: получение ведомости ${attachmentId} из кэша`)
@@ -39,7 +39,10 @@ export class StatementService {
 
   /**
    * Получает ведомость из кэша IndexedDB
-   * Данные в snake_case (как в БД)
+   * ВНИМАНИЕ: Поля в IndexedDB могут быть в разных форматах:
+   * - snake_case (email_attachment_id) - если данные были преобразованы
+   * - camelCase (emailAttachmentId) - если данные сохранены как есть из API
+   * Этот метод проверяет оба варианта для совместимости
    * @param {number} emailAttachmentId - ID вложения email
    * @returns {Promise<Array>} Отфильтрованные данные ведомости
    */
@@ -48,10 +51,25 @@ export class StatementService {
       // Получаем все кэшированные ведомости
       const allStatements = await offlineCache.db.processed_statements.toArray()
       
-      // Фильтруем по email_attachment_id (snake_case)
-      const filteredStatements = allStatements.filter(
-        statement => statement.email_attachment_id === emailAttachmentId
-      )
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: проверяем оба возможных формата полей
+      const filteredStatements = allStatements.filter(statement => {
+        // Приводим ID к числу для надёжного сравнения
+        const targetId = Number(emailAttachmentId)
+        
+        // Вариант 1: snake_case поле (предпочтительный формат)
+        if (statement.email_attachment_id !== undefined) {
+          return Number(statement.email_attachment_id) === targetId
+        }
+        
+        // Вариант 2: camelCase поле (если данные не были преобразованы)
+        if (statement.emailAttachmentId !== undefined) {
+          return Number(statement.emailAttachmentId) === targetId
+        }
+        
+        // Если поле вообще не найдено - пропускаем запись
+        console.warn('[StatementService] Запись ведомости без идентификатора вложения:', statement)
+        return false
+      })
       
       console.log(`[StatementService] Из кэша получено записей: ${filteredStatements.length}`)
       return filteredStatements
@@ -101,6 +119,7 @@ export class StatementService {
       throw error
     }
   }
+  
   /**
    * Проверяет доступность данных в кэше для конкретной ведомости
    * @param {number} emailAttachmentId - ID вложения email

@@ -85,7 +85,7 @@ export class OfflineCacheService {
         // Собираем уникальные пары zavod/sklad
         const uniqueAccess = Array.from(
           new Set(userAccess.map(access => `${access.zavod}|${access.sklad}`))
-        ).map(key => {
+        ).map((key: string) => { // ← добавляем тип string
           const [zavod, sklad] = key.split('|');
           return { zavod: parseInt(zavod), sklad };
         });
@@ -96,7 +96,6 @@ export class OfflineCacheService {
             where: { 
               zavod,
               sklad,
-              is_excess: false, // Только основные записи
             },
             order: { id: 'ASC' },
           })

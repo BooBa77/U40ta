@@ -122,17 +122,76 @@ async function enableFlightMode() {
   }
 }
 
-// Выключение режима полёта (пока только очистка кэша)
+// Выключение режима полёта с проверкой локальных изменений
 async function disableFlightMode() {
   try {
     console.log('Выключаем режим полёта...')
     
-    // TODO: Здесь будет синхронизация изменений
+    // 1. Получаем локальные изменения из IndexedDB
+    //const localChanges = await offlineCache.getLocalChanges()
+    //console.log('Найдено локальных изменений:', localChanges.length)
+    const localChanges = [] // временно пустой массив
+    console.log('Локальные изменения временно отключены')
     
-    // Очищаем кэш
-    await offlineCache.clearAllCache()
+    // 2. Проверяем у сервера, что делать
+    const checkResponse = await fetch('/api/offline/check-switch-to-online', {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        localChangesHistory: localChanges || [] 
+      })
+    })
     
-    console.log('Режим полёта выключен, кэш очищен')
+    if (!checkResponse.ok) {
+      throw new Error(`Ошибка проверки: ${checkResponse.status}`)
+    }
+    
+    const checkResult = await checkResponse.json()
+    console.log('Результат проверки сервера:', checkResult)
+    
+    if (!checkResult.success) {
+      throw new Error(checkResult.message || 'Ошибка проверки перехода')
+    }
+    
+    // 3. Если нужна синхронизация
+    if (checkResult.needsSync) {
+      console.log('Требуется синхронизация изменений')
+      // TODO: Здесь будет отправка изменений на сервер
+      // await syncChangesToServer(localChanges)
+      
+      // Пока просто предупреждаем
+      const shouldSync = confirm(
+        `Обнаружено ${localChanges.length} локальных изменений.\n` +
+        'Требуется синхронизация с сервером.\n\n' +
+        'Продолжить без синхронизации? (Изменения будут потеряны)'
+      )
+      
+      if (!shouldSync) {
+        throw new Error('Пользователь отменил переход (требуется синхронизация)')
+      }
+    }
+    
+    // 4. Если сервер разрешает очистку кэша
+    if (checkResult.clearCache) {
+      console.log('Сервер разрешил очистку кэша, очищаем...')
+      await offlineCache.clearAllCache()
+    } else {
+      console.log('Сервер НЕ разрешил очистку кэша')
+      // Можно спросить у пользователя
+      const shouldClear = confirm(
+        'Сервер не разрешил очистку кэша.\n' +
+        'Очистить кэш вручную?'
+      )
+      
+      if (shouldClear) {
+        await offlineCache.clearAllCache()
+      }
+    }
+    
+    console.log('Режим полёта выключен')
     
   } catch (error) {
     console.error('Ошибка при выключении режима полёта:', error)

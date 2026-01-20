@@ -1,4 +1,4 @@
-// app/src/modules/offline/services/offline.service.ts
+// offline/services/offline.service.ts
 import { Injectable } from '@nestjs/common';
 import { OfflineCacheService } from './offline-cache.service';
 import { OfflineSyncService } from './offline-sync.service';
@@ -55,5 +55,46 @@ export class OfflineService {
       console.error('OfflineService: ошибка при синхронизации:', error);
       throw error;
     }
+  }
+
+  // ===== НОВЫЕ МЕТОДЫ ДЛЯ ПЕРЕКЛЮЧЕНИЯ РЕЖИМОВ =====
+
+  /**
+   * Проверяет, нужна ли синхронизация при переключении из офлайн в онлайн
+   * @param localChanges Локальная история изменений из IndexedDB
+   * @returns Информация о необходимости синхронизации
+   */
+  checkIfSyncNeeded(localChanges: any[]): { needsSync: boolean; message: string } {
+    console.log(`OfflineService: проверка необходимости синхронизации для ${localChanges?.length || 0} локальных изменений`);
+    
+    // Если истории нет или она пустая - синхронизация не нужна
+    if (!localChanges || localChanges.length === 0) {
+      return {
+        needsSync: false,
+        message: 'Локальная история пуста. Можно переключаться на онлайн без синхронизации.'
+      };
+    }
+    
+    // Если есть изменения - нужна синхронизация
+    return {
+      needsSync: true,
+      message: `Обнаружено ${localChanges.length} локальных изменений. Требуется синхронизация перед переходом в онлайн.`
+    };
+  }
+
+  /**
+   * Подтверждение очистки локального кэша
+   * Вызывается после успешной синхронизации или если синхронизация не требуется
+   * @returns Подтверждение для клиента
+   */
+  confirmCacheClear(): { success: boolean; message: string } {
+    console.log('OfflineService: подтверждение очистки кэша');
+    
+    // Этот метод просто подтверждает, что сервер разрешает очистку
+    // Реальная очистка IndexedDB происходит на клиенте
+    return {
+      success: true,
+      message: 'Сервер подтверждает очистку локального кэша. Клиент может очистить IndexedDB.'
+    };
   }
 }

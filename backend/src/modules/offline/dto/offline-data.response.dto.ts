@@ -17,8 +17,18 @@ export interface OfflineDataDto {
   objects: InventoryObject[];
   places: Place[];
   processed_statements: ProcessedStatement[];
-  object_changes: ObjectChange[]; // из основной таблицы object_changes
+  object_changes: ObjectChange[];
   qr_codes: QrCode[];
+  meta: {
+    userId: number;
+    fetchedAt: string;
+    totalObjects: number;
+    totalPlaces: number;
+    totalStatements: number;
+    totalObjectChanges: number;
+    totalQrCodes: number;
+    accessibleSklads: number;
+  };
 }
 
 // DTO для ответа API

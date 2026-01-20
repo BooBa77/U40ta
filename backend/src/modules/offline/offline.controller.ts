@@ -16,7 +16,6 @@ export class OfflineController {
   async getOfflineData(@Req() request: any): Promise<OfflineDataResponseDto> {
     try {
       const userId = request.user?.sub || request.user?.userId;
-      
       if (!userId) {
         throw new Error('Не удалось определить пользователя');
       }
@@ -40,13 +39,65 @@ export class OfflineController {
           processed_statements: [],
           object_changes: [],
           qr_codes: [],
+          meta: { // ← добавляем meta в случае ошибки
+            userId: 0,
+            fetchedAt: new Date().toISOString(),
+            totalObjects: 0,
+            totalPlaces: 0,
+            totalStatements: 0,
+            totalObjectChanges: 0,
+            totalQrCodes: 0,
+            accessibleSklads: 0,
+          }
         },
         message: `Ошибка загрузки данных: ${error.message}`,
       };
     }
   }
 
-
+  /**
+   * Проверка совершённых действий в офлайн-режиме. Есть ли чего выгружать или просто кэш очищаем
+   * POST /api/offline/check-switch-to-online
+   */
+  @Post('check-switch-to-online')
+  async checkSwitchToOnline(
+    @Req() request: any,
+    @Body() body: { localChangesHistory?: any[] }
+  ) {
+    try {
+      const userId = request.user?.sub || request.user?.userId;
+      const localChanges = body.localChangesHistory || [];
+      
+      console.log(`OfflineController: проверка перехода в онлайн для пользователя ${userId}`);
+      console.log(`OfflineController: получено локальных изменений: ${localChanges.length}`);
+      console.log(`OfflineController: тип данных: ${typeof localChanges}`);
+      console.log(`OfflineController: данные:`, localChanges);
+      
+      const checkResult = this.offlineService.checkIfSyncNeeded(localChanges);
+      
+      console.log(`OfflineController: результат проверки:`, {
+        needsSync: checkResult.needsSync,
+        message: checkResult.message,
+        clearCache: !checkResult.needsSync
+      });
+      
+      return {
+        success: true,
+        ...checkResult,
+        clearCache: !checkResult.needsSync,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('OfflineController: ошибка проверки:', error);
+      return {
+        success: false,
+        needsSync: true,
+        message: `Ошибка проверки: ${error.message}`,
+        clearCache: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
   /**
    * Синхронизация изменений из офлайн-режима
    * POST /api/offline/sync

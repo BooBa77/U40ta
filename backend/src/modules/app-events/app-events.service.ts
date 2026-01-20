@@ -30,6 +30,15 @@ export class AppEventsService {
     });
   }
 
+  // Для Home.vue и StatementPage.vue (удаление ведомости)
+  notifyEmailAttachmentDeleted(attachmentId: number): void {
+    this.eventSubject.next({ 
+      type: 'email-attachment-deleted',
+      message: 'Вложение удалено',
+      data: { attachmentId }
+    });
+  }  
+
   // Для получения потока событий (используется в контроллере)
   getEventStream(): Observable<{ message: string }> {
     return this.eventSubject.asObservable();

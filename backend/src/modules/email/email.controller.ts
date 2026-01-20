@@ -1,11 +1,15 @@
-import { Controller, Post, Get, UseGuards, Req } from '@nestjs/common';
-//import { Request } from 'express';
+import { Controller, Post, Get, Delete, UseGuards, Req, Param, ParseIntPipe, NotFoundException } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImapService } from './services/imap.service';
-import { Repository } from 'typeorm'; // Импортируем репозиторий для работы с базой данных
-import { EmailAttachment } from './entities/email-attachment.entity'; // Импортируем сущность (модель) таблицы email_attachments
-import { InjectRepository } from '@nestjs/typeorm'; // Декоратор для внедрения репозитория
+import { Repository } from 'typeorm';
+import { EmailAttachment } from './entities/email-attachment.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { EmailAttachmentResponseDto } from './dto/email-attachment-response.dto'; // Импорт DTO
+import { DeleteAttachmentResponseDto } from './dto/delete-attachment-response.dto'; // Импорт DTO
+import { AppEventsService } from '../app-events/app-events.service'; // Для SSE уведомлений
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface RequestWithUser extends ExpressRequest {
   user?: {
@@ -14,30 +18,28 @@ interface RequestWithUser extends ExpressRequest {
   };
 }
 
-@Controller('email') // Все маршруты этого контроллера начинаются с /api/email
-@UseGuards(JwtAuthGuard) // Защищаем все endpoint'ы JWT-авторизацией
+@Controller('email')
+@UseGuards(JwtAuthGuard)
 export class EmailController {
   constructor(
-    private readonly imapService: ImapService, // Сервис для работы с почтой
-    // Внедряем репозиторий для таблицы email_attachments
-    // Репозиторий — это готовый набор методов для работы с таблицей в БД
-    // (find, save, update, delete и т.д.)
+    private readonly imapService: ImapService,
     @InjectRepository(EmailAttachment)
     private readonly emailAttachmentRepository: Repository<EmailAttachment>,
+    private readonly appEventsService: AppEventsService, // Добавляем для SSE
   ) {}
 
   // Ручная проверка почты
-  @Post('check-now') // POST /api/email/check-now
+  @Post('check-now')
   async checkEmailNow() {
     try {
-      console.log('🔄 Ручная проверка почты...');
+      console.log('Ручная проверка почты...');
       await this.imapService.checkForNewEmails();
       return { 
         success: true, 
         message: 'Проверка почты завершена' 
       };
     } catch (error) {
-      console.error('❌ Ошибка ручной проверки почты:', error);
+      console.error('Ошибка ручной проверки почты:', error);
       return { 
         success: false, 
         message: 'Ошибка проверки почты: ' + error.message 
@@ -45,70 +47,126 @@ export class EmailController {
     }
   }
 
-  // Получение списка всех email-вложений
-  @Get('attachments') // GET /api/email/attachments
-  //async getAllAttachments(@Req() request: Request) {
-  async getAllAttachments(@Req() request: RequestWithUser) {
+  // Получение списка всех email-вложений с DTO
+  @Get('attachments')
+  async getAllAttachments(@Req() request: RequestWithUser): Promise<EmailAttachmentResponseDto[]> {
+    console.log('Запрос списка email-вложений...');
     
-    console.log('📄 Запрос списка email-вложений...');
-    
-    //const userRole = request.user?.role;
     const userRole = request.user?.role;
     
-    // 1. Проверка роли
+    // Проверка роли
     if (!userRole) {
-      console.log('⛔ Пользователь без роли');
+      console.log('Пользователь без роли');
       return [];
     }
     
     if (userRole !== 'admin' && userRole !== 'МОЛ') {
-      console.log(`⛔ Доступ запрещён для роли: ${userRole}`);
+      console.log(`Доступ запрещён для роли: ${userRole}`);
       return [];
     }
     
-    // 2. Создаём запрос
+    // Создаём запрос
     const query = this.emailAttachmentRepository.createQueryBuilder('attachment');
     
-    // 3. Фильтрация по типу документа только для 'МОЛ'
+    // Фильтрация по типу документа только для 'МОЛ'
     if (userRole === 'МОЛ') {
       query.where('attachment.doc_type IN (:...types)', { 
         types: ['ОСВ', 'ОС'] 
       });
-      console.log('🔹 Фильтр для МОЛ: только ОСВ и ОС');
+      console.log('Фильтр для МОЛ: только ОСВ и ОС');
     } else {
-      console.log('🔹 Админ: все файлы');
+      console.log('Админ: все файлы');
     }
     
-    // 4. Сортировка и выполнение
+    // Сортировка и выполнение
     const attachments = await query
       .orderBy('attachment.received_at', 'DESC')
       .getMany();
     
-    console.log(`✅ Найдено записей: ${attachments.length}`);
-    return attachments;
+    console.log(`Найдено записей: ${attachments.length}`);
+    
+    // Преобразуем Entity в DTO
+    return attachments.map(attachment => {
+      const dto = new EmailAttachmentResponseDto();
+      dto.id = attachment.id;
+      dto.filename = attachment.filename;
+      dto.email_from = attachment.email_from;
+      dto.received_at = attachment.received_at;
+      dto.doc_type = attachment.doc_type;
+      dto.zavod = attachment.zavod;
+      dto.sklad = attachment.sklad;
+      dto.in_process = attachment.in_process;
+      dto.is_inventory = attachment.is_inventory;
+      return dto;
+    });
   }
-  
-  /*
-  async getAllAttachments() {
+
+  // Удаление вложения по ID
+  @Delete('attachments/:id')
+  async deleteAttachment(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DeleteAttachmentResponseDto> {
+    console.log(`Запрос на удаление вложения ID: ${id}`);
+    
     try {
-      console.log('📄 Запрос списка email-вложений...');
-      
-      // Используем репозиторий для получения всех записей из таблицы
-      // order: { received_at: 'DESC' } — сортируем по дате получения, новые сверху
-      const attachments = await this.emailAttachmentRepository.find({
-        order: { received_at: 'DESC' },
+      // Находим вложение
+      const attachment = await this.emailAttachmentRepository.findOne({
+        where: { id }
       });
       
-      console.log(`✅ Найдено записей: ${attachments.length}`);
-      return attachments;
+      if (!attachment) {
+        console.log(`Вложение с ID ${id} не найдено`);
+        const response = new DeleteAttachmentResponseDto();
+        response.success = false;
+        response.message = 'Вложение не найдено';
+        return response;
+      }
+      
+      // Удаляем физический файл (если существует)
+      try {
+        const filePath = this.getAttachmentFilePath(attachment.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`Физический файл удален: ${attachment.filename}`);
+        } else {
+          console.log(`Физический файл не найден, пропускаем: ${attachment.filename}`);
+        }
+      } catch (fileError) {
+        console.warn(`Ошибка при удалении файла, продолжаем: ${fileError.message}`);
+        // Игнорируем ошибку, продолжаем удаление записи из БД
+      }
+      
+      // Удаляем запись из БД (каскадное удаление processed_statements через FK)
+      await this.emailAttachmentRepository.delete(id);
+      console.log(`Запись удалена из БД: ID ${id}`);
+      
+      // Отправляем SSE уведомление об удалении
+      this.appEventsService.notifyEmailAttachmentDeleted(id);
+      console.log('Отправлено SSE уведомление об удалении');
+      
+      // Возвращаем успешный ответ
+      const response = new DeleteAttachmentResponseDto();
+      response.success = true;
+      response.message = 'Вложение успешно удалено';
+      response.attachmentId = id;
+      return response;
       
     } catch (error) {
-      // В случае ошибки логируем и возвращаем пустой массив
-      // Это безопаснее для фронтенда — он не упадёт, а покажет "Файлов нет"
-      console.error('❌ Ошибка получения вложений:', error);
-      return [];
+      console.error(`Ошибка при удалении вложения ID ${id}:`, error);
+      
+      const response = new DeleteAttachmentResponseDto();
+      response.success = false;
+      response.message = 'Ошибка при удалении вложения';
+      response.error = error.message;
+      response.attachmentId = id;
+      return response;
     }
   }
-  */
 
+  // Приватный метод для получения пути к файлу
+  private getAttachmentFilePath(filename: string): string {
+    const projectRoot = process.cwd();
+    const emailAttachmentsDir = path.join(projectRoot, '..', 'email-attachments');
+    return path.join(emailAttachmentsDir, filename);
+  }
 }
