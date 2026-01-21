@@ -4,14 +4,18 @@
  * @param {string|number} attachmentId - ID вложения email
  * @returns {Object} Состояния и методы для работы с данными ведомости
  */
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { statementService } from '../services/statement.service'
+import { useRouter } from 'vue-router'
 
 export function useStatementData(attachmentId) {
   // Состояния
   const loading = ref(true)
   const error = ref(null)
   const statements = ref([]) // УЖЕ отсортированные данные
+  const router = useRouter()
+  const eventSource = ref(null) // Для SSE
+
 
   /**
    * Определяет группу строки для сортировки и окраски
@@ -23,11 +27,9 @@ export function useStatementData(attachmentId) {
     const isExcess = row.is_excess ?? row.isExcess
     const isIgnore = row.is_ignore ?? row.isIgnore
     
+    if (isIgnore === true) return 4
     if (haveObject === false) return 1
     if (isExcess === true) return 2
-    if (haveObject === true) return 3
-    if (isIgnore === true) return 4
-    
     return 3
   }
   /**
@@ -88,8 +90,69 @@ export function useStatementData(attachmentId) {
     loadData()
   }
 
+  /**
+   * Обработка SSE
+   */
+  const connectToSSE = () => {
+    const sseUrl = '/api/app-events/sse'
+    eventSource.value = new EventSource(sseUrl)
+    
+    eventSource.value.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        
+        // Проверяем attachmentId
+        if (data.data?.attachmentId !== Number(attachmentId)) return
+        
+        switch (data.type) {
+          case 'statement-updated':
+            console.log(`SSE: Ведомость ${attachmentId} обновлена, перезагружаем`)
+            reload()
+            break
+            
+          case 'statement-active-changed':
+            console.log(`SSE: Ведомость ${attachmentId} стала активной у другого пользователя`)
+            router.push('/')
+            break
+            
+          case 'email-attachment-deleted':
+            console.log(`SSE: Ведомость ${attachmentId} удалена`)
+            router.push('/')
+            break
+        }
+      } catch (error) {
+        console.error('Ошибка обработки SSE события:', error)
+      }
+    })
+    
+    eventSource.value.addEventListener('error', (error) => {
+      console.error('SSE соединение разорвано:', error)
+      // EventSource автоматически переподключится
+    })
+  }
+  /**
+   * Закрывает SSE соединение
+   */
+  const disconnectSSE = () => {
+    if (eventSource.value) {
+      eventSource.value.close()
+      eventSource.value = null
+    }
+  }
+
   // Автоматическая загрузка при инициализации
   loadData()
+
+  // Подключаем SSE после загрузки данных
+  // Используем setTimeout чтобы не блокировать первоначальную загрузку
+  setTimeout(() => {
+    connectToSSE()
+  }, 100)
+
+  // Закрываем соединение при размонтировании компонента
+  onUnmounted(() => {
+    disconnectSSE()
+  })
 
   return {
     // Состояния

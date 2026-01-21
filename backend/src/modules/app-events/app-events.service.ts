@@ -13,20 +13,11 @@ export class AppEventsService {
   
   private eventSubject = new Subject<AppEvent>();
 
-  // Для Home.vue (список вложений)
-  notifyEmailAttachmentsUpdated(): void {
+  // Для Home.vue (новое вложение)
+  notifyEmailAttachmentLoaded(): void {
     this.eventSubject.next({ 
-      type: 'email-attachments-updated',
-      message: 'Список вложений обновлён'
-    });
-  }
-
-  // Для StatementPage.vue (данные ведомости)
-  notifyStatementUpdated(zavod: string, sklad: string, doc_type: string): void {
-    this.eventSubject.next({
-      type: 'statement-updated',
-      message: `Ведомость обновлена: ${zavod}/${sklad}/${doc_type}`,
-      data: { zavod, sklad, doc_type }
+      type: 'email-attachment-loaded',
+      message: 'Новое вложение загружено'
     });
   }
 
@@ -37,7 +28,25 @@ export class AppEventsService {
       message: 'Вложение удалено',
       data: { attachmentId }
     });
-  }  
+  }
+
+  // Для StatementPage.vue (смена активной ведомости)
+  notifyStatementActiveChanged(attachmentId: number): void {
+    this.eventSubject.next({
+      type: 'statement-active-changed',
+      message: `Ведомость ${attachmentId} стала активной у другого пользователя`,
+      data: { attachmentId }
+    });
+  }
+
+  // Для StatementPage.vue (обновление данных ведомости)
+  notifyStatementUpdated(attachmentId: number): void {
+    this.eventSubject.next({
+      type: 'statement-updated',
+      message: `Ведомость ${attachmentId} обновлена`,
+      data: { attachmentId }
+    });
+  }
 
   // Для получения потока событий (используется в контроллере)
   getEventStream(): Observable<{ message: string }> {

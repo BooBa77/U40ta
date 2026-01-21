@@ -4,17 +4,21 @@ import { Repository } from 'typeorm';
 import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { StatementParserService } from './statement-parser.service';
 import { StatementObjectsService } from './statement-objects.service';
-import { AppEventsService } from '../../app-events/app-events.service';
 import { ProcessedStatementDto } from '../dto/statement-response.dto';
+import { ProcessedStatement } from '../entities/processed-statement.entity';
+import { UpdateIgnoreDto } from '../dto/update-ignore.dto';
 
 @Injectable()
 export class StatementService {
   constructor(
     @InjectRepository(EmailAttachment)
     private emailAttachmentRepo: Repository<EmailAttachment>,
+    
+    @InjectRepository(ProcessedStatement)
+    private processedStatementRepo: Repository<ProcessedStatement>,
+    
     private parserService: StatementParserService,
     private objectsService: StatementObjectsService,
-    private appEventsService: AppEventsService,
   ) {}
 
   /**
@@ -24,51 +28,34 @@ export class StatementService {
   async parseStatement(attachmentId: number): Promise<ProcessedStatementDto[]> {
     console.log(`StatementService: запрос на ведомость ID: ${attachmentId}`);
 
-    // 1. Находим вложение
     const attachment = await this.emailAttachmentRepo.findOne({
       where: { id: attachmentId },
-      relations: [], // если понадобятся связи
+      relations: [],
     });
 
     if (!attachment) {
       throw new NotFoundException(`Вложение с ID ${attachmentId} не найдено`);
     }
 
-    // 2. Пропускаем инвентаризацию
     if (attachment.is_inventory) {
       console.log(`StatementService: пропускаем инвентаризацию (ID: ${attachmentId})`);
       return [];
     }
 
-    // 3. Если ведомость уже в работе - возвращаем существующие записи
     if (attachment.in_process) {
       console.log(`StatementService: ведомость уже в работе, возвращаем существующие записи`);
       
       const statements = await this.parserService.getExistingStatements(attachmentId);
       
-      // Фоновое обновление флагов (не блокирует ответ)
-      this.updateFlagsInBackground(attachment);
       return statements;
     }
 
-    // 4. Полная обработка новой ведомости
     try {
-      // 4.1 Парсим Excel
       const statements = await this.parserService.parseStatement(attachmentId);
       
-      // 4.2 Обновляем флаги have_object/is_excess
       if (attachment.zavod && attachment.sklad && attachment.doc_type) {
         await this.objectsService.updateHaveObjectsForStatement(
           attachment.zavod,
-          attachment.sklad,
-          attachment.doc_type,
-        );
-      }
-      
-      // 4.3 Отправляем SSE уведомление
-      if (attachment.zavod && attachment.sklad && attachment.doc_type) {
-        this.appEventsService.notifyStatementUpdated(
-          attachment.zavod.toString(),
           attachment.sklad,
           attachment.doc_type,
         );
@@ -87,31 +74,53 @@ export class StatementService {
   }
 
   /**
-   * Фоновое обновление флагов для уже открытой ведомости
+   * Обновляет статус игнорирования для группы строк
+   * Обновляет все строки с указанным inv_number и party_number
+   * Используется в POST /api/statements/ignore
    */
-  private async updateFlagsInBackground(attachment: EmailAttachment): Promise<void> {
-    if (!attachment.zavod || !attachment.sklad || !attachment.doc_type) {
-      return;
+  async updateIgnoreStatus(dto: UpdateIgnoreDto): Promise<ProcessedStatementDto[]> {
+    console.log(`StatementService: обновление is_ignore для ${dto.invNumber}/${dto.partyNumber || '(без партии)'}`);
+    
+    // 1. Находим все записи для обновления
+    const statements = await this.processedStatementRepo.find({
+      where: {
+        emailAttachmentId: dto.attachmentId,
+        inv_number: dto.invNumber,
+        party_number: dto.partyNumber || '', // exact match для пустых партий
+        is_excess: false, // Не обновляем excess записи
+      },
+    });
+    
+    if (statements.length === 0) {
+      console.warn(`StatementService: записи не найдены для обновления`);
+      return [];
     }
-
-    try {
-      // Обновляем флаги в фоне
-      await this.objectsService.updateHaveObjectsForStatement(
-        attachment.zavod,
-        attachment.sklad,
-        attachment.doc_type,
-      );
-      
-      // Уведомляем об обновлении
-      this.appEventsService.notifyStatementUpdated(
-        attachment.zavod.toString(),
-        attachment.sklad,
-        attachment.doc_type,
-      );
-      
-      console.log(`StatementService: фоновое обновление флагов завершено для ${attachment.sklad}`);
-    } catch (error) {
-      console.error('StatementService: ошибка фонового обновления флагов:', error);
+    
+    console.log(`StatementService: найдено записей для обновления: ${statements.length}`);
+    
+    // 2. Обновляем все найденные записи
+    for (const statement of statements) {
+      statement.is_ignore = dto.isIgnore;
     }
+    
+    // 3. Сохраняем изменения
+    await this.processedStatementRepo.save(statements);
+    console.log(`StatementService: обновлено записей: ${statements.length}`);
+    
+    // 4. Фоново обновляем флаги have_object для ведомости
+    if (statements.length > 0) {
+      const first = statements[0];
+      if (first.zavod && first.sklad && first.doc_type) {
+        // Запускаем в фоне, не ждём завершения
+        this.objectsService.updateHaveObjectsForStatement(
+          first.zavod,
+          first.sklad,
+          first.doc_type,
+        ).catch(err => console.error('StatementService: ошибка фонового обновления флагов:', err));
+      }
+    }
+    
+    // 5. Возвращаем обновлённые записи как DTO
+    return ProcessedStatementDto.fromEntities(statements);
   }
 }

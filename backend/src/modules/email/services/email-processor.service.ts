@@ -46,7 +46,7 @@ export class EmailProcessor {
         };
         
         const savedRecord = await this.attachmentsRepo.save(attachmentData);
-        this.appEventsService.notifyEmailAttachmentsUpdated();
+        this.appEventsService.notifyEmailAttachmentLoaded();
         console.log(`Файл принят: ${filename}`);
         console.log('SSE: отправлено обновление списка файлов');
         

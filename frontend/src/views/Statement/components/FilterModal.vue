@@ -139,6 +139,18 @@ const internalSelected = ref([])
 const originalSelected = ref([]) 
 const searchInput = ref(null)
 
+// computed для отфильтрованных опций
+const filteredOptions = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return props.options
+  }
+  
+  const query = searchQuery.value.toLowerCase()
+  return props.options.filter(option => 
+    String(option.label).toLowerCase().includes(query) ||
+    String(option.value).toLowerCase().includes(query)
+  )
+})
 
 // --- Инициализация и синхронизация состояния ---
 
@@ -154,32 +166,14 @@ watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     originalSelected.value = [...props.selectedValues]
     
-    if (props.selectedValues.length === 0) {
-      // Если проп пуст, выбираем ВСЕ опции по умолчанию
-      internalSelected.value = [...props.options.map(opt => opt.value)]
-    } else {
-      internalSelected.value = [...props.selectedValues]
-    }
+    // *** ИСПРАВЛЕНО: НЕ выбираем все опции по умолчанию ***
+    // Только копируем существующие выбранные значения
+    internalSelected.value = [...props.selectedValues]
     
     searchQuery.value = '' 
     focusSearchInput() 
   }
 }, { immediate: true })
-
-
-// --- Методы поиска (Реальное время) ---
-
-const filteredOptions = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return props.options
-  }
-  
-  const query = searchQuery.value.toLowerCase()
-  return props.options.filter(option => 
-    String(option.label).toLowerCase().includes(query) ||
-    String(option.value).toLowerCase().includes(query)
-  )
-})
 
 // *** КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Ручное обновление searchQuery ***
 const handleSearchInput = (event) => {
@@ -189,7 +183,6 @@ const handleSearchInput = (event) => {
 const handleEnterKey = () => {
   searchInput.value?.blur() 
 }
-
 
 // --- Методы выбора ---
 
@@ -219,7 +212,15 @@ const deselectAll = () => {
 // --- Обработчики кнопок ---
 
 const handleApply = () => {
-  emit('apply', [...internalSelected.value])
+  // Фильтруем выбранные значения - оставляем только те, что видны в текущем поиске
+  const visibleSelectedValues = internalSelected.value.filter(value => 
+    filteredOptions.value.some(option => option.value === value)
+  )
+  
+  console.log('Applying filter - видимые выбранные:', visibleSelectedValues)
+  console.log('Все выбранные:', internalSelected.value)
+  
+  emit('apply', [...visibleSelectedValues])
 }
 
 const handleReset = () => {

@@ -1,5 +1,3 @@
-// composables/filters/filterConfig.js
-
 /**
  * Конфигурация фильтров по колонкам
  */
@@ -9,7 +7,10 @@ export const columnFilterConfig = {
     filterType: 'multiselect',
     filterColumn: 'inv_number', // Реальная колонка для фильтрации
     modalTitle: 'Фильтр по инвентарному номеру',
-    getFilterValues: (row) => row.inv_number || row.invNumber || ''
+    getFilterValues: (row) => {
+      // Возвращаем ТОЛЬКО inv_number для фильтрации
+      return row.inv_number || row.invNumber || ''
+    }
   },
   
   // Колонка "Наименование"
@@ -17,7 +18,10 @@ export const columnFilterConfig = {
     filterType: 'multiselect',
     filterColumn: 'buh_name',
     modalTitle: 'Фильтр по наименованию',
-    getFilterValues: (row) => row.buh_name || row.buhName || ''
+    getFilterValues: (row) => {
+      // Возвращаем ТОЛЬКО buh_name для фильтрации
+      return row.buh_name || row.buhName || ''
+    }
   }
   
   // QR, is_ignore, quantity - не фильтруются (отсутствуют в конфиге)

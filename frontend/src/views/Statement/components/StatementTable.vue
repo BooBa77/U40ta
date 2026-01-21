@@ -23,7 +23,10 @@
         <tr 
           v-for="row in table.getRowModel().rows"
           :key="row.id"
-          :class="`row-group-${getRowGroup(row.original)}`"
+          :class="[
+            `row-group-${getRowGroup(row.original)}`,
+            { 'group-hidden': row.original.hiddenByGroup }
+          ]"
           @click="handleRowClick(row)"
         >
           <td>
@@ -35,7 +38,7 @@
             <input 
               type="checkbox" 
               :checked="getCheckboxValue(row.original)"
-              @change="handleCheckboxChange(row.original.id, $event.target.checked)"
+              @change="handleCheckboxChange(row.original, $event.target.checked)"
               @click.stop
             />
           </td>
@@ -43,7 +46,14 @@
             <div class="inv-party-cell">
               <div class="inv-number">{{ getInvNumber(row.original) }}</div>
               <div class="party-number" v-if="hasPartyOrQuantity(row.original)">
-                {{ getPartyNumber(row.original) }}
+                <!-- Партия -->
+                <div v-if="getPartyNumber(row.original)" class="party-text">
+                  {{ getPartyNumber(row.original) }}
+                </div>
+                <!-- Количество на новой строке -->
+                <div v-if="row.groupCount > 1 && row.isGroupRepresentative" class="quantity-text">
+                  {{ row.groupCount }} шт.
+                </div>
               </div>
             </div>
           </td>
@@ -57,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { 
   useVueTable, 
   getCoreRowModel 
@@ -81,15 +91,22 @@ const props = defineProps({
   activeFilters: {
     type: Object,
     default: () => ({})
+  },
+  hasPartyOrQuantity: { // ← Этот пропс есть
+    type: Function,
+    default: () => false
   }
 })
 
-const emit = defineEmits(['filter-click'])
+const emit = defineEmits(['filter-click', 'ignore-change'])
 
 const tableContainer = ref(null)
 
+/**
+ * Инициализация таблицы
+ */
 const table = useVueTable({
-  data: props.statements,
+  data: props.statements, // ← Теперь получаем уже обработанные данные
   columns: props.columns,
   getCoreRowModel: getCoreRowModel(),
 })
@@ -98,12 +115,8 @@ const table = useVueTable({
  * Обработчик клика по заголовку
  */
 const handleHeaderClick = (columnId) => {
-  // Только эти колонки открывают фильтр
   if (columnId === 'inv_party_combined' || columnId === 'buh_name') {
     emit('filter-click', columnId)
-  } else {
-    // QR, Игнор - не открывают фильтр
-    console.log('Клик по нефильтруемой колонке:', columnId)
   }
 }
 
@@ -112,63 +125,68 @@ const handleHeaderClick = (columnId) => {
  */
 const hasFilter = (columnId) => {
   if (columnId === 'inv_party_combined') {
-    // Для объединённой колонки проверяем фильтр по inv_number
     return props.activeFilters.inv_number && props.activeFilters.inv_number.length > 0
   }
   
-  // Для остальных колонок проверяем по их ID
   return props.activeFilters[columnId] && props.activeFilters[columnId].length > 0
 }
 
+/**
+ * Обработчик клика по строке таблицы
+ */
 const handleRowClick = (row) => {
   console.log('Клик по строке:', row.original)
 }
 
+/**
+ * Обработчик клика по QR-коду
+ */
 const handleQrClick = (rowData) => {
   console.log('QR клик по строке:', rowData)
 }
 
-const handleCheckboxChange = (rowId, checked) => {
-  console.log('Чекбокс изменился:', rowId, checked)
+/**
+ * Обработчик изменения чекбокса игнора
+ */
+const handleCheckboxChange = (row, checked) => {
+  const inv = row.inv_number || row.invNumber
+  const party = row.party_number || row.partyNumber || ''
+  
+  emit('ignore-change', {
+    inv,
+    party,
+    is_ignore: checked
+  })
 }
 
-const getRowGroup = (row) => {
-  return props.getRowGroup(row)
-}
-
+/**
+ * Возвращает значение чекбокса
+ */
 const getCheckboxValue = (row) => {
   return row.is_ignore || row.isIgnore || false
 }
 
+/**
+ * Возвращает инвентарный номер
+ */
 const getInvNumber = (row) => {
   return row.inv_number || row.invNumber || '—'
 }
 
 const getPartyNumber = (row) => {
-  const party = row.party_number || row.partyNumber || ''
-  const quantity = row.quantity || 1
-  
-  if (!party) return ''
-  
-  if (quantity > 1) {
-    return `${party} (${quantity} шт.)`
-  }
-  
-  return party
+  return row.party_number || row.partyNumber || ''
 }
 
-const hasPartyOrQuantity = (row) => {
-  const party = row.party_number || row.partyNumber || ''
-  const quantity = row.quantity || 1
-  
-  // Показываем блок, если есть партия ИЛИ quantity > 1
-  return party !== '' || quantity > 1
-}
-
+/**
+ * Возвращает бухгалтерское наименование
+ */
 const getBuhName = (row) => {
   return row.buh_name || row.buhName || '—'
 }
 
+/**
+ * Следим за изменениями данных и обновляем таблицу
+ */
 watch(() => props.statements, () => {
   table.setOptions(prev => ({
     ...prev,

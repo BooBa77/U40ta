@@ -1,7 +1,8 @@
-import { Controller, Get, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { StatementService } from './services/statement.service';
 import { StatementResponseDto } from './dto/statement-response.dto';
+import { UpdateIgnoreDto } from './dto/update-ignore.dto';
 
 @Controller('statements')
 @UseGuards(JwtAuthGuard) // Защита JWT для всех endpoint'ов
@@ -40,4 +41,36 @@ export class StatementsController {
       return response;
     }
   }
+
+/**
+ * Обновление статуса игнорирования для группы строк
+ * Обновляет все строки с указанным inv_number и party_number
+ * POST /api/statements/ignore
+ */
+  @Post('ignore')
+  async updateIgnoreStatus(
+    @Body() dto: UpdateIgnoreDto
+  ): Promise<StatementResponseDto> {
+    try {
+      const updated = await this.statementService.updateIgnoreStatus(dto);
+      
+      const response = new StatementResponseDto();
+      response.success = true;
+      response.attachmentId = dto.attachmentId;
+      response.statements = updated;
+      response.count = updated.length;
+      response.message = `Обновлено ${updated.length} записей`;
+      
+      return response;
+    } catch (error) {
+      const response = new StatementResponseDto();
+      response.success = false;
+      response.attachmentId = dto.attachmentId;
+      response.statements = [];
+      response.count = 0;
+      response.error = error.message;
+      
+      return response;
+    }
+  }  
 }

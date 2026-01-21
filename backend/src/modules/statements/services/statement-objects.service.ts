@@ -4,7 +4,6 @@ import { Repository, In } from 'typeorm';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { InventoryObject } from '../../objects/entities/object.entity';
 import { EmailAttachment } from '../../email/entities/email-attachment.entity';
-//import { AppEventsService } from '../../app-events/app-events.service';
 
 @Injectable()
 export class StatementObjectsService {
@@ -18,7 +17,6 @@ export class StatementObjectsService {
     @InjectRepository(EmailAttachment)
     private emailAttachmentRepo: Repository<EmailAttachment>,
     
-  //  private appEventsService: AppEventsService,
   ) {}
 
   /**

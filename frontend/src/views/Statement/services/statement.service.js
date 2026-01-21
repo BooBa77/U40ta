@@ -133,6 +133,122 @@ export class StatementService {
       return false
     }
   }
+
+  /**
+   * Обновляет статус игнорирования для группы строк
+   * @param {number} attachmentId - ID ведомости
+   * @param {string} invNumber - Инвентарный номер
+   * @param {string} partyNumber - Номер партии (может быть пустым)
+   * @param {boolean} isIgnore - Новое значение is_ignore
+   * @returns {Promise<boolean>} true если успешно
+   */
+  async updateIgnoreStatus(attachmentId, invNumber, partyNumber, isIgnore) {
+    const attachmentIdNum = Number(attachmentId)
+    
+    if (this.isFlightMode()) {
+      console.log(`[StatementService] Офлайн-режим: обновление is_ignore для ${invNumber}/${partyNumber}`)
+      return this.updateIgnoreInCache(attachmentIdNum, invNumber, partyNumber, isIgnore)
+    }
+    
+    console.log(`[StatementService] Онлайн-режим: обновление is_ignore для ${invNumber}/${partyNumber}`)
+    return this.updateIgnoreInApi(attachmentIdNum, invNumber, partyNumber, isIgnore)
+  }
+
+  /**
+   * Обновляет is_ignore в кэше IndexedDB
+   */
+  async updateIgnoreInCache(attachmentId, invNumber, partyNumber, isIgnore) {
+    try {
+      console.log(`[StatementService] Обновление is_ignore в кэше:`, {
+        attachmentId,
+        invNumber,
+        partyNumber: partyNumber || '(пусто)',
+        isIgnore
+      })
+      
+      // Получаем ВСЕ записи из кэша
+      const allStatements = await offlineCache.db.processed_statements.toArray()
+      
+      // Находим записи для обновления
+      const statementsToUpdate = []
+      
+      for (const statement of allStatements) {
+        // Проверяем attachmentId
+        const stAttachmentId = statement.emailAttachmentId
+        if (Number(stAttachmentId) !== attachmentId) continue
+        
+        // Проверяем inv_number
+        const stInv = statement.inv_number
+        if (stInv !== invNumber) continue
+        
+        // Проверяем party_number
+        const stParty = statement.party_number || ''
+        const targetParty = partyNumber || ''
+        
+        // Для пустых партий - exact match
+        if (stParty !== targetParty) continue
+        
+        statementsToUpdate.push(statement)
+      }
+      
+      console.log(`[StatementService] Найдено записей для обновления: ${statementsToUpdate.length}`)
+      
+      if (statementsToUpdate.length === 0) {
+        console.warn(`[StatementService] Не найдено записей для обновления`)
+        return false
+      }
+      
+      // Обновляем записи
+      for (const statement of statementsToUpdate) {
+        statement.is_ignore = isIgnore
+        // put обновит запись по primary key (id)
+        await offlineCache.db.processed_statements.put(statement)
+        console.log(`[StatementService] Обновлена запись ID: ${statement.id}, is_ignore=${isIgnore}`)
+      }
+      
+      return true
+      
+    } catch (error) {
+      console.error('[StatementService] Ошибка обновления в кэше:', error)
+      throw new Error('Не удалось обновить статус в кэше')
+    }
+  }
+
+  /**
+   * Обновляет is_ignore через API
+   */
+  async updateIgnoreInApi(attachmentId, invNumber, partyNumber, isIgnore) {
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        throw new Error('Токен авторизации не найден')
+      }
+
+      const response = await fetch(`${this.baseUrl}/statements/ignore`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          attachmentId,
+          invNumber,
+          partyNumber,
+          isIgnore
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ошибка: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.success === true
+    } catch (error) {
+      console.error('[StatementService] Ошибка обновления через API:', error)
+      throw error
+    }
+  }
 }
 
 // Экспортируем синглтон для использования во всем приложении
