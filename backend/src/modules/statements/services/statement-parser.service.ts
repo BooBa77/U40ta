@@ -145,7 +145,7 @@ export class StatementParserService {
       );
       
       // 7. Отправляем SSE уведомление
-      this.appEventsService.notifyStatementActiveChanged(attachmentId);
+      this.appEventsService.notifyStatementActiveChanged(attachmentId, attachment.zavod, attachment.sklad);
       console.log('StatementParserService: отправлено SSE уведомление');
       
       // 8. Преобразуем сохранённые Entity в DTO для возврата

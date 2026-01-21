@@ -161,7 +161,7 @@ export class EmailController {
       
       // Отправляем SSE уведомление об удалении вложения
       // StatementPage.vue использует это событие для редиректа если открытая ведомость была удалена
-      this.appEventsService.notifyEmailAttachmentDeleted(id);
+      this.appEventsService.notifyStatementDeleted(id);
       console.log('Отправлено SSE уведомление об удалении');
       
       // Возвращаем успешный ответ

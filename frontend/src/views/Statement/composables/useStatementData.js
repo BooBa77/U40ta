@@ -101,21 +101,26 @@ export function useStatementData(attachmentId) {
       try {
         const data = JSON.parse(event.data)
         
-        // Проверяем attachmentId
-        if (data.data?.attachmentId !== Number(attachmentId)) return
-        
+        // Проверяем что в SSE сообщении
         switch (data.type) {
           case 'statement-updated':
+            // Проверяем ТОЛЬКО для обновлений
+            if (data.data?.attachmentId !== Number(attachmentId)) return
             console.log(`SSE: Ведомость ${attachmentId} обновлена, перезагружаем`)
             reload()
             break
             
           case 'statement-active-changed':
-            console.log(`SSE: Ведомость ${attachmentId} стала активной у другого пользователя`)
+            // Проверяем ТОЛЬКО для смены активности
+            if (data.data?.attachmentId === Number(attachmentId)) return  // Это наша ведомость, игнорируем
+            if (data.data?.zavod !== Number(zavod) && data.data?.sklad !== String(sklad)) return //  Это наша ведомость другого склада, игнорируем
+            console.log(`SSE: Ведомость ${attachmentId} стала активной у другого пользователя. Наша ведомость - ${data.data?.attachmentId}`)
             router.push('/')
             break
             
-          case 'email-attachment-deleted':
+          case 'statement-deleted':
+            // Проверяем ТОЛЬКО для удаления
+            if (data.data?.attachmentId !== Number(attachmentId)) return
             console.log(`SSE: Ведомость ${attachmentId} удалена`)
             router.push('/')
             break

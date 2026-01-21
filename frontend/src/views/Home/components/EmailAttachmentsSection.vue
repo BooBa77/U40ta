@@ -128,8 +128,8 @@ const connectToSSE = () => {
       const data = JSON.parse(event.data);
       console.log('Распарсено SSE-событие:', data);
       
-      if (data.type === 'email-attachments-updated' || data.type === 'email-attachment-deleted') {
-        console.log('Обновление списка файлов (добавление/удаление)');
+      if (data.type === 'statement-updated' || data.type === 'statement-deleted') {
+        console.log('Обновление списка ведомостей (добавление/удаление)');
         loadFiles();
       }
     } catch (error) {

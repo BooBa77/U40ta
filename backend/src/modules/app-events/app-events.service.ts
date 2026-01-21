@@ -14,31 +14,38 @@ export class AppEventsService {
   private eventSubject = new Subject<AppEvent>();
 
   // Для Home.vue (новое вложение)
-  notifyEmailAttachmentLoaded(): void {
+  notifyStatementLoaded(): void {
     this.eventSubject.next({ 
-      type: 'email-attachment-loaded',
-      message: 'Новое вложение загружено'
+      type: 'statement-loaded',
+      message: 'Новая ведомость загружена'
     });
   }
 
   // Для Home.vue и StatementPage.vue (удаление ведомости)
-  notifyEmailAttachmentDeleted(attachmentId: number): void {
+  notifyStatementDeleted(attachmentId: number): void {
     this.eventSubject.next({ 
-      type: 'email-attachment-deleted',
-      message: 'Вложение удалено',
+      type: 'statement-deleted',
+      message: 'Ведомость удалена',
       data: { attachmentId }
     });
   }
 
   // Для StatementPage.vue (смена активной ведомости)
-  notifyStatementActiveChanged(attachmentId: number): void {
+  notifyStatementActiveChanged(
+    attachmentId: number, 
+    zavod: number, 
+    sklad: string
+  ): void {
     this.eventSubject.next({
       type: 'statement-active-changed',
       message: `Ведомость ${attachmentId} стала активной у другого пользователя`,
-      data: { attachmentId }
+      data: { 
+        attachmentId,
+        zavod,
+        sklad
+      }
     });
   }
-
   // Для StatementPage.vue (обновление данных ведомости)
   notifyStatementUpdated(attachmentId: number): void {
     this.eventSubject.next({
