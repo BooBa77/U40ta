@@ -75,23 +75,8 @@ const attachmentId = route.params.id
 // Загружаем данные
 const { loading, error, statements, reload, getRowGroup } = useStatementData(attachmentId)
 
-// Обрабатываем данные с группировкой - ОДИН РАЗ!
+// Обрабатываем данные с группировкой
 const { processedStatements, hasPartyOrQuantity } = useStatementProcessing(statements)
-
-// ОТЛАДКА: проверяем данные
-watch(statements, (newStatements) => {
-  console.log('📦 Загружено statements:', newStatements?.length)
-  if (newStatements?.length > 0) {
-    console.log('Пример строки:', newStatements[0])
-  }
-}, { immediate: true })
-
-watch(processedStatements, (newProcessed) => {
-  console.log('🔧 Обработано processedStatements:', newProcessed?.length)
-  if (newProcessed?.length > 0) {
-    console.log('Пример обработанной строки:', newProcessed[0])
-  }
-}, { immediate: true })
 
 // Заголовок ведомости
 const statementTitle = computed(() => {
@@ -109,7 +94,7 @@ const statementTitle = computed(() => {
 // Колонки таблицы
 const columns = useStatementColumns()
 
-// Фильтры - инициализируем с ОБРАБОТАННЫМИ данными
+// Фильтры
 const filters = ref(null)
 
 // Вычисляемые свойства
@@ -125,37 +110,29 @@ const hasActiveFilters = computed(() => {
 
 // Вычисляемое свойство для отображения данных
 const displayStatements = computed(() => {
-  console.log('🔄 displayStatements вызван')
-  console.log('   filters.value:', !!filters.value)
-  console.log('   hasActiveFilters.value:', hasActiveFilters.value)
   
   if (!filters.value) {
-    console.log('   ❌ Фильтры не инициализированы, возвращаем processedStatements:', processedStatements.value?.length)
     return processedStatements.value || []
   }
   
   if (hasActiveFilters.value) {
-    console.log('   ✅ Есть активные фильтры, возвращаем filteredStatements:', filters.value.filteredStatements?.length)
-    console.log('   Активные фильтры:', activeFiltersObj.value)
     return filters.value.filteredStatements || []
   }
   
-  console.log('   ℹ️ Нет активных фильтров, возвращаем processedStatements:', processedStatements.value?.length)
   return processedStatements.value || []
 })
 
-// Ждём загрузки ОБРАБОТАННЫХ данных для фильтров
+// Обновляем логику инициализации фильтров
 watch(processedStatements, (newProcessedStatements) => {
-  console.log('👁️ watch processedStatements:', newProcessedStatements?.length)
-  if (newProcessedStatements && newProcessedStatements.length > 0 && !filters.value) {
-    console.log('✅ Инициализируем фильтры с данными:', newProcessedStatements.length)
-    const filterResult = useStatementFilters(attachmentId, newProcessedStatements)
-    filters.value = filterResult
-    console.log('   Фильтры инициализированы:', !!filters.value)
-  } else if (!newProcessedStatements?.length) {
-    console.log('❌ Нет данных для инициализации фильтров')
-  } else if (filters.value) {
-    console.log('ℹ️ Фильтры уже инициализированы')
+  if (newProcessedStatements && newProcessedStatements.length > 0) {
+    if (!filters.value) {
+      // Первая инициализация фильтров
+      const filterResult = useStatementFilters(attachmentId, newProcessedStatements)
+      filters.value = filterResult
+    } else {
+      // Обновление данных в существующих фильтрах
+      filters.value.updateData(newProcessedStatements)
+    }
   }
 }, { immediate: true })
 
@@ -226,7 +203,6 @@ const resetCurrentFilter = () => {
  * Сбрасывает все фильтры
  */
 const resetAllFilters = () => {
-  console.log('Кнопка "Сбросить фильтры"')
   if (filters.value) {
     filters.value.resetAllFilters()
   }
@@ -234,15 +210,13 @@ const resetAllFilters = () => {
 
 // Хук для сброса фильтра при переходе на другую страницу
 onBeforeRouteLeave((to, from) => {
-  console.log('Покидаем страницу ведомости, сбрасываем фильтры')
   if (filters.value) {
     filters.value.resetAllFilters()
   }
 })
 
-// Хук для сброса фильтра при обновлении route (если перешли на другую ведомость)
+// Хук для сброса фильтра при обновлении route
 onBeforeRouteUpdate((to, from) => {
-  console.log('Обновляем route (другая ведомость), сбрасываем фильтры')
   if (filters.value) {
     filters.value.resetAllFilters()
   }
@@ -250,7 +224,6 @@ onBeforeRouteUpdate((to, from) => {
 
 // Обработчик кнопки "Назад" - сброс фильтра БЕЗ подтверждения
 const handleBack = () => {
-  console.log('Кнопка "Назад", сбрасываем фильтры')
   if (filters.value) {
     filters.value.resetAllFilters()
   }
@@ -285,7 +258,6 @@ const handleIgnoreChange = async ({ inv, party, is_ignore }) => {
     console.error('Ошибка обновления игнора:', error)
   }
 }
-
 
 </script>
 

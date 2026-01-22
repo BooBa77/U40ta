@@ -42,6 +42,7 @@
               @click.stop
             />
           </td>
+
           <td>
             <div class="inv-party-cell">
               <div class="inv-number">{{ getInvNumber(row.original) }}</div>
@@ -51,8 +52,8 @@
                   {{ getPartyNumber(row.original) }}
                 </div>
                 <!-- Количество на новой строке -->
-                <div v-if="row.groupCount > 1 && row.isGroupRepresentative" class="quantity-text">
-                  {{ row.groupCount }} шт.
+                <div v-if="row.original.groupCount > 1 && row.original.isGroupRepresentative" class="quantity-text">
+                  ({{ row.original.groupCount }} шт.)
                 </div>
               </div>
             </div>

@@ -11,6 +11,7 @@ export function useStatementProcessing(statements) {
    */
   const processedStatements = computed(() => {
     if (!statements.value || statements.value.length === 0) {
+      console.log('useStatementProcessing: Нет данных для обработки')
       return []
     }
     

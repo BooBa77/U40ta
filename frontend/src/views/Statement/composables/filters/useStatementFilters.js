@@ -4,34 +4,41 @@ import { getUniqueValuesWithFilters, applyFiltersToData } from './filterLogic'
 import { isColumnFilterable, getFilterConfig } from './filterConfig'
 
 export function useStatementFilters(attachmentId, statements) {
+  
   // Состояние активных фильтров
   const activeFilters = ref({})
+  
+  // КРИТИЧНОЕ ИЗМЕНЕНИЕ: храним ссылку на данные внутри фильтров
+  const statementsRef = ref(statements)
   const filteredStatements = ref([])
   
   /**
    * Внутренняя: применяет все активные фильтры к данным
    */
   const applyFilters = () => {
-    filteredStatements.value = applyFiltersToData(statements, activeFilters.value)
+    
+    filteredStatements.value = applyFiltersToData(statementsRef.value, activeFilters.value)
+    
   }
   
   /**
    * Инициализация системы фильтров
    */
   const init = () => {
-    if (!statements || !Array.isArray(statements)) {
-      console.error('useStatementFilters: statements должен быть массивом', statements)
+    if (!statementsRef.value || !Array.isArray(statementsRef.value)) {
+      console.error('useStatementFilters: statements должен быть массивом', statementsRef.value)
       return
     }
     
     // Копируем данные
-    filteredStatements.value = [...statements]
+    filteredStatements.value = [...statementsRef.value]
     
     // Загружаем сохранённые фильтры
     const savedFilters = loadFiltersFromStorage(attachmentId)
     if (savedFilters && Object.keys(savedFilters).length > 0) {
       activeFilters.value = savedFilters
       applyFilters()
+    } else {
     }
   }
   
@@ -39,9 +46,29 @@ export function useStatementFilters(attachmentId, statements) {
   init()
   
   /**
+   * НОВЫЙ МЕТОД: обновляет данные в фильтрах
+   * @param {Array} newStatements - новые данные
+   */
+  const updateData = (newStatements) => {
+    
+    if (!newStatements || !Array.isArray(newStatements)) {
+      console.error('useStatementFilters: updateData: newStatements должен быть массивом')
+      return
+    }
+    
+    // Обновляем данные
+    statementsRef.value = newStatements
+    
+    // Пересчитываем фильтрацию
+    applyFilters()
+    
+  }
+  
+  /**
    * Получает уникальные значения для модалки фильтра
    */
   const getFilterOptions = (columnId) => {
+    
     if (!isColumnFilterable(columnId)) {
       return []
     }
@@ -49,17 +76,20 @@ export function useStatementFilters(attachmentId, statements) {
     const config = getFilterConfig(columnId)
     const filterColumn = config.filterColumn || columnId
     
-    return getUniqueValuesWithFilters(
-      statements, // Исходные данные
+    const options = getUniqueValuesWithFilters(
+      statementsRef.value, // Используем актуальные данные
       filterColumn,
       activeFilters.value
     )
+    
+    return options
   }
   
   /**
    * Применяет фильтр для колонки
    */
   const applyFilter = (columnId, selectedValues) => {
+    
     if (!isColumnFilterable(columnId)) {
       return
     }
@@ -77,12 +107,14 @@ export function useStatementFilters(attachmentId, statements) {
     
     applyFilters()
     saveFiltersToStorage(attachmentId, activeFilters.value)
+    
   }
   
   /**
    * Сбрасывает фильтр для конкретной колонки
    */
   const resetFilter = (columnId) => {
+    
     if (!isColumnFilterable(columnId)) {
       return
     }
@@ -91,6 +123,7 @@ export function useStatementFilters(attachmentId, statements) {
     const filterColumn = config.filterColumn || columnId
     
     delete activeFilters.value[filterColumn]
+    
     applyFilters()
     saveFiltersToStorage(attachmentId, activeFilters.value)
   }
@@ -99,18 +132,21 @@ export function useStatementFilters(attachmentId, statements) {
    * Сбрасывает все фильтры
    */
   const resetAllFilters = () => {
+    
     activeFilters.value = {}
-    filteredStatements.value = [...statements]
+    filteredStatements.value = [...statementsRef.value]
     clearFiltersFromStorage(attachmentId)
+    
   }
   
   /**
    * Проверяет есть ли активные фильтры
    */
   const hasActiveFilters = computed(() => {
-    return Object.values(activeFilters.value).some(values => 
+    const hasFilters = Object.values(activeFilters.value).some(values => 
       values && values.length > 0
     )
+    return hasFilters
   })
   
   /**
@@ -121,7 +157,9 @@ export function useStatementFilters(attachmentId, statements) {
     if (!config) return []
     
     const filterColumn = config.filterColumn || columnId
-    return activeFilters.value[filterColumn] || []
+    const filterValues = activeFilters.value[filterColumn] || []
+    
+    return filterValues
   }
   
   return {
@@ -131,6 +169,7 @@ export function useStatementFilters(attachmentId, statements) {
     hasActiveFilters,
     
     // Методы
+    updateData,
     getFilterOptions,
     applyFilter,
     resetFilter,

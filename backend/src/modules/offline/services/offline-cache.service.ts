@@ -1,4 +1,3 @@
-// app/src/modules/offline/services/offline-cache.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -33,7 +32,7 @@ export class OfflineCacheService {
 
   /**
    * Собирает данные для офлайн-режима для конкретного пользователя
-   * ВСЕ объекты, места, история, QR-коды + ведомости по mol_access
+   * ВСЕ объекты, места, история, QR-коды + ВСЕ ведомости по mol_access
    * @param userId ID пользователя для фильтрации ведомостей
    * @returns Объект со всеми данными для кэширования
    */
@@ -48,6 +47,10 @@ export class OfflineCacheService {
       });
       
       console.log(`OfflineCacheService: пользователь имеет доступ к ${userAccess.length} складам`);
+      console.log('OfflineCacheService: доступные склады:', userAccess.map(access => ({
+        zavod: access.zavod,
+        sklad: access.sklad,
+      })));
       
       // 2. Получаем ВСЕ объекты (без фильтрации)
       const objects = await this.objectsRepository.find({
@@ -78,34 +81,52 @@ export class OfflineCacheService {
       
       console.log(`OfflineCacheService: загружено ВСЕХ QR-кодов: ${qrCodes.length}`);
       
-      // 6. Получаем ведомости ТОЛЬКО по доступным складам (mol_access)
+      // 6. Получаем ВСЕ ведомости, доступные пользователю (по mol_access)
       let statements: ProcessedStatement[] = [];
       
       if (userAccess.length > 0) {
-        // Собираем уникальные пары zavod/sklad
-        const uniqueAccess = Array.from(
-          new Set(userAccess.map(access => `${access.zavod}|${access.sklad}`))
-        ).map((key: string) => { // ← добавляем тип string
-          const [zavod, sklad] = key.split('|');
-          return { zavod: parseInt(zavod), sklad };
+        // СОЗДАЁМ ПРАВИЛЬНЫЕ УСЛОВИЯ WHERE
+        // Для каждой пары zavod/sklad из mol_access создаём отдельное условие
+        const whereConditions = userAccess.map(access => ({
+          zavod: access.zavod,
+          sklad: access.sklad,
+        }));
+        
+        console.log('OfflineCacheService: условия поиска ведомостей:', whereConditions);
+        
+        // Получаем ВСЕ ведомости для конкретных пар zavod/sklad
+        // TypeORM автоматически использует OR между объектами в массиве where
+        statements = await this.statementsRepository.find({
+          where: whereConditions,
+          order: { id: 'ASC' },
         });
         
-        // Получаем ведомости для каждого доступного склада
-        const statementPromises = uniqueAccess.map(({ zavod, sklad }) => 
-          this.statementsRepository.find({
-            where: { 
-              zavod,
-              sklad,
-            },
-            order: { id: 'ASC' },
-          })
-        );
+        console.log(`OfflineCacheService: найдено ВСЕХ доступных ведомостей: ${statements.length}`);
         
-        const results = await Promise.all(statementPromises);
-        statements = results.flat();
+        // Логируем распределение по складам для отладки
+        if (statements.length > 0) {
+          // Группировка по zavod/sklad для отладки
+          const groupedBySklad = statements.reduce((acc, statement) => {
+            const key = `${statement.zavod}/${statement.sklad}`;
+            if (!acc[key]) acc[key] = 0;
+            acc[key]++;
+            return acc;
+          }, {});
+          
+          console.log('OfflineCacheService: распределение ведомостей по складам:', groupedBySklad);
+          
+          // Если нужно, проверяем наличие дубликатов по какому-то полю
+          const statementIds = statements.map(s => s.id);
+          const uniqueIds = Array.from(new Set(statementIds));
+          if (statementIds.length !== uniqueIds.length) {
+            console.log(`OfflineCacheService: ВНИМАНИЕ! Есть дубликаты. Всего записей: ${statementIds.length}, уникальных: ${uniqueIds.length}`);
+          }
+        }
+      } else {
+        console.log('OfflineCacheService: у пользователя нет доступа к складам в mol_access');
       }
       
-      console.log(`OfflineCacheService: загружено ведомостей (по mol_access): ${statements.length}`);
+      console.log(`OfflineCacheService: итого загружено ведомостей: ${statements.length}`);
       
       // 7. Формируем ответ
       return {
@@ -128,6 +149,7 @@ export class OfflineCacheService {
       
     } catch (error) {
       console.error('OfflineCacheService: ошибка при получении данных:', error);
+      console.error('OfflineCacheService: стек ошибки:', error.stack);
       throw new Error(`Не удалось получить данные для офлайн-режима: ${error.message}`);
     }
   }
