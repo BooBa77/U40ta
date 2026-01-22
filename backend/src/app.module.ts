@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EmailModule } from './modules/email/email.module';
 import { StatementsModule } from './modules/statements/statements.module';
 import { OfflineModule } from './modules/offline/offline.module';
+import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
 
 @Module({
   imports: [
@@ -70,7 +71,10 @@ import { OfflineModule } from './modules/offline/offline.module';
     // Модуль работы в оффлайн режиме
     // Сервисы кэширования из БД в IndexDB и обратная синхронизация
     OfflineModule,
-    
+
+    // Модуль работы с QR-кодами
+    // Обеспечивает связь отсканированных QR-значений с объектами системы
+    QrCodesModule,
   ],
   
   // providers - массив сервисов, не объявленных в других модулях

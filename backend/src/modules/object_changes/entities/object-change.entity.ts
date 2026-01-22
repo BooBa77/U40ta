@@ -1,7 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { InventoryObject } from '../../objects/entities/object.entity';
+import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 
 @Entity('object_changes')
+@Index('object_changes_object_id_fkey', ['object_id']) // для внешнего ключа
 export class ObjectChange {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
@@ -12,10 +12,6 @@ export class ObjectChange {
     nullable: false,
   })
   object_id: number;
-
-  @ManyToOne(() => InventoryObject)
-  @JoinColumn({ name: 'object_id' })
-  object: InventoryObject;
 
   @Column({
     name: 'story_line',
@@ -33,7 +29,7 @@ export class ObjectChange {
 
   @Column({
     name: 'changed_at',
-    type: 'timestamp',
+    type: 'timestamp', // без time zone, как в SQL
     default: () => 'CURRENT_TIMESTAMP',
   })
   changed_at: Date;

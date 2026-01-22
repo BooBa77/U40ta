@@ -1,36 +1,46 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Place } from '../../places/entities/place.entity';
 
 @Entity('objects')
-@Index('idx_objects_composite', ['zavod', 'sklad', 'inv_number', 'party_number'])
-@Index('idx_objects_sklad', ['zavod', 'sklad'])
-@Index('idx_objects_place', ['placeEntity'])
 export class InventoryObject {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 
-  @Column({ type: 'integer', nullable: false })
+  @Column({ type: 'int', nullable: false })
   zavod: number;
 
-  @Column({ type: 'varchar', length: 4, nullable: true })
+  @Column({ type: 'varchar', length: 4, nullable: false })
   sklad: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: false })
   buh_name: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: false })
   inv_number: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  party_number: string;
+  party_number: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  sn: string | null;
+  sn: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  place: number;
+
+  @Column({ type: 'text', nullable: true })
+  commentary: string;
+
+  @Column({ name: 'is_written_off', type: 'boolean', default: false })
+  is_written_off: boolean;
+
+  @Column({ 
+    name: 'checked_at', 
+    type: 'timestamptz', 
+    default: () => 'CURRENT_TIMESTAMP' 
+  })
+  checked_at: Date;
 
   @ManyToOne(() => Place, { nullable: true })
   @JoinColumn({ name: 'place' })
-  placeEntity: Place | null;
-
-  @Column({ type: 'text', nullable: true })
-  commentary: string | null;
+  placeEntity: Place | null;  
 }
