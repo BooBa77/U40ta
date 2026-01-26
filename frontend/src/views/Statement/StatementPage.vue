@@ -49,6 +49,7 @@
         :has-party-or-quantity="hasPartyOrQuantity"
         @filter-click="openFilterModal"
         @ignore-change="handleIgnoreChange"
+        @qr-scan="handleQrScan"
       />
       <div v-else class="empty">
         В ведомости нет данных
@@ -67,6 +68,7 @@ import { useStatementColumns } from './composables/useStatementColumns'
 import { useStatementFilters } from './composables/filters/useStatementFilters'
 import { useStatementProcessing } from './composables/useStatementProcessing'
 import { statementService } from './services/statement.service'
+import { qrService } from '@/components/QrScanner/services/qr.service'
 
 const route = useRoute()
 const router = useRouter()
@@ -259,6 +261,78 @@ const handleIgnoreChange = async ({ inv, party, is_ignore }) => {
   }
 }
 
+const handleQrScan = async ({ qrCode, rowData }) => {
+  console.log('Обработка отсканированного QR:', { qrCode, rowData })
+  
+  try {
+    // 1. Проверяем QR-код в БД с данными объекта
+    const qrWithObject = await qrService.getQrCodeWithObject(qrCode)
+    
+    if (!qrWithObject) {
+      // Сценарий А: код не найден
+      console.log('QR-код не найден, создаём новый объект')
+      openObjectForm({
+        mode: 'create',
+        qrCode: qrCode,
+        inv_number: rowData.inv_number || rowData.invNumber,
+        buh_name: rowData.buh_name || rowData.buhName,
+        rowData: rowData
+      })
+    } else {
+      // Сценарий Б: код найден
+      const { qrRecord, objectData } = qrWithObject
+      console.log('QR-код уже существует:', qrWithObject)
+      
+      // Формируем детальное сообщение
+      let message = `Этот QR-код уже привязан к объекту:\n\n`
+      
+      if (objectData.inv_number) {
+        message += `Инв. номер: ${objectData.inv_number}\n`
+      }
+      if (objectData.buh_name) {
+        message += `Наименование: ${objectData.buh_name}\n`
+      }
+      if (objectData.sklad) {
+        message += `Склад: ${objectData.sklad}\n`
+      }
+      if (objectData.place) {
+        message += `Место: ${objectData.place}\n`
+      }
+      if (objectData.party_number) {
+        message += `Партия: ${objectData.party_number}\n`
+      }
+      
+      message += `\n────────────────────\n`
+      message += `Перепривязать к текущему объекту?\n`
+      message += `Новый инв. номер: ${rowData.inv_number || rowData.invNumber}\n`
+      message += `Наименование: ${rowData.buh_name || rowData.buhName}`
+      
+      // Показываем предупреждение
+      const confirmed = window.confirm(message)
+      
+      if (confirmed) {
+        openObjectForm({
+          mode: 'reassign',
+          qrCode: qrCode,
+          existingObjectId: qrRecord.object_id,
+          existingObjectData: objectData,
+          inv_number: rowData.inv_number || rowData.invNumber,
+          buh_name: rowData.buh_name || rowData.buhName,
+          rowData: rowData
+        })
+      } else {
+        console.log('Пользователь отказался от перепривязки')
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка проверки QR-кода:', error)
+  }
+}
+
+const openObjectForm = (params) => {
+  console.log('Открываем ObjectForm с параметрами:', params)
+  // TODO: Реализовать открытие модалки ObjectForm
+}
 </script>
 
 <style scoped>
