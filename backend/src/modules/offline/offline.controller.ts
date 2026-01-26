@@ -21,21 +21,20 @@ export class OfflineController {
       }
 
       // Передаем userId в сервис
-      const data = await this.offlineService.getOfflineData(userId);
+      const offlineData = await this.offlineService.getOfflineData(userId);
       
       return {
         success: true,
-        data,
+        data: offlineData,
         message: 'ВСЕ данные для офлайн-режима успешно загружены',
       };
       
     } catch (error) {
-      // Возвращаем ошибку с пустыми данными
+      // Возвращаем пустые данные
       return {
         success: false,
         data: {
           objects: [],
-          places: [],
           processed_statements: [],
           object_changes: [],
           qr_codes: [],
@@ -43,7 +42,6 @@ export class OfflineController {
             userId: 0,
             fetchedAt: new Date().toISOString(),
             totalObjects: 0,
-            totalPlaces: 0,
             totalStatements: 0,
             totalObjectChanges: 0,
             totalQrCodes: 0,
@@ -83,7 +81,8 @@ export class OfflineController {
       
       return {
         success: true,
-        ...checkResult,
+        needsSync: checkResult.needsSync,
+        message: checkResult.message,
         clearCache: !checkResult.needsSync,
         timestamp: new Date().toISOString(),
       };

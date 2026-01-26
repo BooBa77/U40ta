@@ -30,9 +30,17 @@
           @click="handleRowClick(row)"
         >
           <td>
-            <div class="qr-placeholder" @click.stop="handleQrClick(row.original)">
-              [QR]
-            </div>
+            <QrScannerButton 
+              size="small"
+              :item-data="{
+                buh_name: getBuhName(row.original),
+                inv_number: getInvNumber(row.original),
+                party_number: getPartyNumber(row.original),
+                fullRowData: row.original // На всякий случай все данные
+              }"
+              @scan="(scannedData) => handleQrScan(scannedData, row.original)"
+              @error="handleQrError"
+            />
           </td>
           <td>
             <input 
@@ -73,6 +81,7 @@ import {
   useVueTable, 
   getCoreRowModel 
 } from '@tanstack/vue-table'
+import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 
 const props = defineProps({
   statements: {
@@ -93,37 +102,28 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
-  hasPartyOrQuantity: { // ← Этот пропс есть
+  hasPartyOrQuantity: {
     type: Function,
     default: () => false
   }
 })
 
-const emit = defineEmits(['filter-click', 'ignore-change'])
+const emit = defineEmits(['filter-click', 'ignore-change', 'qr-scan'])
 
 const tableContainer = ref(null)
 
-/**
- * Инициализация таблицы
- */
 const table = useVueTable({
-  data: props.statements, // ← Теперь получаем уже обработанные данные
+  data: props.statements,
   columns: props.columns,
   getCoreRowModel: getCoreRowModel(),
 })
 
-/**
- * Обработчик клика по заголовку
- */
 const handleHeaderClick = (columnId) => {
   if (columnId === 'inv_party_combined' || columnId === 'buh_name') {
     emit('filter-click', columnId)
   }
 }
 
-/**
- * Проверяет есть ли фильтр для колонки
- */
 const hasFilter = (columnId) => {
   if (columnId === 'inv_party_combined') {
     return props.activeFilters.inv_number && props.activeFilters.inv_number.length > 0
@@ -132,23 +132,27 @@ const hasFilter = (columnId) => {
   return props.activeFilters[columnId] && props.activeFilters[columnId].length > 0
 }
 
-/**
- * Обработчик клика по строке таблицы
- */
 const handleRowClick = (row) => {
   console.log('Клик по строке:', row.original)
 }
 
-/**
- * Обработчик клика по QR-коду
- */
-const handleQrClick = (rowData) => {
-  console.log('QR клик по строке:', rowData)
+const handleQrScan = (scannedData, rowData) => {
+  console.log('QR отсканирован:', {
+    qrCode: scannedData,
+    rowData: {
+      buh_name: getBuhName(rowData),
+      inv_number: getInvNumber(rowData),
+      party_number: getPartyNumber(rowData),
+      fullData: rowData
+    }
+  })
+  
+  emit('qr-scan', {
+    qrCode: scannedData,
+    rowData: rowData,
+  })
 }
 
-/**
- * Обработчик изменения чекбокса игнора
- */
 const handleCheckboxChange = (row, checked) => {
   const inv = row.inv_number || row.invNumber
   const party = row.party_number || row.partyNumber || ''
@@ -160,16 +164,10 @@ const handleCheckboxChange = (row, checked) => {
   })
 }
 
-/**
- * Возвращает значение чекбокса
- */
 const getCheckboxValue = (row) => {
   return row.is_ignore || row.isIgnore || false
 }
 
-/**
- * Возвращает инвентарный номер
- */
 const getInvNumber = (row) => {
   return row.inv_number || row.invNumber || '—'
 }
@@ -178,16 +176,10 @@ const getPartyNumber = (row) => {
   return row.party_number || row.partyNumber || ''
 }
 
-/**
- * Возвращает бухгалтерское наименование
- */
 const getBuhName = (row) => {
   return row.buh_name || row.buhName || '—'
 }
 
-/**
- * Следим за изменениями данных и обновляем таблицу
- */
 watch(() => props.statements, () => {
   table.setOptions(prev => ({
     ...prev,
@@ -199,3 +191,4 @@ watch(() => props.statements, () => {
 <style scoped>
 @import './StatementTable.css';
 </style>
+[file content end]

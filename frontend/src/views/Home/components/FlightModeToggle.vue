@@ -35,15 +35,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { offlineCache } from '../../../services/OfflineCacheService.js'
 
-// Константы
 const FLIGHT_MODE_KEY = 'u40ta_flight_mode'
-
-// Состояния
 const isFlightMode = ref(false)
 const showTooltip = ref(false)
 const isLoading = ref(false)
 
-// Загружаем состояние из localStorage при монтировании
 onMounted(() => {
   const saved = localStorage.getItem(FLIGHT_MODE_KEY)
   if (saved !== null) {
@@ -51,7 +47,6 @@ onMounted(() => {
   }
 })
 
-// Вычисляемые свойства
 const tooltipText = computed(() => {
   if (isLoading.value) return 'Загрузка данных...'
   return isFlightMode.value 
@@ -63,25 +58,6 @@ const buttonLabel = computed(() => {
   return isFlightMode.value ? 'Выключить режим полёта' : 'Включить режим полёта'
 })
 
-// Вспомогательная функция для загрузки данных с сервера
-async function fetchWithAuth(url) {
-  const token = localStorage.getItem('auth_token')
-  if (!token) {
-    throw new Error('Требуется авторизация')
-  }
-  
-  const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  })
-  
-  if (!response.ok) {
-    throw new Error(`Ошибка ${response.status}: ${response.statusText}`)
-  }
-  
-  return response.json()
-}
-
-// Включение режима полёта (кэширование данных)
 async function enableFlightMode() {
   isLoading.value = true
   
@@ -105,13 +81,54 @@ async function enableFlightMode() {
     }
     
     console.log('Данные загружены, начинаем кэширование...')
-    console.log('Объектов:', result.data.objects.length)
-    console.log('Мест:', result.data.places.length)
-    console.log('Ведомостей:', result.data.processed_statements.length)
-    console.log('Истории изменений:', result.data.object_changes.length)
-    console.log('QR-кодов:', result.data.qr_codes.length)
     
-    await offlineCache.cacheAllData(result.data)
+    // ПРОБЛЕМА: result.data содержит {success, data, message}, а не сами данные
+    console.log('Структура result:', result)
+    console.log('result.data:', result.data)
+    
+    // Проверим несколько вариантов:
+    // Вариант 1: данные в result.data.data
+    if (result.data && result.data.data) {
+      console.log('Данные в result.data.data:', result.data.data)
+      const data = result.data.data
+      
+      console.log('Объектов:', data.objects?.length || 0)
+      console.log('Мест:', data.places?.length || 0)
+      console.log('Ведомостей:', data.processed_statements?.length || 0)
+      console.log('Истории изменений:', data.object_changes?.length || 0)
+      console.log('QR-кодов:', data.qr_codes?.length || 0)
+      
+      await offlineCache.cacheAllData(data)
+    }
+    // Вариант 2: данные в result.data
+    else if (result.data) {
+      console.log('Данные в result.data (прямой доступ):', result.data)
+      
+      // Проверим, есть ли поля в result.data
+      console.log('Ключи в result.data:', Object.keys(result.data))
+      
+      const data = result.data
+      console.log('Объектов:', data.objects?.length || 0)
+      console.log('Мест:', data.places?.length || 0)
+      console.log('Ведомостей:', data.processed_statements?.length || 0)
+      console.log('Истории изменений:', data.object_changes?.length || 0)
+      console.log('QR-кодов:', data.qr_codes?.length || 0)
+      
+      await offlineCache.cacheAllData(data)
+    }
+    // Вариант 3: данные в result (прямой доступ)
+    else {
+      console.log('Данные в result (корневой уровень):', result)
+      
+      const data = result
+      console.log('Объектов:', data.objects?.length || 0)
+      console.log('Мест:', data.places?.length || 0)
+      console.log('Ведомостей:', data.processed_statements?.length || 0)
+      console.log('Истории изменений:', data.object_changes?.length || 0)
+      console.log('QR-кодов:', data.qr_codes?.length || 0)
+      
+      await offlineCache.cacheAllData(data)
+    }
     
     console.log('Режим полёта успешно включен')
     
@@ -126,7 +143,6 @@ async function enableFlightMode() {
   }
 }
 
-// Выключение режима полёта
 async function disableFlightMode() {
   try {
     console.log('Выключаем режим полёта...')
@@ -192,7 +208,6 @@ async function disableFlightMode() {
   }
 }
 
-// Основной переключатель
 async function toggleFlightMode() {
   if (isLoading.value) return
   

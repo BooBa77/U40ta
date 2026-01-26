@@ -1,5 +1,4 @@
 import { InventoryObject } from '../../objects/entities/object.entity';
-import { Place } from '../../places/entities/place.entity';
 import { ProcessedStatement } from '../../statements/entities/processed-statement.entity';
 import { QrCode } from '../../qr-codes/entities/qr-code.entity';
 
@@ -15,7 +14,6 @@ interface ObjectChange {
 // Основной DTO с данными для офлайн-режима
 export interface OfflineDataDto {
   objects: InventoryObject[];
-  places: Place[];
   processed_statements: ProcessedStatement[];
   object_changes: ObjectChange[];
   qr_codes: QrCode[];
@@ -23,7 +21,6 @@ export interface OfflineDataDto {
     userId: number;
     fetchedAt: string;
     totalObjects: number;
-    totalPlaces: number;
     totalStatements: number;
     totalObjectChanges: number;
     totalQrCodes: number;
@@ -32,7 +29,7 @@ export interface OfflineDataDto {
 }
 
 // DTO для ответа API
-export interface OfflineDataResponseDto {
+export class OfflineDataResponseDto {
   success: boolean;
   data: OfflineDataDto;
   message: string;

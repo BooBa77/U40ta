@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { Place } from '../../places/entities/place.entity';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity('objects')
 export class InventoryObject {
@@ -24,9 +23,6 @@ export class InventoryObject {
   @Column({ type: 'varchar', length: 100, nullable: true })
   sn: string;
 
-  @Column({ type: 'bigint', nullable: true })
-  place: number;
-
   @Column({ type: 'text', nullable: true })
   commentary: string;
 
@@ -35,12 +31,21 @@ export class InventoryObject {
 
   @Column({ 
     name: 'checked_at', 
-    type: 'timestamptz', 
-    default: () => 'CURRENT_TIMESTAMP' 
+    type: 'date', 
+    default: () => 'CURRENT_DATE' 
   })
   checked_at: Date;
 
-  @ManyToOne(() => Place, { nullable: true })
-  @JoinColumn({ name: 'place' })
-  placeEntity: Place | null;  
+  // Место использования
+  @Column({ name: 'place_ter', type: 'varchar', length: 100, nullable: true })
+  place_ter: string | null;
+
+  @Column({ name: 'place_pos', type: 'varchar', length: 100, nullable: true })
+  place_pos: string | null;
+
+  @Column({ name: 'place_cab', type: 'varchar', length: 100, nullable: true })
+  place_cab: string | null;
+
+  @Column({ name: 'place_user', type: 'varchar', length: 100, nullable: true })
+  place_user: string | null;
 }

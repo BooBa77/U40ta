@@ -1,4 +1,3 @@
-// offline/services/offline.service.ts
 import { Injectable } from '@nestjs/common';
 import { OfflineCacheService } from './offline-cache.service';
 import { OfflineSyncService } from './offline-sync.service';
@@ -12,89 +11,109 @@ export class OfflineService {
 
   /**
    * Основной метод для получения ВСЕХ данных для кэширования
-   * Не фильтрует по пользователю - отдает ВСЕ данные
-   * @returns Данные для офлайн-режима
+   * Работает даже с пустыми таблицами
    */
   async getOfflineData(userId): Promise<any> {
-    console.log(`OfflineService: получение ВСЕХ данных для офлайн-режима`);
+    console.log(`OfflineService: получение данных для офлайн-режима (userId: ${userId})`);
     
     try {
       const data = await this.offlineCacheService.getAllData(userId);
       
-      console.log(`OfflineService: ВСЕ данные успешно получены`);
-      console.log(`  - Объектов: ${data.objects.length}`);
-      console.log(`  - Мест: ${data.places.length}`);
-      console.log(`  - Ведомостей: ${data.processed_statements.length}`);
-      console.log(`  - Истории изменений: ${data.object_changes.length}`);
-      console.log(`  - QR-кодов: ${data.qr_codes.length}`);
+      // Безопасная проверка размеров
+      const objectsCount = data?.objects?.length || 0;
+      const statementsCount = data?.processed_statements?.length || 0;
+      const changesCount = data?.object_changes?.length || 0;
+      const qrCodesCount = data?.qr_codes?.length || 0;
       
-      return data;
+      console.log(`OfflineService: данные получены`);
+      console.log(`  - Объектов: ${objectsCount}`);
+      console.log(`  - Ведомостей: ${statementsCount}`);
+      console.log(`  - Истории: ${changesCount}`);
+      console.log(`  - QR-кодов: ${qrCodesCount}`);
+      
+      return {
+        objects: data?.objects || [],
+        processed_statements: data?.processed_statements || [],
+        object_changes: data?.object_changes || [],
+        qr_codes: data?.qr_codes || [],
+        meta: data?.meta || { userId }
+      };
       
     } catch (error) {
-      console.error('OfflineService: ошибка при получении ВСЕХ данных:', error);
-      throw error;
+      console.error('OfflineService: ошибка:', error);
+      
+      // Возвращаем пустую структуру данных при ошибке
+      return {
+        objects: [],
+        processed_statements: [],
+        object_changes: [],
+        qr_codes: [],
+        meta: { 
+          userId, 
+          fetchedAt: new Date().toISOString(),
+          totalObjects: 0,
+          totalStatements: 0,
+          totalObjectChanges: 0,
+          totalQrCodes: 0,
+          accessibleSklads: 0,
+        }
+      };
     }
   }
 
   /**
    * Основной метод для синхронизации изменений
-   * @param userId ID пользователя (для записи в историю изменений)
-   * @param changes Массив изменений из офлайн-режима
-   * @returns Результат синхронизации
    */
   async syncChanges(userId: number, changes: any[]): Promise<any> {
-    console.log(`OfflineService: синхронизация ${changes.length} изменений от пользователя ${userId}`);
+    console.log(`OfflineService: синхронизация ${changes?.length || 0} изменений`);
     
     try {
-      const result = await this.offlineSyncService.applyChanges(userId, changes);
-      
-      console.log(`OfflineService: синхронизация завершена`);
-      return result;
+      const result = await this.offlineSyncService.applyChanges(userId, changes || []);
+      return {
+        success: true,
+        ...result,
+        message: 'Синхронизация завершена'
+      };
       
     } catch (error) {
-      console.error('OfflineService: ошибка при синхронизации:', error);
-      throw error;
+      console.error('OfflineService: ошибка синхронизации:', error);
+      return {
+        success: false,
+        message: `Ошибка синхронизации: ${error.message}`
+      };
     }
   }
 
-  // ===== НОВЫЕ МЕТОДЫ ДЛЯ ПЕРЕКЛЮЧЕНИЯ РЕЖИМОВ =====
-
   /**
    * Проверяет, нужна ли синхронизация при переключении из офлайн в онлайн
-   * @param localChanges Локальная история изменений из IndexedDB
-   * @returns Информация о необходимости синхронизации
    */
-  checkIfSyncNeeded(localChanges: any[]): { needsSync: boolean; message: string } {
-    console.log(`OfflineService: проверка необходимости синхронизации для ${localChanges?.length || 0} локальных изменений`);
+  checkIfSyncNeeded(localChanges: any[]): { success: boolean; needsSync: boolean; message: string } {
+    const changesCount = localChanges?.length || 0;
+    console.log(`OfflineService: проверка синхронизации (изменений: ${changesCount})`);
     
-    // Если истории нет или она пустая - синхронизация не нужна
-    if (!localChanges || localChanges.length === 0) {
+    if (changesCount === 0) {
       return {
+        success: true,
         needsSync: false,
-        message: 'Локальная история пуста. Можно переключаться на онлайн без синхронизации.'
+        message: 'Нет локальных изменений. Можно переключаться.'
       };
     }
     
-    // Если есть изменения - нужна синхронизация
     return {
+      success: true,
       needsSync: true,
-      message: `Обнаружено ${localChanges.length} локальных изменений. Требуется синхронизация перед переходом в онлайн.`
+      message: `Обнаружено ${changesCount} локальных изменений. Требуется синхронизация.`
     };
   }
 
   /**
    * Подтверждение очистки локального кэша
-   * Вызывается после успешной синхронизации или если синхронизация не требуется
-   * @returns Подтверждение для клиента
    */
   confirmCacheClear(): { success: boolean; message: string } {
     console.log('OfflineService: подтверждение очистки кэша');
-    
-    // Этот метод просто подтверждает, что сервер разрешает очистку
-    // Реальная очистка IndexedDB происходит на клиенте
     return {
       success: true,
-      message: 'Сервер подтверждает очистку локального кэша. Клиент может очистить IndexedDB.'
+      message: 'Кэш может быть очищен'
     };
   }
 }

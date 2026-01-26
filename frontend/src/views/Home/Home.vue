@@ -7,15 +7,16 @@
     </header>
 
     <main class="home-main">
+      <!--
       <div class="actions-grid">
         <QrScannerButton 
           size="large" 
           @scan="handleScanResult"
           @error="handleScanError"
         />
-        
         <DBToolsButton />
       </div>
+      -->
 
       <!-- Отображение результата -->
       <div v-if="scanResult" class="scan-result">
@@ -43,7 +44,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ExitButton from '@/components/ui/ExitButton.vue'
 import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
-import QrScannerButton from '@/components/ui/QrScannerButton.vue'
+import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import DBToolsButton from '@/components/ui/DBToolsButton.vue'
 import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'

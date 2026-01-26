@@ -1,7 +1,8 @@
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 
-export function useQrFile(emit) {
+export function useQrFile(options = {}) {
   let html5QrcodeInstance = null
+  const { onScan, onError } = options
 
   const scanWithHtml5Qrcode = async (file) => {
     if (html5QrcodeInstance) {
@@ -47,10 +48,10 @@ export function useQrFile(emit) {
       console.log('Файл:', file.name)
       const result = await scanWithHtml5Qrcode(file)
       console.log('Результат:', result)
-      emit('scan', result)
+      if (onScan) onScan(result)
     } catch (error) {
       console.log('Ошибка:', error)
-      emit('error', error.message)
+      if (onError) onError(error.message)
     }
   }
 

@@ -1,5 +1,5 @@
 import { h } from 'vue'
-import QrScannerButton from '../../../components/ui/QrScannerButton.vue'
+import QrScannerButton from '../../../components/QrScanner/ui/QrScannerButton.vue'
 
 export function useStatementColumns() {
   const columns = [

@@ -1,9 +1,11 @@
 import { useQrFile } from './useQrFile.js'
 import { useQrCamera } from './useQrCamera.js'
 
-export function useQrScanner(emit) {
-  const { startFileScan } = useQrFile(emit)
-  const { startCameraScan, stopCameraScan } = useQrCamera(emit)
+export function useQrScanner(options = {}) {
+  const { onScan, onError, itemInfo } = options
+  
+  const { startFileScan } = useQrFile({ onScan, onError })
+  const { startCameraScan, stopCameraScan } = useQrCamera({ onScan, onError, itemInfo })
 
   const startScan = () => {
     const isMobile = JSON.parse(localStorage.getItem('device_isMobile') || 'false')

@@ -9,6 +9,7 @@ import { EmailModule } from './modules/email/email.module';
 import { StatementsModule } from './modules/statements/statements.module';
 import { OfflineModule } from './modules/offline/offline.module';
 import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
+import { ObjectsModule } from './modules/objects/objects.module';
 
 @Module({
   imports: [
@@ -75,6 +76,10 @@ import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
     // Модуль работы с QR-кодами
     // Обеспечивает связь отсканированных QR-значений с объектами системы
     QrCodesModule,
+
+    // ObjectsModule - модуль работы с объектами инвентарного учёта
+    // Предоставляет CRUD операции для объектов склада с полями: инв.номер, серийный номер, место использования
+    ObjectsModule,    
   ],
   
   // providers - массив сервисов, не объявленных в других модулях

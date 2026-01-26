@@ -27,26 +27,6 @@ const routes = [
   meta: { requiresAuth: true }
   },
   {
-    path: '/object/add_01', // Страница создания нового объекта
-    name: 'ObjectAdd',
-    component: () => import('@/views/ObjectForm/ObjectForm.vue'),
-    meta: { requiresAuth: true },
-    props: (route) => ({
-      mode: 'add',
-      initialData: route.params.initialData // Бухгалтерские данные из эксель ОСВ, или заглушки при ручном вводе
-    })
-  },
-  {
-    path: '/object/add',
-    name: 'ObjectAdd',
-    component: () => import('@/views/ObjectForm/ObjectForm.vue'),
-    meta: { requiresAuth: true },
-    props: (route) => ({
-      mode: 'add',
-      initialData: route.query.initialData ? JSON.parse(route.query.initialData) : null
-    })
-  },
-  {
     path: '/statement/:id',
     name: 'Statement',
     component: () => import('@/views/Statement/StatementPage.vue'),
@@ -57,7 +37,17 @@ const routes = [
     name: 'Inventory',
     component: () => import('@/views/Inventory/InventoryPage.vue'),
     meta: { requiresAuth: true }
-  }
+  },
+  {
+    path: '/object/edit/:id',
+    name: 'ObjectEdit',
+    component: () => import('@/views/ObjectForm/ObjectForm.vue'),
+    meta: { requiresAuth: true },
+    props: (route) => ({
+      mode: 'edit',
+      id: route.params.id
+    })
+  }  
 ]
 
 const router = createRouter({

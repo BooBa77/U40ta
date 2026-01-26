@@ -7,14 +7,12 @@ import { OfflineDataService } from './services/offline-data.service';
 import { OfflineSyncService } from './services/offline-sync.service';
 import { ObjectOfflineChange } from './entities/offline-object-change.entity';
 import { InventoryObject } from '../objects/entities/object.entity';
-import { Place } from '../places/entities/place.entity';
 import { ProcessedStatement } from '../statements/entities/processed-statement.entity';
 import { ObjectChange } from '../object_changes/entities/object-change.entity';
 import { QrCode } from '../qr-codes/entities/qr-code.entity';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { MolAccess } from '../statements/entities/mol-access.entity';
 import { ObjectsModule } from '../objects/objects.module';
-import { PlacesModule } from '../places/places.module';
 import { StatementsModule } from '../statements/statements.module';
 import { ObjectChangesModule } from '../object_changes/object_changes.module';
 import { QrCodesModule } from '../qr-codes/qr-codes.module';
@@ -25,17 +23,15 @@ import { QrCodesModule } from '../qr-codes/qr-codes.module';
     TypeOrmModule.forFeature([
       ObjectOfflineChange,
       InventoryObject,
-      Place,
       ProcessedStatement,
       ObjectChange,
       QrCode,
-      MolAccess, // Добавьте MolAccess в forFeature
+      MolAccess,
     ]),
     
     // Импортируем внешние модули для доступа к их сервисам
     JwtAuthModule,
     ObjectsModule,
-    PlacesModule,
     StatementsModule,
     ObjectChangesModule,
     QrCodesModule,
