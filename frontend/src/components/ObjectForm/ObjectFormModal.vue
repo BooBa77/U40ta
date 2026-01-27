@@ -150,10 +150,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { qrService } from '@/components/QrScanner/services/qr.service'
-import { objectService } from './services/ObjectService'
 
 const props = defineProps({
   isOpen: {
@@ -223,14 +221,21 @@ const loadInitialData = async () => {
       sn: props.initialData.sn || ''
     }
     
-    // 2. Если передан QR-код, проверяем его
+    // 2. Если передан QR-код, проверяем его (временно заглушка)
     if (props.qrCode) {
-      await checkQrCode(props.qrCode)
+      // TODO: Включить когда будет API
+      // await checkQrCode(props.qrCode)
+      console.log('QR код передан:', props.qrCode)
     }
     
-    // 3. Если режим edit, загружаем существующие QR-коды
-    if (props.mode === 'edit' && props.initialData.id) {
-      await loadExistingQrCodes(props.initialData.id)
+    // 3. Если режим reassign, показываем предупреждение
+    if (props.mode === 'reassign') {
+      reassignWarning.value = {
+        inv_number: 'TEST123', // Временные данные
+        buh_name: 'Тестовый объект',
+        sklad: 'Склад 1',
+        zavod: 'Завод 1'
+      }
     }
     
   } catch (error) {
@@ -240,38 +245,15 @@ const loadInitialData = async () => {
   }
 }
 
-// Проверка QR-кода
+// Проверка QR-кода (временно заглушка)
 const checkQrCode = async (qrValue) => {
-  try {
-    const result = await qrService.getQrCodeWithObject(qrValue)
-    
-    if (result) {
-      // QR существует, показываем предупреждение
-      reassignWarning.value = {
-        inv_number: result.objectData.inv_number,
-        buh_name: result.objectData.buh_name,
-        sklad: result.objectData.sklad,
-        zavod: result.objectData.zavod
-      }
-    }
-  } catch (error) {
-    console.error('Ошибка проверки QR:', error)
-  }
-}
-
-// Загрузка существующих QR-кодов объекта
-const loadExistingQrCodes = async (objectId) => {
-  // TODO: Реализовать метод в qrService для получения QR-кодов объекта
-  // existingQrCodes.value = await qrService.getObjectQrCodes(objectId)
+  // TODO: Реализовать когда будет API
+  console.log('Проверка QR:', qrValue)
+  return null
 }
 
 // Добавление нового QR-кода
 const addQrCode = () => {
-  // TODO: Открыть QrScanner оверлей для сканирования
-  // После сканирования добавить в newQrCodes
-  console.log('Добавление QR-кода...')
-  
-  // Временная заглушка
   const newCode = prompt('Введите QR-код вручную (временная функция)')
   if (newCode && !newQrCodes.value.includes(newCode)) {
     newQrCodes.value.push(newCode)
@@ -304,7 +286,6 @@ const handleSave = async () => {
     // Подготовка данных
     const saveData = {
       ...formData.value,
-      // Все QR-коды: существующие + новые + основной (если есть)
       qr_codes: [
         ...existingQrCodes.value,
         ...newQrCodes.value,
@@ -312,12 +293,15 @@ const handleSave = async () => {
       ].filter(Boolean)
     }
     
-    // Сохранение в зависимости от режима
-    let result
-    if (props.mode === 'create' || props.mode === 'reassign') {
-      result = await createObject(saveData)
-    } else if (props.mode === 'edit') {
-      result = await updateObject(saveData)
+    console.log('Сохранение данных:', saveData)
+    
+    // Имитация сохранения
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    const result = {
+      success: true,
+      objectId: Date.now(),
+      data: saveData
     }
     
     // Успех
@@ -328,25 +312,6 @@ const handleSave = async () => {
   } finally {
     isSaving.value = false
   }
-}
-
-// Создание объекта
-const createObject = async (data) => {
-  // TODO: Реализовать в objectService.createObject()
-  // + привязка QR-кодов через qrService
-  console.log('Создание объекта:', data)
-  
-  // Заглушка
-  return { success: true, objectId: Date.now() }
-}
-
-// Обновление объекта
-const updateObject = async (data) => {
-  // TODO: Реализовать в objectService.updateObject()
-  console.log('Обновление объекта:', data)
-  
-  // Заглушка
-  return { success: true }
 }
 
 // Отмена

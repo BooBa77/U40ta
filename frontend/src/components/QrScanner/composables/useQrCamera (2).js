@@ -1,19 +1,13 @@
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 
-export function useQrCamera(options = {}) {
+export function useQrCamera(emit) {
   let html5QrcodeInstance = null
-  let isStopping = false
-  const { onScan, onError, itemInfo } = options
 
   const stopCameraScan = () => {
-    if (html5QrcodeInstance && !isStopping) {
-      isStopping = true
+    if (html5QrcodeInstance) {
       html5QrcodeInstance.stop().then(() => {
         html5QrcodeInstance.clear()
-        html5QrcodeInstance = null
-      }).catch(console.error).finally(() => {
-        isStopping = false
-      })
+      }).catch(console.error)
     }
     
     const overlay = document.getElementById('camera-overlay')
@@ -37,59 +31,6 @@ export function useQrCamera(options = {}) {
         align-items: center;
         justify-content: center;
       `
-
-      // Заголовок с информацией об объекте
-      if (itemInfo?.buh_name || itemInfo?.inv_number) {
-        const infoHeader = document.createElement('div')
-        infoHeader.style.cssText = `
-          background: rgba(0, 0, 0, 0.7);
-          color: white;
-          padding: 15px 20px;
-          border-radius: 10px;
-          margin-bottom: 20px;
-          text-align: center;
-          max-width: 80%;
-          backdrop-filter: blur(5px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-        `
-        
-        // Строка 1: "Добавить QR-код для"
-        const titleLine = document.createElement('div')
-        titleLine.textContent = 'Добавить QR-код для:'
-        titleLine.style.cssText = `
-          font-size: 14px;
-          opacity: 0.9;
-          margin-bottom: 8px;
-        `
-        
-        // Строка 2: Наименование
-        const nameLine = document.createElement('div')
-        nameLine.textContent = itemInfo.buh_name || ''
-        nameLine.style.cssText = `
-          font-size: 16px;
-          font-weight: 500;
-          margin-bottom: 5px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          max-width: 100%;
-        `
-        
-        // Строка 3: Инвентарный номер
-        const invLine = document.createElement('div')
-        invLine.textContent = itemInfo.inv_number || ''
-        invLine.style.cssText = `
-          font-size: 14px;
-          opacity: 0.9;
-          font-family: monospace;
-          letter-spacing: 0.5px;
-        `
-        
-        infoHeader.appendChild(titleLine)
-        infoHeader.appendChild(nameLine)
-        infoHeader.appendChild(invLine)
-        cameraOverlay.appendChild(infoHeader)
-      }
 
       const cameraContainer = document.createElement('div')
       cameraContainer.id = 'camera-container'
@@ -163,7 +104,7 @@ export function useQrCamera(options = {}) {
         },
         (result) => {
           console.log('Найден код:', result)
-          if (onScan) onScan(result)
+          emit('scan', result)
           stopCameraScan()
         },
         (error) => {
@@ -173,8 +114,7 @@ export function useQrCamera(options = {}) {
 
     } catch (error) {
       console.error('Ошибка камеры:', error)
-      const errorMsg = 'Ошибка камеры: ' + error.message
-      if (onError) onError(errorMsg)
+      emit('error', 'Ошибка камеры: ' + error.message)
       stopCameraScan()
     }
   }

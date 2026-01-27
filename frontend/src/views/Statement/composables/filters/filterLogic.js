@@ -2,9 +2,13 @@
  * Получает уникальные значения для колонки с учётом активных фильтров
  */
 export function getUniqueValuesWithFilters(data, columnId, activeFilters) {
+  // data может быть ref или массивом
+  const dataArray = Array.isArray(data) ? data : data?.value || []
   
-  // 1. Сначала фильтруем данные по другим активным фильтрам
-  let filteredData = data
+  if (!dataArray.length) return []
+  
+  // Остальной код без изменений
+  let filteredData = dataArray
   
   Object.keys(activeFilters).forEach(filterColumnId => {
     if (filterColumnId !== columnId && activeFilters[filterColumnId]?.length > 0) {
@@ -13,31 +17,6 @@ export function getUniqueValuesWithFilters(data, columnId, activeFilters) {
       )
     }
   })
-  
-  // 2. Собираем уникальные значения из отфильтрованных данных
-  const valuesMap = new Map()
-  
-  filteredData.forEach(row => {
-    const value = getCellValue(row, columnId)
-    if (value !== undefined && value !== null && value !== '') {
-      const key = String(value).toLowerCase()
-      if (valuesMap.has(key)) {
-        valuesMap.get(key).count++
-      } else {
-        valuesMap.set(key, {
-          value: value,
-          label: String(value),
-          count: 1
-        })
-      }
-    }
-  })
-  
-  // 3. Сортируем по значению
-  const result = Array.from(valuesMap.values())
-    .sort((a, b) => a.label.localeCompare(b.label))
-  
-  return result
 }
 
 /**

@@ -30,13 +30,12 @@
           @click="handleRowClick(row)"
         >
           <td>
+            <!-- ЗАМЕНЯЕМ qr-placeholder на QrScannerButton -->
             <QrScannerButton 
               size="small"
-              :item-data="{
-                buh_name: getBuhName(row.original),
+              :item-data="{ 
                 inv_number: getInvNumber(row.original),
-                party_number: getPartyNumber(row.original),
-                fullRowData: row.original // На всякий случай все данные
+                buh_name: getBuhName(row.original)
               }"
               @scan="(scannedData) => handleQrScan(scannedData, row.original)"
               @error="handleQrError"
@@ -81,6 +80,7 @@ import {
   useVueTable, 
   getCoreRowModel 
 } from '@tanstack/vue-table'
+// ДОБАВЛЯЕМ импорт
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 
 const props = defineProps({
@@ -108,6 +108,7 @@ const props = defineProps({
   }
 })
 
+// ДОБАВЛЯЕМ событие qr-scan
 const emit = defineEmits(['filter-click', 'ignore-change', 'qr-scan'])
 
 const tableContainer = ref(null)
@@ -136,21 +137,27 @@ const handleRowClick = (row) => {
   console.log('Клик по строке:', row.original)
 }
 
+// ДОБАВЛЯЕМ обработчик QR сканирования
 const handleQrScan = (scannedData, rowData) => {
   console.log('QR отсканирован:', {
     qrCode: scannedData,
     rowData: {
-      buh_name: getBuhName(rowData),
       inv_number: getInvNumber(rowData),
-      party_number: getPartyNumber(rowData),
+      buh_name: getBuhName(rowData),
       fullData: rowData
     }
   })
   
+  // ПРОСТО передаём событие наверх
   emit('qr-scan', {
     qrCode: scannedData,
     rowData: rowData,
   })
+}
+
+// ДОБАВЛЯЕМ обработчик ошибок QR
+const handleQrError = (error) => {
+  console.error('Ошибка сканирования QR:', error)
 }
 
 const handleCheckboxChange = (row, checked) => {
@@ -191,4 +198,3 @@ watch(() => props.statements, () => {
 <style scoped>
 @import './StatementTable.css';
 </style>
-[file content end]
