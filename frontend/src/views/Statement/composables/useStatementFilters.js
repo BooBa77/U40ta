@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
-import { saveFiltersToStorage, loadFiltersFromStorage, clearFiltersFromStorage } from './filterStorage'
-import { getUniqueValuesWithFilters, applyFiltersToData } from './filterLogic'
-import { isColumnFilterable, getFilterConfig } from './filterConfig'
+import { saveFiltersToStorage, loadFiltersFromStorage, clearFiltersFromStorage } from './filters/filterStorage'
+import { getUniqueValuesWithFilters, applyFiltersToData } from './filters/filterLogic'
+import { isColumnFilterable, getFilterConfig } from './filters/filterConfig'
 
 export function useStatementFilters(attachmentId, statements) {
   
@@ -81,7 +81,7 @@ export function useStatementFilters(attachmentId, statements) {
       filterColumn,
       activeFilters.value
     )
-    
+
     return options
   }
   

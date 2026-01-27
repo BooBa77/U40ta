@@ -92,7 +92,7 @@
   border-right: 1px solid #f3f4f6;
   font-size: 0.875rem;
   color: #4b5563;
-  vertical-align: top;
+  vertical-align: middle;
   cursor: pointer;
   line-height: 1.2;
   transition: background-color 0.1s;
