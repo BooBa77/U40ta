@@ -162,20 +162,34 @@ const focusSearchInput = () => {
   }
 }
 
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen) {
-    originalSelected.value = [...props.selectedValues]
-    
-    // *** ИСПРАВЛЕНО: НЕ выбираем все опции по умолчанию ***
-    // Только копируем существующие выбранные значения
-    internalSelected.value = [...props.selectedValues]
-    
-    searchQuery.value = '' 
-    focusSearchInput() 
+watch(() => props.selectedValues, (newValues) => {
+  console.log('[FILTER-MODAL] 1. Получены props.selectedValues:', {
+    newValues,
+    type: typeof newValues,
+    isArray: Array.isArray(newValues),
+    isRef: newValues && typeof newValues === 'object' && 'value' in newValues,
+    hasValue: newValues?.value !== undefined
+  })
+  
+  // Проверка: если это ref, берем .value
+  let valuesToUse = newValues
+  if (newValues && typeof newValues === 'object' && 'value' in newValues) {
+    console.log('[FILTER-MODAL] 2. Это ref, берем .value:', newValues.value)
+    valuesToUse = newValues.value
   }
+  
+  // Защита от неитерируемых значений
+  if (!valuesToUse || !Array.isArray(valuesToUse)) {
+    console.warn('[FILTER-MODAL] 3. ОШИБКА: valuesToUse не массив, использую пустой:', valuesToUse)
+    internalSelected.value = []
+    return
+  }
+  
+  console.log('[FILTER-MODAL] 4. Устанавливаю internalSelected:', valuesToUse)
+  internalSelected.value = [...valuesToUse]
 }, { immediate: true })
 
-// *** КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Ручное обновление searchQuery ***
+// Ручное обновление searchQuery
 const handleSearchInput = (event) => {
     searchQuery.value = event.target.value; // Немедленное обновление реактивной переменной
 }

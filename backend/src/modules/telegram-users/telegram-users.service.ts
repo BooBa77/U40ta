@@ -2,117 +2,118 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TelegramUser } from './entities/telegram-user.entity';
+import { CreateTelegramUserDto } from './dto/create-telegram-user.dto';
+import { UpdateTelegramUserDto } from './dto/update-telegram-user.dto';
 
-// @Injectable() - декоратор, который отмечает класс как провайдер (сервис)
-// NestJS сможет управлять его жизненным циклом и внедрять зависимости
 @Injectable()
 export class TelegramUsersService {
   private readonly logger = new Logger(TelegramUsersService.name);
 
-  // Конструктор с внедрением зависимостей через декоратор @InjectRepository
-  // @InjectRepository(TelegramUser) - говорит NestJS внедрить репозиторий для сущности TelegramUser
-  // Repository<TelegramUser> - TypeORM репозиторий для работы с таблицей telegram_users в БД
   constructor(
     @InjectRepository(TelegramUser)
     private usersRepository: Repository<TelegramUser>,
   ) {}
 
-  // Поиск пользователя по telegram_id (уникальный идентификатор из Telegram)
-  async findByTelegramId(telegramId: number): Promise<TelegramUser | null> {
-    this.logger.log(`Поиск пользователя по Telegram ID: ${telegramId}`);
+  /**
+   * Создание нового пользователя Telegram
+   * Используется при первой авторизации через Telegram
+   */
+  async create(createTelegramUserDto: CreateTelegramUserDto): Promise<TelegramUser> {
+    this.logger.log(`Создание пользователя Telegram: ${createTelegramUserDto.telegram_id}`);
     
-    // Ищем пользователя в таблице по полю telegram_id
+    const user = this.usersRepository.create(createTelegramUserDto);
+    const savedUser = await this.usersRepository.save(user);
+    
+    this.logger.log(`Пользователь Telegram создан с ID: ${savedUser.id}`);
+    return savedUser;
+  }
+
+  /**
+   * Поиск пользователя по telegram_id
+   * telegram_id - уникальный идентификатор из Telegram
+   */
+  async findByTelegramId(telegramId: number): Promise<TelegramUser | null> {
+    this.logger.log(`Поиск пользователя Telegram по ID: ${telegramId}`);
+    
     const user = await this.usersRepository.findOne({
       where: { telegram_id: telegramId }
     });
     
-    if (user) {
-      this.logger.log(`Пользователь с Telegram ID ${telegramId} найден`);
-    } else {
-      this.logger.log(`Пользователь с Telegram ID ${telegramId} не найден`);
-    }
-    
+    this.logger.log(`Пользователь Telegram ${user ? 'найден' : 'не найден'}`);
     return user;
   }
 
-  // Создание нового пользователя (заявки) в таблице telegram_users
-  async create(createUserDto: any): Promise<TelegramUser> {
-    this.logger.log('Создание нового пользователя Telegram');
-    this.logger.debug(`Данные для создания: ${JSON.stringify(createUserDto)}`);
-    
-    // Создаем новый экземпляр сущности TelegramUser
-    // Явное создание объекта помогает избежать проблем с типами и обеспечивает контроль над данными
-    const user = new TelegramUser();
-    user.telegram_id = createUserDto.telegram_id;
-    user.first_name = createUserDto.first_name;
-    user.last_name = createUserDto.last_name || null;  // Если фамилия не указана, сохраняем null
-    user.username = createUserDto.username || null;    // Если username не указан, сохраняем null
-    
-    // Сохраняем пользователя в базу данных
-    // usersRepository.save() выполняет INSERT запрос к PostgreSQL
-    const savedUser = await this.usersRepository.save(user);
-    
-    this.logger.log(`Пользователь создан с ID: ${savedUser.id}`);
-    return savedUser;
-  }
-
-  // Получить всех пользователей из таблицы telegram_users
-  async findAll(): Promise<TelegramUser[]> {
-    this.logger.log('Запрос на получение всех пользователей Telegram');
-    
-    // usersRepository.find() выполняет SELECT * FROM telegram_users
-    const users = await this.usersRepository.find();
-    
-    this.logger.log(`Найдено пользователей: ${users.length}`);
-    return users;
-  }
-
-  // Найти пользователя по внутреннему ID (первичный ключ в таблице)
+  /**
+   * Поиск пользователя по внутреннему ID
+   */
   async findById(id: number): Promise<TelegramUser> {
-    this.logger.log(`Поиск пользователя по внутреннему ID: ${id}`);
+    this.logger.log(`Поиск пользователя Telegram по внутреннему ID: ${id}`);
     
-    // Ищем пользователя по полю id (автоинкрементный первичный ключ)
     const user = await this.usersRepository.findOne({ where: { id } });
     
     if (!user) {
-      this.logger.warn(`Пользователь с ID ${id} не найден`);
-      // NotFoundException автоматически преобразуется в HTTP 404 ответ
-      throw new NotFoundException(`User with ID ${id} not found`);
+      this.logger.warn(`Пользователь Telegram с ID ${id} не найден`);
+      throw new NotFoundException(`TelegramUser with ID ${id} not found`);
     }
     
-    this.logger.log(`Пользователь с ID ${id} найден`);
     return user;
   }
 
-  // Обновить данные пользователя
-  async update(id: number, updateData: any): Promise<TelegramUser> {
-    this.logger.log(`Обновление пользователя с ID: ${id}`);
-    this.logger.debug(`Данные для обновления: ${JSON.stringify(updateData)}`);
+  /**
+   * Получение всех пользователей Telegram
+   */
+  async findAll(): Promise<TelegramUser[]> {
+    this.logger.log('Запрос всех пользователей Telegram');
+    return this.usersRepository.find();
+  }
+
+  /**
+   * Обновление данных пользователя Telegram
+   */
+  async update(id: number, updateTelegramUserDto: UpdateTelegramUserDto): Promise<TelegramUser> {
+    this.logger.log(`Обновление пользователя Telegram с ID: ${id}`);
     
-    // Сначала проверяем, существует ли пользователь
-    // findById выбросит NotFoundException если пользователь не найден
-    await this.findById(id);
+    await this.findById(id); // Проверка существования
+    await this.usersRepository.update(id, updateTelegramUserDto);
     
-    // Выполняем UPDATE запрос к базе данных
-    await this.usersRepository.update(id, updateData);
-    
-    // Получаем обновленного пользователя чтобы вернуть актуальные данные
     const updatedUser = await this.findById(id);
+    this.logger.log(`Пользователь Telegram с ID ${id} обновлен`);
     
-    this.logger.log(`Пользователь с ID ${id} успешно обновлен`);
     return updatedUser;
   }
 
-  // Удалить пользователя из таблицы telegram_users
+  /**
+   * Удаление пользователя Telegram
+   */
   async remove(id: number): Promise<void> {
-    this.logger.log(`Удаление пользователя с ID: ${id}`);
+    this.logger.log(`Удаление пользователя Telegram с ID: ${id}`);
     
-    // Проверяем, существует ли пользователь перед удалением
-    await this.findById(id);
-    
-    // Выполняем DELETE запрос к базе данных
+    await this.findById(id); // Проверка существования
     await this.usersRepository.delete(id);
     
-    this.logger.log(`Пользователь с ID ${id} успешно удален`);
+    this.logger.log(`Пользователь Telegram с ID ${id} удален`);
+  }
+
+  /**
+   * Найти или создать пользователя Telegram
+   * Утилитарный метод для упрощения работы в AuthService
+   */
+  async findOrCreate(telegramId: number, userData: Partial<CreateTelegramUserDto>): Promise<TelegramUser> {
+    this.logger.log(`Поиск или создание пользователя Telegram: ${telegramId}`);
+    
+    let user = await this.findByTelegramId(telegramId);
+    
+    if (!user) {
+      this.logger.log(`Создание нового пользователя Telegram: ${telegramId}`);
+      const createDto: CreateTelegramUserDto = {
+        telegram_id: telegramId,
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        username: userData.username,
+      };
+      user = await this.create(createDto);
+    }
+    
+    return user;
   }
 }

@@ -249,6 +249,93 @@ export class StatementService {
       throw error
     }
   }
+
+  /**
+   * Обновляет статус have_object для записи ведомости
+   */
+  async updateStatementHaveObject(attachmentId, statementId, haveObject) {
+    const attachmentIdNum = Number(attachmentId)
+    const statementIdNum = Number(statementId)
+    
+    if (this.isFlightMode()) {
+      console.log(`[StatementService] Офлайн-режим: обновление have_object для записи ${statementIdNum}`)
+      return this.updateHaveObjectInCache(attachmentIdNum, statementIdNum, haveObject)
+    }
+    
+    console.log(`[StatementService] Онлайн-режим: обновление have_object для записи ${statementIdNum}`)
+    return this.updateHaveObjectInApi(attachmentIdNum, statementIdNum, haveObject)
+  }
+
+  /**
+   * Обновляет have_object в кэше IndexedDB
+   */
+  async updateHaveObjectInCache(attachmentId, statementId, haveObject) {
+    try {
+      console.log(`[StatementService] Обновление have_object в кэше:`, {
+        attachmentId,
+        statementId,
+        haveObject
+      })
+      
+      const statement = await offlineCache.db.processed_statements
+        .where('id')
+        .equals(statementId)
+        .first()
+      
+      if (!statement) {
+        throw new Error(`Запись ведомости ${statementId} не найдена`)
+      }
+      
+      statement.have_object = haveObject
+      statement.updated_at = new Date().toISOString()
+      
+      await offlineCache.db.processed_statements.put(statement)
+      
+      console.log(`[StatementService] Запись обновлена: ID ${statementId}, have_object=${haveObject}`)
+      return true
+      
+    } catch (error) {
+      console.error('[StatementService] Ошибка обновления в кэше:', error)
+      throw new Error('Не удалось обновить запись ведомости в кэше')
+    }
+  }
+
+  /**
+   * Обновляет have_object через API
+   */
+  async updateHaveObjectInApi(attachmentId, statementId, haveObject) {
+    try {
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        throw new Error('Токен авторизации не найден')
+      }
+
+      const response = await fetch(`${this.baseUrl}/statements/update-have-object`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          attachmentId,
+          statementId,
+          haveObject
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ошибка: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.success === true
+    } catch (error) {
+      console.error('[StatementService] Ошибка обновления через API:', error)
+      throw error
+    }
+  }  
+
+
 }
 
 // Экспортируем синглтон для использования во всем приложении

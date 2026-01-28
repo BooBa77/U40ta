@@ -1,5 +1,9 @@
 import { IsNumber, IsString, IsOptional, Min, IsNotEmpty } from 'class-validator';
 
+/**
+ * DTO для данных авторизации от Telegram Widget
+ * Содержит все поля которые отправляет Telegram
+ */
 export class TelegramLoginDto {
   @IsNumber()
   @Min(1)
@@ -19,7 +23,7 @@ export class TelegramLoginDto {
 
   @IsNumber()
   @Min(1)
-  auth_date: number;  // ТОЛЬКО ДЛЯ ПРОВЕРКИ HASH
+  auth_date: number;
 
   @IsString()
   @IsNotEmpty()

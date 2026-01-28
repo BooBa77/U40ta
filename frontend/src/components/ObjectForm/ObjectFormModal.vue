@@ -152,6 +152,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { qrService } from '@/components/QrScanner/services/qr.service'
+import { objectService } from '@/components/ObjectForm/services/ObjectService.js'
 
 const props = defineProps({
   isOpen: {
@@ -207,6 +209,8 @@ const modalTitle = computed(() => {
 
 // Загрузка начальных данных
 const loadInitialData = async () => {
+  console.log('[ObjectFormModal] initialData:', props.initialData);
+    console.log('[ObjectFormModal] initialData.id:', props.initialData.id); 
   isLoading.value = true
   errorMessage.value = ''
   
@@ -245,11 +249,29 @@ const loadInitialData = async () => {
   }
 }
 
-// Проверка QR-кода (временно заглушка)
+// Проверка QR-кода
 const checkQrCode = async (qrValue) => {
-  // TODO: Реализовать когда будет API
-  console.log('Проверка QR:', qrValue)
-  return null
+  try {
+    const result = await qrService.checkQrCode(qrValue)
+    
+    if (result) {
+      // QR найден, показываем предупреждение
+      reassignWarning.value = {
+        inv_number: result.objectData?.inv_number || 'Нет данных',
+        buh_name: result.objectData?.buh_name || 'Нет данных',
+        sklad: result.objectData?.sklad || '',
+        zavod: result.objectData?.zavod || '',
+        objectId: result.qrRecord?.object_id
+      }
+      return result
+    }
+    
+    return null // QR не найден
+  } catch (error) {
+    console.error('Ошибка проверки QR:', error)
+    // Если ошибка сети, можно предложить ввести вручную
+    throw error
+  }
 }
 
 // Добавление нового QR-кода
@@ -272,8 +294,9 @@ const removeNewQrCode = (index) => {
   newQrCodes.value.splice(index, 1)
 }
 
-// Сохранение
+// Сохранение объекта
 const handleSave = async () => {
+  console.log('[ObjectFormModal] Кнопка Сохранить нажата')
   isSaving.value = true
   errorMessage.value = ''
   
@@ -283,33 +306,23 @@ const handleSave = async () => {
       throw new Error('Инвентарный номер обязателен')
     }
     
-    // Подготовка данных
-    const saveData = {
-      ...formData.value,
-      qr_codes: [
-        ...existingQrCodes.value,
-        ...newQrCodes.value,
-        ...(props.qrCode ? [props.qrCode] : [])
-      ].filter(Boolean)
+    // Подготовка данных для отправки
+    const saveResult = {
+      mode: props.mode,
+      qrCode: props.qrCode,
+      formData: formData.value,
+      existingQrCodes: existingQrCodes.value,
+      newQrCodes: newQrCodes.value,
+      initialData: props.initialData // Важно: передаём initialData!
     }
     
-    console.log('Сохранение данных:', saveData)
+    console.log('Отправляем данные для сохранения:', saveResult)
     
-    // Имитация сохранения
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const result = {
-      success: true,
-      objectId: Date.now(),
-      data: saveData
-    }
-    
-    // Успех
-    emit('save', result)
+    // Эмитим событие с ВСЕМИ данными
+    emit('save', saveResult)
     
   } catch (error) {
     errorMessage.value = `Ошибка сохранения: ${error.message}`
-  } finally {
     isSaving.value = false
   }
 }

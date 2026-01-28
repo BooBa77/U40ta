@@ -18,6 +18,5 @@ export class User {
   @Column()
   abr: string;
 
-  @Column()
-  role: string;
 }
+
