@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, Param, Put, Delete, ParseIntPipe, NotFoundException, Logger, UseGuards } from '@nestjs/common';
 import { CreateTelegramUserDto } from './dto/create-telegram-user.dto';
 import { UpdateTelegramUserDto } from './dto/update-telegram-user.dto';
+import { TelegramUsersService } from './telegram-users.service';
+import { TelegramUser } from './entities/telegram-user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 // @Controller('telegram-users') - декоратор, который определяет базовый путь для всех маршрутов в этом контроллере
