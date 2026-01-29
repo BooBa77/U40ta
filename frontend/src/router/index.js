@@ -20,18 +20,20 @@ const routes = [
     name: 'Login',
     component: Login
   },
-  {
+/*  {
   path: '/dbtools',
   name: 'DBTools',
   component: () => import('@/views/DBTools.vue'),
   meta: { requiresAuth: true }
   },
+*/
   {
     path: '/statement/:id',
     name: 'Statement',
     component: () => import('@/views/Statement/StatementPage.vue'),
     meta: { requiresAuth: true }
   },
+/*
   {
     path: '/inventory/:id',
     name: 'Inventory',
@@ -47,7 +49,8 @@ const routes = [
       mode: 'edit',
       id: route.params.id
     })
-  }  
+  }
+*/
 ]
 
 const router = createRouter({

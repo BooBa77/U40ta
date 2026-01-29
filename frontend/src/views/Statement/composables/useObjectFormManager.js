@@ -141,18 +141,22 @@ export function useObjectFormManager(onSuccessCallback) {
       // === 1. СОЗДАНИЕ ОБЪЕКТА ===
       if (mode === 'create' || mode === 'reassign') {
         const objectData = {
-          inv_number: formData.inv_number,
-          buh_name: formData.buh_name,
-          sklad: formData.sklad,
+          id: objectId,
           zavod: formData.zavod,
+          sklad: formData.sklad,
+          buh_name: formData.buh_name,
+          inv_number: formData.inv_number,
           party_number: formData.party_number || null,
           sn: formData.sn || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          is_written_off: false,
+          checked_at: null, // будет заменено на CURRENT_DATE при синхронизации
+          place_ter: null,
+          place_pos: null,
+          place_cab: null,
+          place_user: null,
         }
-        
         // Генерируем ID (временное решение, пока нет сервера)
-        objectId = Date.now() + Math.floor(Math.random() * 1000)
+        objectId = -(Date.now() * 1000 + Math.floor(Math.random() * 1000));
         objectData.id = objectId
         
         console.log('[ObjectFormManager] Создаём объект в транзакции:', objectData)
@@ -190,20 +194,24 @@ export function useObjectFormManager(onSuccessCallback) {
               .where('qr_value')
               .equals(qrValue)
               .first()
-            
+
             if (existingQr) {
               // QR существует - перепривязываем
-              existingQr.object_id = objectId
-              existingQr.updated_at = new Date().toISOString()
-              await offlineCache.db.qr_codes.put(existingQr)
+              const updatedQr = {
+                id: existingQr.id, // primary key для поиска записи
+                qr_value: existingQr.qr_value,
+                object_id: objectId, // Меняем только это поле
+              }
+              await offlineCache.db.qr_codes.put(updatedQr)
               console.log(`[ObjectFormManager] QR перепривязан: ${qrValue} → объект ${objectId}`)
             } else {
               // QR не существует - создаём новый
+              // Для новых QR-кодов генерируем отрицательные временные ID
+              const tempId = -(Date.now() * 1000 + Math.floor(Math.random() * 1000));
               const newQr = {
+                id: tempId, // Отрицательный ID
                 qr_value: qrValue,
                 object_id: objectId,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
               }
               await offlineCache.db.qr_codes.add(newQr)
               console.log(`[ObjectFormManager] Новый QR создан: ${qrValue} → объект ${objectId}`)
@@ -241,7 +249,6 @@ export function useObjectFormManager(onSuccessCallback) {
         
         // Обновляем have_object
         statement.have_object = true
-        statement.updated_at = new Date().toISOString()
         
         await offlineCache.db.processed_statements.put(statement)
         console.log('[ObjectFormManager] Ведомость обновлена')
