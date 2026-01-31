@@ -5,7 +5,7 @@ import { InventoryObject } from '../../objects/entities/object.entity';
 import { ProcessedStatement } from '../../statements/entities/processed-statement.entity';
 import { ObjectChange } from '../../object_changes/entities/object-change.entity';
 import { QrCode } from '../../qr-codes/entities/qr-code.entity';
-import { MolAccess } from '../../statements/entities/mol-access.entity';
+import { MolAccess } from '../../users/entities/mol-access.entity';
 
 @Injectable()
 export class OfflineCacheService {

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { QrCode } from './entities/qr-code.entity';
 import { CreateQrCodeDto } from './dto/create-qr-code.dto';
+import { UpdateQrOwnerDto } from './dto/update-qr-owner.dto';
 import { QrScanResult } from './interfaces/qr-scan-result.interface';
 
 @Injectable()
@@ -12,7 +13,7 @@ export class QrCodesService {
     private qrCodesRepository: Repository<QrCode>,
   ) {}
 
-  // Единственный нужный метод: поиск объекта по QR
+  // Поиск объекта по QR
   async findObjectByQr(qrValue: string): Promise<QrScanResult> {
     const qrCode = await this.qrCodesRepository.findOne({
       where: { qr_value: qrValue },
@@ -45,6 +46,30 @@ export class QrCodesService {
 
     const qrCode = this.qrCodesRepository.create(createQrCodeDto);
     return this.qrCodesRepository.save(qrCode);
+  }
+
+  // Переназначение QR
+  async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto): Promise<any> {
+    const { qr_value, new_object_id } = updateQrOwnerDto;
+    
+    // Находим QR-код
+    const qrCode = await this.qrCodesRepository.findOne({
+      where: { qr_value }
+    });
+
+    if (!qrCode) {
+      throw new NotFoundException(`QR-код ${qr_value} не найден`);
+    }
+
+    // Обновляем владельца
+    qrCode.object_id = new_object_id;
+    
+    await this.qrCodesRepository.save(qrCode);
+    
+    return {
+      success: true,
+      message: `Владелец QR-кода обновлён на объект ${new_object_id}`
+    };
   }
 
   // Удалить QR

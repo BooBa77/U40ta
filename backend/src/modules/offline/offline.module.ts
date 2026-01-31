@@ -11,7 +11,7 @@ import { ProcessedStatement } from '../statements/entities/processed-statement.e
 import { ObjectChange } from '../object_changes/entities/object-change.entity';
 import { QrCode } from '../qr-codes/entities/qr-code.entity';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
-import { MolAccess } from '../statements/entities/mol-access.entity';
+import { MolAccess } from '../users/entities/mol-access.entity';
 import { ObjectsModule } from '../objects/objects.module';
 import { StatementsModule } from '../statements/statements.module';
 import { ObjectChangesModule } from '../object_changes/object_changes.module';

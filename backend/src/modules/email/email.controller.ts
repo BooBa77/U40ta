@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImapService } from './services/imap.service';
 import { Repository } from 'typeorm';
 import { EmailAttachment } from './entities/email-attachment.entity';
-import { MolAccess } from '../statements/entities/mol-access.entity'; // Импорт сущности MolAccess
+import { MolAccess } from '../users/entities/mol-access.entity'; // Импорт сущности MolAccess
 import { InjectRepository } from '@nestjs/typeorm';
 import { EmailAttachmentResponseDto } from './dto/email-attachment-response.dto';
 import { DeleteAttachmentResponseDto } from './dto/delete-attachment-response.dto';

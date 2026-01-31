@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Logger, NotFoundException } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
+import { TelegramLoginDto } from './dto/telegram-login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -8,7 +9,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('telegram')
-  async telegramLogin(@Body() telegramData: any) {
+  async telegramLogin(@Body() telegramData: TelegramLoginDto) {
     this.logger.log(`Telegram авторизация: ${telegramData.first_name}`);
 
     // Просто вызываем сервис, ВСЕГДА получаем токен

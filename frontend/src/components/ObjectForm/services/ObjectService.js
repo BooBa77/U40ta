@@ -247,6 +247,37 @@ export class ObjectService {
       return false
     }
   }
+
+  /**
+   * Создаёт новый объект инвентаризации
+   * @param {Object} objectData - Данные объекта
+   * @returns {Promise<Object>} Созданный объект с ID
+   */  
+  async createObject(objectData) {
+    if (this.isFlightMode()) {
+      // Офлайн логика
+    }
+    
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(`${this.baseUrl}/objects`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(objectData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ошибка: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('[ObjectService] Полный ответ от сервера:', data);
+    return data.object; // { id, ... }
+  }  
+
+
 }
 
 // Экспортируем синглтон для использования во всем приложении

@@ -13,7 +13,7 @@ export class AppEventsService {
   
   private eventSubject = new Subject<AppEvent>();
 
-  // Для Home.vue (новое вложение)
+  // Для EmailAttachmentsSection.vue (новое вложение)
   notifyStatementLoaded(): void {
     this.eventSubject.next({ 
       type: 'statement-loaded',
@@ -21,7 +21,7 @@ export class AppEventsService {
     });
   }
 
-  // Для Home.vue и StatementPage.vue (удаление ведомости)
+  // Для EmailAttachmentsSection.vue и StatementPage.vue (удаление ведомости)
   notifyStatementDeleted(attachmentId: number): void {
     this.eventSubject.next({ 
       type: 'statement-deleted',
@@ -30,7 +30,7 @@ export class AppEventsService {
     });
   }
 
-  // Для StatementPage.vue (смена активной ведомости)
+  // Для EmailAttachmentsSection.vue и StatementPage.vue (смена активной ведомости)
   notifyStatementActiveChanged(
     attachmentId: number, 
     zavod: number, 

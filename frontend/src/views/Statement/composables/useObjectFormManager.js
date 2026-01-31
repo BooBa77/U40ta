@@ -285,13 +285,9 @@ export function useObjectFormManager(onSuccessCallback) {
       
       console.log('[ObjectFormManager] Создаём объект через API:', objectData)
       
-      // TODO: Реальный вызов API, когда будет готов
-      // const newObject = await objectService.createObject(objectData)
-      // objectId = newObject.id
-      
-      // Временная заглушка
-      objectId = Date.now()
-      console.log('[ObjectFormManager] Объект создан с ID (заглушка):', objectId)
+      const newObject = await objectService.createObject(objectData)
+      objectId = newObject.id
+      console.log('[ObjectFormManager] Объект создан в БД:', objectId)
     }
     
     // === 2. ПРИВЯЗКА QR-КОДОВ ===

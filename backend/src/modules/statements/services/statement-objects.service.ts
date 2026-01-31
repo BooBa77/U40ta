@@ -20,8 +20,8 @@ export class StatementObjectsService {
   ) {}
 
   /**
-   * Основной метод: обновляет флаги have_object и создает записи is_excess
-   * для активной ведомости указанного склада
+   * Обновляет флаги have_object и создает записи is_excess при перезагрузке
+   * активной ведомости указанного склада
    */
   async updateHaveObjectsForStatement(
     zavod: number,
@@ -137,4 +137,31 @@ export class StatementObjectsService {
 
     console.log(`StatementObjectsService: обновление флагов завершено`);
   }
+
+  /**
+   * Задаёт have_object для одной записи
+   */
+  async updateSingleHaveObject(attachmentId: number, statementId: number): Promise<void> {
+    const statement = await this.processedStatementRepo.findOne({
+      where: { 
+        id: statementId,
+        emailAttachmentId: attachmentId 
+      }
+    });
+
+    if (!statement) return;
+
+    // Проверяем, есть ли объект в системе
+    const object = await this.inventoryObjectRepo.findOne({
+      where: {
+        zavod: statement.zavod,
+        sklad: statement.sklad,
+        inv_number: statement.inv_number,
+        party_number: statement.party_number || '',
+      }
+    });
+
+    statement.have_object = !!object;
+    await this.processedStatementRepo.save(statement);
+  }  
 }

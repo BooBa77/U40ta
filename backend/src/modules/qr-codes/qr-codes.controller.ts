@@ -2,6 +2,7 @@ import {
   Controller, 
   Get, 
   Post,
+  Put,
   Delete,
   Body, 
   Param, 
@@ -11,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { QrCodesService } from './qr-codes.service';
 import { CreateQrCodeDto } from './dto/create-qr-code.dto';
+import { UpdateQrOwnerDto } from './dto/update-qr-owner.dto';
 
 @Controller('qr-codes')
 export class QrCodesController {
@@ -22,13 +24,18 @@ export class QrCodesController {
     return this.qrCodesService.findObjectByQr(qrValue);
   }
 
-  // Создать QR (для админки/импорта)
+  // Создать QR
   @Post()
   create(@Body() createQrCodeDto: CreateQrCodeDto) {
     return this.qrCodesService.create(createQrCodeDto);
   }
 
-  // Удалить QR (редко, но может понадобиться)
+  // Переназначить QR
+  @Put('update-owner')
+  async updateOwner(@Body() updateQrOwnerDto: UpdateQrOwnerDto) {
+    return this.qrCodesService.updateOwner(updateQrOwnerDto);
+  }
+  // Удалить QR (может понадобится)
   @Delete(':qr_value')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('qr_value') qrValue: string) {

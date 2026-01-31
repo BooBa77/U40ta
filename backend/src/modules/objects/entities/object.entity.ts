@@ -21,7 +21,7 @@ export class InventoryObject {
   party_number: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  sn: string;
+  sn: string | null;
 
   @Column({ type: 'text', nullable: true })
   commentary: string;

@@ -327,8 +327,7 @@ export class StatementService {
         throw new Error(`HTTP ошибка: ${response.status}`)
       }
 
-      const data = await response.json()
-      return data.success === true
+      return true
     } catch (error) {
       console.error('[StatementService] Ошибка обновления через API:', error)
       throw error

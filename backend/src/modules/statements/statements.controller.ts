@@ -1,13 +1,18 @@
-import { Controller, Get, Post, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { StatementService } from './services/statement.service';
+import { StatementObjectsService } from './services/statement-objects.service';
 import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateIgnoreDto } from './dto/update-ignore.dto';
+import { UpdateHaveObjectDto } from './dto/update-have-object.dto';
 
 @Controller('statements')
 @UseGuards(JwtAuthGuard) // Защита JWT для всех endpoint'ов
 export class StatementsController {
-  constructor(private readonly statementService: StatementService) {}  
+  constructor(
+    private readonly statementService: StatementService,
+    private readonly statementObjectsService: StatementObjectsService,
+  ) {}  
 
   /**
    * Открытие ведомости по ID вложения из email
@@ -72,5 +77,21 @@ export class StatementsController {
       
       return response;
     }
-  }  
+  }
+
+/**
+ * Обновление статуса have_object для конкретной строки ведомости
+ * POST /api/statements/update-have-object
+ */
+  @Post('update-have-object')
+  @HttpCode(204) // No Content
+  async updateHaveObject(
+    @Body() dto: UpdateHaveObjectDto
+  ): Promise<void> {
+    await this.statementObjectsService.updateSingleHaveObject(
+      dto.attachmentId,
+      dto.statementId
+    );
+  }
+
 }

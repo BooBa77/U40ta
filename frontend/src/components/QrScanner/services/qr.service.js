@@ -56,7 +56,7 @@ export class QrService {
 
   /**
    * Проверяет QR-код через API
-   */
+
   async checkInApi(qrValue) {
     try {
       const token = localStorage.getItem('auth_token')
@@ -65,12 +65,11 @@ export class QrService {
       }
 
       const response = await fetch(`${this.baseUrl}/qr-codes/check`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ qrValue })
       })
 
       if (!response.ok) {
@@ -80,7 +79,10 @@ export class QrService {
       const data = await response.json()
       
       if (data.success && data.exists) {
-        return data.qrRecord // { qr_value, object_id, ... }
+        return {
+          qr_value: data.qr_value,
+          object_id: data.object_id,
+        }
       }
       
       return null // Код не найден
@@ -89,7 +91,7 @@ export class QrService {
       throw error
     }
   }
-
+   */
   /**
    * Проверяет QR-код и возвращает его с данными объекта
    * @param {string} qrValue - Значение QR-кода
@@ -200,16 +202,29 @@ export class QrService {
         throw new Error('Токен авторизации не найден')
       }
 
+      const bodyData = {
+        qr_value: qrValue,
+        object_id: Number(objectId)
+      }
+
+      console.log('[QrService] Отправляем запрос создания QR:', {
+        url: `${this.baseUrl}/qr-codes`,
+        body: bodyData,
+        objectIdType: typeof objectId
+      })
+
       const response = await fetch(`${this.baseUrl}/qr-codes`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          qrValue,
-          objectId
-        })
+        body: JSON.stringify(bodyData)
+      })
+
+      console.log('[QrService] Ответ сервера:', {
+        status: response.status,
+        statusText: response.statusText
       })
 
       if (!response.ok) {
@@ -268,23 +283,19 @@ export class QrService {
   /**
    * Обновляет QR-код через API
    */
-  async updateInApi(qrValue, newObjectId) {
+  async checkInApi(qrValue) {
     try {
       const token = localStorage.getItem('auth_token')
       if (!token) {
         throw new Error('Токен авторизации не найден')
       }
 
-      const response = await fetch(`${this.baseUrl}/qr-codes/update-owner`, {
-        method: 'PUT',
+      const response = await fetch(`${this.baseUrl}/qr-codes/scan?qr=${encodeURIComponent(qrValue)}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          qrValue,
-          newObjectId
-        })
+        }
       })
 
       if (!response.ok) {
@@ -292,16 +303,24 @@ export class QrService {
       }
 
       const data = await response.json()
-      return data.success === true
+      
+      // Адаптируем под ответ бэкенда (см. qr-codes.service.ts)
+      // Бэкенд возвращает: { success, qr_value, object_id?, error? }
+      if (data.success && data.object_id) {
+        return {
+          qr_value: data.qr_value,
+          object_id: data.object_id,
+        }
+      }
+      
+      return null // Код не найден
     } catch (error) {
-      console.error('[QrService] Ошибка обновления через API:', error)
+      console.error('[QrService] Ошибка проверки через API:', error)
       throw error
     }
   }
 
-  /**
-   * Получает объект по ID
-   */
+  // Получает объект по ID
   async getObjectById(objectId) {
     try {
       if (this.isFlightMode()) {
