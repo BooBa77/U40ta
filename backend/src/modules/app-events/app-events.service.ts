@@ -55,6 +55,14 @@ export class AppEventsService {
     });
   }
 
+  // Для Home.vue (изменение прав доступа)
+  notifyAccessChanged(userId: number): void {
+    this.eventSubject.next({ 
+      type: 'access-changed',
+      message: 'Права доступа изменены',
+      data: { userId }
+    });
+  }  
   // Для получения потока событий (используется в контроллере)
   getEventStream(): Observable<{ message: string }> {
     return this.eventSubject.asObservable();

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { MolAccess } from './entities/mol-access.entity'
 
 @Injectable()
 export class UsersService {
@@ -12,6 +13,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(MolAccess)
+    private molAccessRepository: Repository<MolAccess>,
   ) {}
 
   /**
@@ -158,4 +161,12 @@ export class UsersService {
     // Оставляем как заглушку, будет реализовано в AuthService
     return null;
   }
+
+  /**
+   * Проверка является ли пользователь МОЛ
+   */
+  async hasAccessToStatements(userId: number): Promise<boolean> {
+    const count = await this.molAccessRepository.count({ where: { userId } });
+    return count > 0;
+  }  
 }

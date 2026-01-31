@@ -43,7 +43,7 @@ export class JwtAuthGuard implements CanActivate {
           const payload = this.jwtService.decode(token);
           if (payload) {
             request.user = payload;
-            this.logger.debug(`Dev режим: пользователь ID ${payload.sub}, роль ${payload.role}`);
+            this.logger.debug(`Dev режим: пользователь ID ${payload.sub}`);
           }
         } catch (error) {
           // Игнорируем ошибки декодирования в dev
@@ -70,7 +70,7 @@ export class JwtAuthGuard implements CanActivate {
       // Это позволяет получить данные пользователя в контроллерах без повторной проверки
       request.user = payload;
       
-      this.logger.debug(`Успешная проверка JWT для пользователя ID: ${payload.sub}, роль: ${payload.role}`);
+      this.logger.debug(`Успешная проверка JWT для пользователя ID: ${payload.sub}`);
       
       return true;
     } catch (error) {

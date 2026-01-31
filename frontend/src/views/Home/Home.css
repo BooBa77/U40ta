@@ -1,0 +1,168 @@
+/* Home.css - Стили главной страницы в ч/б тонах */
+.home-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  color: #000000;
+  font-family: monospace;
+}
+
+/* Хедер - упрощенный, без выделений */
+.home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.user-abr {
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+}
+
+/* Основной контент */
+.home-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+/* Сетка действий (QR-сканер) */
+.actions-grid {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 2rem;
+}
+
+/* Панель инструментов - ТРИ КНОПКИ В РЯД */
+.tools-panel-row {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 800px;
+  margin: 1rem auto;
+}
+
+/* Текстовая кнопка - заменяет старую "Получить почту" */
+.tools-button {
+  padding: 0.6rem 1rem;
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  font-family: monospace;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  min-width: 140px;
+  flex: 1;
+  max-width: 180px;
+}
+
+.tools-button:hover {
+  background: #000000;
+  color: #ffffff;
+}
+
+.tools-button:disabled {
+  border-color: #cccccc;
+  color: #cccccc;
+  cursor: not-allowed;
+  background: #ffffff;
+}
+
+.tools-button:disabled:hover {
+  background: #ffffff;
+  color: #cccccc;
+}
+
+/* Скрытая кнопка (сохраняет место в ряду) */
+.tools-button.hidden-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+/* Сообщение об отсутствии камеры */
+.no-camera-message {
+  text-align: center;
+  padding: 1.5rem;
+  border: 1px dashed #666666;
+  color: #666666;
+  font-style: italic;
+  margin: 1rem 0;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Сообщение об отсутствии доступа */
+.no-access-message {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #333333;
+  font-size: 1rem;
+  line-height: 1.5;
+  width: 100%;
+  max-width: 500px;
+  margin: 1rem auto;
+}
+
+/* Результаты сканирования */
+.scan-result,
+.scan-error {
+  width: 100%;
+  max-width: 700px;
+  margin: 0.5rem auto;
+  padding: 0.8rem;
+  border: 1px solid #000000;
+  background-color: #f9f9f9;
+}
+
+.scan-result h3,
+.scan-error h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.scan-result pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.85rem;
+}
+
+.scan-error {
+  border-color: #666666;
+  background-color: #f0f0f0;
+}
+
+/* Футер */
+.home-footer {
+  margin-top: auto;
+  padding: 0.8rem;
+  text-align: center;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .tools-panel-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .tools-button {
+    min-width: 120px;
+    max-width: 160px;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.8rem;
+  }
+}

@@ -15,7 +15,6 @@ import * as path from 'path';
 // Интерфейс для Request с пользовательскими данными из JWT токена
 interface RequestWithUser extends ExpressRequest {
   user?: {
-    role: string;
     sub: number; // ID пользователя
   };
 }

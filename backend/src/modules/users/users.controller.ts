@@ -1,4 +1,5 @@
-import { Controller, Get, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, UseGuards, Param, Req } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -7,6 +8,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
  * Все endpoints защищены JwtAuthGuard, который в режиме разработки автоматически пропускает запросы
  * а в продакшене требует валидный JWT токен
  */
+interface RequestWithUser extends ExpressRequest {
+  user?: {
+    sub: number;
+  };
+}
+
 @Controller('users')
 @UseGuards(JwtAuthGuard) // Защищаем весь контроллер JWT аутентификацией
 export class UsersController {
@@ -29,5 +36,16 @@ export class UsersController {
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.usersService.findById(+id); // +id преобразует строку в число
+  }
+
+  @Get('me/has-access-to-statements')
+  async checkAccessToStatements(@Req() request: RequestWithUser) {
+    const userId = request.user?.sub;
+    // Если userId нет (маловероятно, но TypeScript требует проверку)
+    if (!userId) {
+      return { hasAccessToStatements: false };
+    }
+    const hasAccess = await this.usersService.hasAccessToStatements(userId);
+    return { hasAccessToStatements: hasAccess };
   }
 }
