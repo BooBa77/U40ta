@@ -62,7 +62,17 @@ export class AppEventsService {
       message: 'Права доступа изменены',
       data: { userId }
     });
-  }  
+  }
+
+  // Для Home.vue (обновление данных пользователя)
+  notifyUserDataUpdated(userId: number): void {
+    this.eventSubject.next({ 
+      type: 'user-data-updated',
+      message: 'Данные пользователя обновлены',
+      data: { userId }
+    });
+  }
+
   // Для получения потока событий (используется в контроллере)
   getEventStream(): Observable<{ message: string }> {
     return this.eventSubject.asObservable();

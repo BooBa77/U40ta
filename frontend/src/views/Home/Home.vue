@@ -1,20 +1,18 @@
 <template>
   <div class="home-page">
-    <!-- Хедер: минималистичный, без выделений -->
+    <!-- Хедер: аббревиатура и переключатель полета (если есть доступ) -->
     <header class="home-header">
-      <!-- Аббревиатура пользователя (простой текст) -->
       <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
-      <!-- Переключатель полета только для пользователей с доступом к ведомостям -->
       <FlightModeToggle v-if="hasAccessToStatements" />
     </header>
 
     <main class="home-main">
-      <!-- Блок QR-сканирования или сообщения об отсутствии камеры -->
-      <div class="actions-grid">
+      <!-- Кнопка сканирования QR по центру -->
+      <div class="qr-scanner-container">
         <div v-if="deviceHasCamera === true">
           <QrScannerButton 
             size="large" 
-            @scan="handleScanResult"
+            @scan="handleQrScan"
             @error="handleScanError"
           />
         </div>
@@ -26,34 +24,26 @@
         </div>
       </div>
 
-      <!-- Отображение результата сканирования -->
-      <div v-if="scanResult" class="scan-result">
-        <h3>Результат сканирования:</h3>
-        <pre>{{ scanResult }}</pre>
+      <!-- Информация о результате сканирования (временно) -->
+      <div v-if="qrScanMessage" class="qr-result-info">
+        {{ qrScanMessage }}
       </div>
-      
-      <div v-if="scanError" class="scan-error">
-        <h3>Ошибка:</h3>
-        <p>{{ scanError }}</p>
+
+      <!-- Панель инструментов МЦ: две кнопки в ряд -->
+      <!-- Отображается ДО таблицы вложений, только при наличии доступа -->
+      <div v-if="hasAccessToStatements" class="mc-tools-panel">
+        <button class="mc-tool-button" @click="navigateToObjects">
+          Работа с объектами
+        </button>
+        <button class="mc-tool-button" @click="navigateToJournal">
+          Журнал
+        </button>
       </div>
 
       <!-- Условное отображение основного функционала -->
       <template v-if="hasAccessToStatements">
-        <!-- Секция почтовых вложений -->
+        <!-- Секция почтовых вложений (с кнопкой "Получить почту" внутри) -->
         <EmailAttachmentsSection />
-        
-        <!-- Панель работы с МЦ -->
-        <div class="tools-panel-row">
-          <!-- Кнопка 1: Работа с объектами -->
-          <button class="tools-button" @click="navigateToObjects">
-            Работа с объектами
-          </button>
-          
-          <!-- Кнопка 2: Журнал -->
-          <button class="tools-button" @click="navigateToJournal">
-            Журнал
-          </button>
-        </div>
       </template>
       
       <!-- Сообщение для гостей без доступа к ведомостям -->
@@ -62,9 +52,20 @@
         <p>Обратитесь к администратору для получения прав.</p>
       </div>
       
+      <!-- Состояние загрузки проверки доступа -->
       <div v-else class="no-access-message">
         Проверка прав доступа...
       </div>
+
+      <!-- Модальное окно ObjectForm для редактирования найденного объекта -->
+      <ObjectFormModal
+        v-if="showObjectForm"
+        :mode="objectFormMode"
+        :initialData="objectFormData"
+        :qrCode="scannedQrCode"
+        @close="closeObjectForm"
+        @saved="handleObjectSaved"
+      />
     </main>
 
     <footer class="home-footer">
@@ -78,28 +79,34 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
+import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 
 const router = useRouter()
 
 // Основные состояния компонента
-const userAbr = ref('') // Аббревиатура пользователя (может меняться при регистрации админом)
-const hasAccessToStatements = ref(false) // Флаг доступа к ведомостям (из mol_access)
+const userAbr = ref('') // Аббревиатура пользователя
+const hasAccessToStatements = ref(false) // Флаг доступа к ведомостям
 const accessChecked = ref(false) // Флаг завершения проверки доступа
-const deviceHasCamera = ref(null) // null-проверка не начата, true/false-результат
-const isFlightMode = ref(false) // Состояние оффлайн режима (из FlightModeToggle)
+const deviceHasCamera = ref(null) // Состояние проверки камеры
 
-// Состояния сканирования
-const scanResult = ref('')
-const scanError = ref('')
+// Состояния сканирования QR
+const scannedQrCode = ref('') // Отсканированный QR-код
+const qrScanMessage = ref('') // Сообщение о результате сканирования
+const showObjectForm = ref(false) // Показать модальное окно ObjectForm
+const objectFormMode = ref('edit') // Режим модального окна (edit/create)
+const objectFormData = ref(null) // Данные для заполнения формы
+
+// Оффлайн режим
+const isFlightMode = ref(false)
 
 // SSE соединение для отслеживания изменений прав доступа
 const eventSource = ref(null)
 
 /**
  * Проверка аутентификации пользователя
- * @returns {boolean} true если пользователь авторизован
+ * Перенаправляет на страницу логина если токен отсутствует
  */
 const checkAuth = () => {
   const token = localStorage.getItem('auth_token')
@@ -112,17 +119,15 @@ const checkAuth = () => {
 
 /**
  * Загрузка аббревиатуры пользователя
- * Примечание: abr может измениться, если админ зарегистрирует гостя с реальным ФИО
+ * Вызывается при загрузке и при получении SSE событий об изменении данных пользователя
  */
 const loadUserAbr = async () => {
   try {
     const token = localStorage.getItem('auth_token')
-    // Парсим JWT токен для получения user_id
     const payloadBase64 = token.split('.')[1]
     const payloadJson = atob(payloadBase64)
     const payload = JSON.parse(payloadJson)
     
-    // Запрашиваем актуальные данные пользователя (включая возможные обновления abr)
     const response = await fetch(`/api/users/${payload.sub}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -130,16 +135,16 @@ const loadUserAbr = async () => {
     if (response.ok) {
       const user = await response.json()
       userAbr.value = user.abr
-      console.log('Аббревиатура пользователя загружена:', userAbr.value)
+      console.log('Home: аббревиатура пользователя загружена:', userAbr.value)
     }
   } catch (error) {
-    console.error('Ошибка загрузки данных пользователя:', error)
+    console.error('Home: ошибка загрузки данных пользователя:', error)
   }
 }
 
 /**
  * Проверка доступа к ведомостям через таблицу mol_access
- * Вызывается при загрузке и при получении SSE событий
+ * Вызывается при загрузке и при получении SSE событий access-changed
  */
 const checkAccessToStatements = async () => {
   try {
@@ -152,10 +157,10 @@ const checkAccessToStatements = async () => {
       const data = await response.json()
       hasAccessToStatements.value = data.hasAccessToStatements
       accessChecked.value = true
-      console.log('Доступ к ведомостям:', hasAccessToStatements.value)
+      console.log('Home: доступ к ведомостям:', hasAccessToStatements.value)
     }
   } catch (error) {
-    console.error('Ошибка проверки доступа к ведомостям:', error)
+    console.error('Home: ошибка проверки доступа к ведомостям:', error)
     hasAccessToStatements.value = false
     accessChecked.value = true
   }
@@ -163,135 +168,199 @@ const checkAccessToStatements = async () => {
 
 /**
  * Проверка наличия камеры на устройстве
- * Использует WebRTC API для определения доступности медиаустройств
+ * Определяет можно ли использовать QR-сканер
  */
 const checkCameraAvailability = async () => {
   try {
-    // Проверяем поддержку API
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
       deviceHasCamera.value = false
       return
     }
     
-    // Получаем список медиаустройств
     const devices = await navigator.mediaDevices.enumerateDevices()
-    // Ищем видеовходы (камеры)
     const hasCamera = devices.some(device => device.kind === 'videoinput')
     deviceHasCamera.value = hasCamera
     
-    console.log('Наличие камеры:', deviceHasCamera.value)
+    console.log('Home: наличие камеры:', deviceHasCamera.value)
   } catch (error) {
-    console.error('Ошибка проверки камеры:', error)
+    console.error('Home: ошибка проверки камеры:', error)
     deviceHasCamera.value = false
   }
 }
 
 /**
  * Подключение к SSE потоку для отслеживания изменений прав доступа
- * Слушает события типа 'access-changed' для динамического обновления интерфейса
+ * Home слушает только события, связанные с изменением доступа пользователя
  */
 const connectToSSE = () => {
-  // Закрываем предыдущее соединение, если есть
   if (eventSource.value) {
     eventSource.value.close()
   }
   
-  // Создаем новое SSE соединение
   eventSource.value = new EventSource('/api/app-events/sse')
   
   // Обработчик входящих сообщений
   eventSource.value.addEventListener('message', (event) => {
     try {
       const data = JSON.parse(event.data)
-      console.log('Получено SSE событие:', data.type)
+      console.log('Home: получено SSE событие:', data.type)
       
-      // Если получено событие изменения прав доступа
+      // Обработка события изменения прав доступа
       if (data.type === 'access-changed') {
-        // Проверяем, относится ли событие к текущему пользователю
-        // Для этого нужно знать свой userId (можно получить из JWT)
-        const token = localStorage.getItem('auth_token')
-        const payloadBase64 = token.split('.')[1]
-        const payloadJson = atob(payloadBase64)
-        const payload = JSON.parse(payloadJson)
-        const currentUserId = payload.sub
-        
-        // Если событие для текущего пользователя или broadcast
-        if (!data.data || !data.data.userId || data.data.userId === currentUserId) {
-          console.log('Обновление прав доступа для текущего пользователя')
-          // Перезагружаем все пользовательские данные
-          loadUserAbr() // abr мог измениться
-          checkAccessToStatements() // доступ мог измениться
-        }
+        handleAccessChangedEvent(data)
       }
+      
+      // Можно добавить обработку других событий, специфичных для Home
+      // Например, обновление данных пользователя
+      if (data.type === 'user-data-updated') {
+        handleUserDataUpdatedEvent(data)
+      }
+      
     } catch (error) {
-      console.error('Ошибка обработки SSE события:', error)
+      console.error('Home: ошибка обработки SSE события:', error)
     }
   })
   
   // Обработчик ошибок соединения
   eventSource.value.addEventListener('error', (error) => {
-    console.error('SSE ошибка соединения:', error)
-    // EventSource автоматически переподключится
+    console.error('Home: SSE ошибка соединения:', error)
   })
   
-  console.log('SSE соединение установлено для отслеживания изменений прав доступа')
+  console.log('Home: SSE соединение установлено для отслеживания изменений прав доступа')
+}
+
+/**
+ * Обработка события изменения прав доступа
+ * Проверяет, относится ли событие к текущему пользователю
+ */
+const handleAccessChangedEvent = (eventData) => {
+  const token = localStorage.getItem('auth_token')
+  const payloadBase64 = token.split('.')[1]
+  const payloadJson = atob(payloadBase64)
+  const payload = JSON.parse(payloadJson)
+  const currentUserId = payload.sub
+  
+  // Если событие broadcast или для текущего пользователя
+  if (!eventData.data || !eventData.data.userId || eventData.data.userId === currentUserId) {
+    console.log('Home: получено событие изменения прав доступа для текущего пользователя')
+    
+    // Перезагружаем данные пользователя
+    loadUserAbr() // abr мог измениться при регистрации админом
+    checkAccessToStatements() // доступ к ведомостям мог измениться
+  }
+}
+
+/**
+ * Обработка события обновления данных пользователя
+ * Может приходить при изменении ФИО или других данных
+ */
+const handleUserDataUpdatedEvent = (eventData) => {
+  const token = localStorage.getItem('auth_token')
+  const payloadBase64 = token.split('.')[1]
+  const payloadJson = atob(payloadBase64)
+  const payload = JSON.parse(payloadJson)
+  const currentUserId = payload.sub
+  
+  if (!eventData.data || !eventData.data.userId || eventData.data.userId === currentUserId) {
+    console.log('Home: получено событие обновления данных пользователя')
+    loadUserAbr() // Перезагружаем аббревиатуру
+  }
 }
 
 /**
  * Обработка результата сканирования QR-кода
+ * Ищет объект в БД и открывает ObjectForm в режиме редактирования если найден
  */
-const handleScanResult = (result) => {
-  console.log('Home.vue получил результат сканирования:', result)
-  scanResult.value = result
-  scanError.value = ''
+const handleQrScan = async (qrCode) => {
+  console.log('Home: получен QR-код:', qrCode)
+  scannedQrCode.value = qrCode
+  
+  try {
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`/api/qr-codes/search?code=${encodeURIComponent(qrCode)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    
+    if (response.ok) {
+      const result = await response.json()
+      
+      if (result.found) {
+        // Объект найден - открываем форму редактирования
+        objectFormMode.value = 'edit'
+        objectFormData.value = result.objectData
+        showObjectForm.value = true
+        qrScanMessage.value = '' // Очищаем сообщение
+      } else {
+        // Объект не найден - показываем сообщение
+        qrScanMessage.value = 'QR-код не найден в базе данных'
+        showObjectForm.value = false
+      }
+    } else {
+      qrScanMessage.value = 'Ошибка при поиске QR-кода'
+      showObjectForm.value = false
+    }
+  } catch (error) {
+    console.error('Home: ошибка при обработке QR-кода:', error)
+    qrScanMessage.value = 'Ошибка подключения к серверу'
+    showObjectForm.value = false
+  }
 }
 
 /**
  * Обработка ошибки сканирования QR-кода
  */
 const handleScanError = (error) => {
-  console.log('Home.vue получил ошибку сканирования:', error)
-  scanError.value = error
-  scanResult.value = ''
+  console.log('Home: ошибка сканирования:', error)
+  qrScanMessage.value = `Ошибка сканирования: ${error}`
 }
 
 /**
- * Обработчик клика по кнопке "Получить почту"
- * Вызывает ручную проверку почты (если не в оффлайн режиме)
+ * Закрытие модального окна ObjectForm
  */
-const checkEmail = () => {
-  // В оффлайн режиме кнопка недоступна
-  if (isFlightMode.value) return
+const closeObjectForm = () => {
+  showObjectForm.value = false
+  objectFormData.value = null
+  scannedQrCode.value = ''
+}
+
+/**
+ * Обработка сохранения объекта в ObjectForm
+ */
+const handleObjectSaved = (savedObject) => {
+  console.log('Home: объект сохранен:', savedObject)
+  showObjectForm.value = false
+  objectFormData.value = null
+  scannedQrCode.value = ''
+  qrScanMessage.value = 'Объект успешно сохранен'
   
-  // Здесь будет вызов метода проверки почты
-  // Пока просто логируем
-  console.log('Запрос на получение почты')
-  // В реальности нужно вызвать метод из EmailAttachmentsSection
+  // Автоматически очищаем сообщение через 3 секунды
+  setTimeout(() => {
+    qrScanMessage.value = ''
+  }, 3000)
 }
 
 /**
  * Навигация к работе с объектами
  */
 const navigateToObjects = () => {
-  console.log('Навигация к работе с объектами')
-  // В будущем: router.push('/objects')
+  console.log('Home: навигация к работе с объектами')
+  // router.push('/objects') - будет реализовано позже
 }
 
 /**
  * Навигация к журналу
  */
 const navigateToJournal = () => {
-  console.log('Навигация к журналу')
-  // В будущем: router.push('/journal')
+  console.log('Home: навигация к журналу')
+  // router.push('/journal') - будет реализовано позже
 }
 
 /**
  * Обработчик изменения состояния оффлайн режима
- * Получает события от FlightModeToggle компонента
  */
 const handleFlightModeChange = (event) => {
   isFlightMode.value = event.detail.isFlightMode
-  console.log('Состояние оффлайн режима изменено:', isFlightMode.value)
+  console.log('Home: состояние оффлайн режима изменено:', isFlightMode.value)
 }
 
 /**
@@ -299,22 +368,22 @@ const handleFlightModeChange = (event) => {
  */
 onMounted(() => {
   if (checkAuth()) {
-    // Загружаем данные пользователя
+    // Загрузка данных пользователя
     loadUserAbr()
     
-    // Проверяем доступ к ведомостям
+    // Проверка доступа к ведомостям
     checkAccessToStatements()
     
-    // Проверяем наличие камеры
+    // Проверка наличия камеры
     checkCameraAvailability()
     
-    // Подключаемся к SSE для отслеживания изменений прав
+    // Подключение к SSE для отслеживания изменений прав
     connectToSSE()
     
-    // Подписываемся на события изменения оффлайн режима
+    // Подписка на события изменения оффлайн режима
     window.addEventListener('flight-mode-changed', handleFlightModeChange)
     
-    // Также слушаем события storage для синхронизации между вкладками
+    // Синхронизация оффлайн режима между вкладками
     window.addEventListener('storage', (event) => {
       if (event.key === 'u40ta_flight_mode') {
         isFlightMode.value = JSON.parse(event.newValue || 'false')
@@ -327,13 +396,13 @@ onMounted(() => {
  * Очистка ресурсов при размонтировании компонента
  */
 onUnmounted(() => {
-  // Закрываем SSE соединение
+  // Закрытие SSE соединения
   if (eventSource.value) {
     eventSource.value.close()
-    console.log('SSE соединение закрыто')
+    console.log('Home: SSE соединение закрыто')
   }
   
-  // Отписываемся от событий оффлайн режима
+  // Отписка от событий
   window.removeEventListener('flight-mode-changed', handleFlightModeChange)
 })
 </script>

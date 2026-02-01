@@ -8,7 +8,7 @@
   font-family: monospace;
 }
 
-/* Хедер - упрощенный, без выделений */
+/* Хедер - минималистичный */
 .home-header {
   display: flex;
   justify-content: space-between;
@@ -22,7 +22,7 @@
   letter-spacing: 0.5px;
 }
 
-/* Основной контент */
+/* Основной контент - центрированный */
 .home-main {
   flex: 1;
   display: flex;
@@ -31,27 +31,26 @@
   padding: 0 1rem;
 }
 
-/* Сетка действий (QR-сканер) */
-.actions-grid {
+/* Кнопка сканирования по центру */
+.qr-scanner-container {
   display: flex;
   justify-content: center;
   width: 100%;
-  max-width: 900px;
-  margin: 0 auto 2rem;
+  margin-bottom: 2rem;
 }
 
-/* Панель инструментов - ТРИ КНОПКИ В РЯД */
-.tools-panel-row {
+/* Панель инструментов МЦ - две кнопки в ряд */
+.mc-tools-panel {
   display: flex;
   justify-content: center;
   gap: 1rem;
   width: 100%;
-  max-width: 800px;
-  margin: 1rem auto;
+  max-width: 500px;
+  margin-bottom: 2rem;
 }
 
-/* Текстовая кнопка - заменяет старую "Получить почту" */
-.tools-button {
+/* Кнопки инструментов МЦ */
+.mc-tool-button {
   padding: 0.6rem 1rem;
   border: 1px solid #000000;
   background: #ffffff;
@@ -61,34 +60,12 @@
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
-  min-width: 140px;
-  flex: 1;
-  max-width: 180px;
+  min-width: 160px;
 }
 
-.tools-button:hover {
+.mc-tool-button:hover {
   background: #000000;
   color: #ffffff;
-}
-
-.tools-button:disabled {
-  border-color: #cccccc;
-  color: #cccccc;
-  cursor: not-allowed;
-  background: #ffffff;
-}
-
-.tools-button:disabled:hover {
-  background: #ffffff;
-  color: #cccccc;
-}
-
-/* Скрытая кнопка (сохраняет место в ряду) */
-.tools-button.hidden-placeholder {
-  visibility: hidden;
-  pointer-events: none;
-  border-color: transparent;
-  background: transparent;
 }
 
 /* Сообщение об отсутствии камеры */
@@ -115,34 +92,13 @@
   margin: 1rem auto;
 }
 
-/* Результаты сканирования */
-.scan-result,
-.scan-error {
-  width: 100%;
-  max-width: 700px;
-  margin: 0.5rem auto;
-  padding: 0.8rem;
-  border: 1px solid #000000;
-  background-color: #f9f9f9;
-}
-
-.scan-result h3,
-.scan-error h3 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
+/* QR результат - модальное окно ObjectForm будет поверх */
+.qr-result-info {
+  text-align: center;
+  padding: 1rem;
+  color: #333333;
   font-size: 0.9rem;
-}
-
-.scan-result pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-size: 0.85rem;
-}
-
-.scan-error {
-  border-color: #666666;
-  background-color: #f0f0f0;
+  margin: 0.5rem 0;
 }
 
 /* Футер */
@@ -154,15 +110,14 @@
 
 /* Адаптивность */
 @media (max-width: 768px) {
-  .tools-panel-row {
-    flex-wrap: wrap;
+  .mc-tools-panel {
+    flex-direction: column;
+    align-items: center;
     gap: 0.5rem;
   }
   
-  .tools-button {
-    min-width: 120px;
-    max-width: 160px;
-    font-size: 0.85rem;
-    padding: 0.5rem 0.8rem;
+  .mc-tool-button {
+    width: 100%;
+    max-width: 280px;
   }
 }

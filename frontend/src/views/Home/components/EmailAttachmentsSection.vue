@@ -1,5 +1,18 @@
 <template>
   <section class="email-attachments-section">
+    <!-- Кнопка "Получить почту" перед таблицей -->
+    <!-- Скрывается в оффлайн режиме -->
+    <div class="get-email-button-container" v-if="!isFlightMode">
+      <button 
+        class="get-email-button" 
+        @click="checkEmail" 
+        :disabled="isLoadingCheck"
+      >
+        <span v-if="!isLoadingCheck">Получить почту</span>
+        <span v-else>Загрузка...</span>
+      </button>
+    </div>
+
     <!-- Таблица файлов -->
     <div class="attachments-grid">
       <!-- Состояние "нет файлов" -->
@@ -44,7 +57,7 @@
               title="Удалить"
               @click="deleteAttachment(file.id)"
               :disabled="isFlightMode"
-              v-if="!isFlightMode"            >
+              v-if="!isFlightMode">
               <img src="/images/email-file_delete.png" alt="Удалить">
             </button>
             <!-- Пустой блок для сохранения сетки, если кнопка скрыта -->
@@ -52,15 +65,6 @@
           </div>
         </div>
       </template>
-    </div>
-
-    <!-- Кнопка проверки почты -->
-    <!-- Кнопка скрыта в режиме полёта -->
-    <div class="email-check-footer" v-if="!isFlightMode">
-      <button class="check-email-btn" @click="checkEmail" :disabled="isLoadingCheck">
-        <img v-if="!isLoadingCheck" src="/images/email_check.png" alt="Проверить почту">
-        <span v-else>Загрузка...</span>
-      </button>
     </div>
   </section>
 </template>
@@ -99,54 +103,54 @@ const loadFiles = async () => {
   }
 };
 
-// Функция для подключения к SSE
+// Функция для подключения к SSE (для обновлений ведомостей)
 const connectToSSE = () => {
-  console.log('connectToSSE() вызвана');
+  console.log('EmailAttachmentsSection: подключение к SSE для обновлений ведомостей');
   
   // Закрываем предыдущее соединение, если есть
   if (eventSource.value) {
-    console.log('Закрываем предыдущее SSE соединение');
+    console.log('EmailAttachmentsSection: закрываем предыдущее SSE соединение');
     eventSource.value.close();
   }
 
   // Создаём новое SSE соединение
   const sseUrl = '/api/app-events/sse';
-  console.log('Подключаемся к SSE:', sseUrl);
+  console.log('EmailAttachmentsSection: подключаемся к SSE:', sseUrl);
   
   eventSource.value = new EventSource(sseUrl);
   
   // Событие открытия соединения
   eventSource.value.addEventListener('open', () => {
-    console.log('SSE соединение установлено');
+    console.log('EmailAttachmentsSection: SSE соединение установлено');
   });
   
   // Обработчик входящих сообщений
   eventSource.value.addEventListener('message', (event) => {
-    console.log('Получено сырое SSE-событие:', event.data);
+    console.log('EmailAttachmentsSection: получено сырое SSE-событие:', event.data);
     
     try {
       const data = JSON.parse(event.data);
-      console.log('Распарсено SSE-событие:', data);
+      console.log('EmailAttachmentsSection: распарсено SSE-событие:', data);
       
-      if (data.type === 'statement-updated' ||
+      // Обрабатываем только события, связанные с ведомостями
+      if (data.type === 'statement-updated' || 
           data.type === 'statement-deleted' ||
-          data.type === 'statement-loaded' ||
           data.type === 'statement-active-changed') {
-        console.log('Обновление списка ведомостей (добавление/удаление)');
+        console.log('EmailAttachmentsSection: обновление списка ведомостей');
         loadFiles();
       }
     } catch (error) {
-      console.error('Ошибка парсинга SSE-события:', error, 'Сырые данные:', event.data);
+      console.error('EmailAttachmentsSection: ошибка парсинга SSE-события:', error, 'Сырые данные:', event.data);
     }
   });
   
   // Обработчик ошибок соединения
   eventSource.value.addEventListener('error', (error) => {
-    console.error('SSE ошибка соединения:', error);
-    console.log('EventSource автоматически переподключится');
+    console.error('EmailAttachmentsSection: SSE ошибка соединения:', error);
+    console.log('EmailAttachmentsSection: EventSource автоматически переподключится');
   });
   
-  console.log('EventSource объект создан:', eventSource.value);
+  console.log('EmailAttachmentsSection: EventSource объект создан');
 };
 
 // Форматирование даты для отображения
@@ -156,7 +160,7 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('ru-RU');
 };
 
-// Проверка почты (ручная)
+// Проверка почты (ручная) - недоступна в оффлайн режиме
 const checkEmail = async () => {
   // В режиме полёта проверка почты недоступна
   if (isFlightMode.value) return;
@@ -169,17 +173,17 @@ const checkEmail = async () => {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const result = await response.json();
-    console.log('Результат проверки почты:', result);
+    console.log('EmailAttachmentsSection: результат проверки почты:', result);
     
     // Обновление списка файлов произойдёт по SSE событию от сервера
   } catch (error) {
-    console.error('Ошибка проверки почты:', error);
+    console.error('EmailAttachmentsSection: ошибка проверки почты:', error);
   } finally {
     isLoadingCheck.value = false;
   }
 };
 
-// Удаление вложения
+// Удаление вложения - недоступно в оффлайн режиме
 const deleteAttachment = async (attachmentId) => {
   // Подтверждение удаления
   if (!confirm('Удалить это вложение?')) return;
@@ -196,31 +200,30 @@ const deleteAttachment = async (attachmentId) => {
     if (result.success) {
       // Локально удаляем файл из массива
       files.value = files.value.filter(f => f.id !== attachmentId);
-      console.log('Вложение удалено локально');
+      console.log('EmailAttachmentsSection: вложение удалено локально');
     } else {
-      console.error('Ошибка удаления:', result.message);
-      // В реальном приложении здесь можно показать уведомление пользователю
+      console.error('EmailAttachmentsSection: ошибка удаления:', result.message);
     }
   } catch (error) {
-    console.error('Ошибка при удалении вложения:', error);
+    console.error('EmailAttachmentsSection: ошибка при удалении вложения:', error);
   }
 };
 
 // Переход на страницу ведомости
 const openStatement = async (attachmentId, isInventory, inProcess) => {
   if (isInventory) {
-    // Модуль Инвентаризация (заглушка)
+    // Модуль Инвентаризация
     router.push(`/inventory/${attachmentId}`);
     return;
   }
-  // Обычная ведомость - открываем StatementsModule
+  // Обычная ведомость
   router.push(`/statement/${attachmentId}`);
 };
 
 // Обработчик изменения состояния Flight Mode
 const handleFlightModeChange = (event) => {
   isFlightMode.value = event.detail.isFlightMode;
-  console.log('Flight Mode изменён:', isFlightMode.value);
+  console.log('EmailAttachmentsSection: Flight Mode изменён:', isFlightMode.value);
 };
 
 // Инициализация состояния Flight Mode из localStorage
@@ -255,7 +258,7 @@ onUnmounted(() => {
   // Закрываем SSE соединение
   if (eventSource.value) {
     eventSource.value.close();
-    console.log('SSE соединение закрыто');
+    console.log('EmailAttachmentsSection: SSE соединение закрыто');
   }
   
   // Отписываемся от событий Flight Mode
