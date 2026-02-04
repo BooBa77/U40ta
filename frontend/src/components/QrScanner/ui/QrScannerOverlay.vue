@@ -6,7 +6,6 @@
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
 import { useQrCamera } from '../composables/useQrCamera'
-import { useQrFile } from '../composables/useQrFile'
 
 const props = defineProps({
   // Данные объекта для отображения в заголовке
@@ -16,12 +15,6 @@ const props = defineProps({
       buh_name: '',
       inv_number: ''
     })
-  },
-  // Режим сканирования: 'camera' или 'file'
-  mode: {
-    type: String,
-    default: 'auto', // 'auto' определяет автоматически
-    validator: (value) => ['auto', 'camera', 'file'].includes(value)
   },
   // Управление видимостью
   isOpen: {
@@ -33,25 +26,10 @@ const props = defineProps({
 const emit = defineEmits(['scan', 'close', 'error'])
 
 // Реактивные переменные
-const currentMode = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 
-// Определяем режим работы
-const determineMode = () => {
-  if (props.mode !== 'auto') {
-    currentMode.value = props.mode
-    return
-  }
-  
-  // Автоматическое определение: мобилка с камерой → камера, иначе → файл
-  const isMobile = JSON.parse(localStorage.getItem('device_isMobile') || 'false')
-  const hasCamera = JSON.parse(localStorage.getItem('device_hasCamera') || 'false')
-  
-  currentMode.value = (isMobile && hasCamera) ? 'camera' : 'file'
-}
-
-// Инициализация composables
+// Инициализация composable для работы с камерой
 const { startCameraScan, stopCameraScan } = useQrCamera({
   onScan: (result) => {
     console.log('QR отсканирован через камеру:', result)
@@ -66,30 +44,14 @@ const { startCameraScan, stopCameraScan } = useQrCamera({
   itemInfo: props.itemInfo
 })
 
-const { startFileScan } = useQrFile({
-  onScan: (result) => {
-    console.log('QR отсканирован из файла:', result)
-    emit('scan', result)
-    handleClose()
-  },
-  onError: (error) => {
-    console.error('Ошибка файла:', error)
-    errorMessage.value = error
-    emit('error', error)
-  }
-})
-
 // Запуск сканирования при открытии
 const startScanning = () => {
   isLoading.value = true
   errorMessage.value = ''
   
   try {
-    if (currentMode.value === 'camera') {
-      startCameraScan()
-    } else {
-      startFileScan()
-    }
+    // Запускаем сканирование камерой
+    startCameraScan()
   } catch (error) {
     errorMessage.value = `Ошибка запуска сканирования: ${error.message}`
     emit('error', error)
@@ -100,16 +62,13 @@ const startScanning = () => {
 
 // Закрытие оверлея
 const handleClose = () => {
-  if (currentMode.value === 'camera') {
-    stopCameraScan()
-  }
+  stopCameraScan()
   emit('close')
 }
 
 // Следим за изменением isOpen
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    determineMode()
     startScanning()
   } else {
     handleClose()
@@ -121,6 +80,20 @@ onUnmounted(() => {
   handleClose()
 })
 </script>
+
+<style scoped>
+.error-message {
+  color: #dc2626;
+  padding: 16px;
+  text-align: center;
+}
+
+.loading {
+  padding: 16px;
+  text-align: center;
+  color: #6b7280;
+}
+</style>
 
 <style scoped>
 .error-message {

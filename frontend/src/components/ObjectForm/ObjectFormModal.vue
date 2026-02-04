@@ -2,144 +2,149 @@
   <BaseModal
     :is-open="isOpen"
     :title="modalTitle"
-    :width="'600px'"
-    :max-width="'90vw'"
+    :width="'500px'"
+    :max-width="'95vw'"
     @close="handleClose"
   >
-    <!-- Загрузка -->
-    <div v-if="isLoading" class="loading-state">
-      <div class="spinner"></div>
-      <p>Загрузка данных...</p>
-    </div>
-    
-    <!-- Основная форма -->
-    <div v-else class="object-form-content">
-      <!-- Сообщение о перепривязке -->
-      <div v-if="reassignWarning" class="warning-message">
-        <h4>⚠️ Внимание: QR-код уже привязан</h4>
-        <p>Код <strong>{{ qrCode }}</strong> уже привязан к объекту:</p>
-        <div class="existing-object-info">
-          <p>Инв. номер: <strong>{{ reassignWarning.inv_number }}</strong></p>
-          <p>Наименование: <strong>{{ reassignWarning.buh_name }}</strong></p>
-          <p>Склад: <strong>{{ reassignWarning.zavod }}/{{ reassignWarning.sklad }}</strong></p>
-        </div>
-        <p class="warning-text">Перепривязать QR-код к новому объекту?</p>
-      </div>
-      
-      <!-- Блок 1: Основная информация (readonly) -->
-      <div class="form-section">
-        <h3 class="section-title">Основная информация</h3>
-        
-        <!-- Инвентарный номер -->
-        <div class="form-field">
-          <label class="field-label">Инвентарный номер</label>
-          <div class="static-field">{{ formData.inv_number || '—' }}</div>
-        </div>
-        
-        <!-- Наименование -->
-        <div class="form-field">
-          <label class="field-label">Наименование</label>
-          <div class="static-field">{{ formData.buh_name || '—' }}</div>
-        </div>
-        
-        <!-- Склад/Завод -->
-        <div class="form-field">
-          <label class="field-label">Склад</label>
-          <div class="static-field" v-if="formData.zavod && formData.sklad">
-            {{ formData.zavod }}/{{ formData.sklad }}
-          </div>
-          <div class="static-field" v-else>—</div>
-        </div>
-      </div>
-      
-      <!-- Блок 2: Редактируемые поля -->
-      <div class="form-section">
-        <h3 class="section-title">Дополнительная информация</h3>
-        
-        <!-- Серийный номер -->
-        <div class="form-field">
-          <label class="field-label">Серийный номер</label>
-          <input
-            type="text"
-            v-model="formData.sn"
-            placeholder="Введите серийный номер"
-            class="input-field"
-          />
-        </div>
-      </div>
-      
-      <!-- Блок 3: QR-коды -->
-      <div class="form-section">
-        <div class="section-header">
-          <h3 class="section-title">QR-коды</h3>
-          <button 
-            @click="addQrCode" 
-            class="add-qr-btn"
-            type="button"
-          >
-            + Добавить QR-код
-          </button>
-        </div>
-        
-        <!-- Основной QR (если передан) -->
-        <div v-if="qrCode" class="form-field">
-          <label class="field-label">Основной QR-код</label>
-          <div class="qr-code-display">
-            <code>{{ qrCode }}</code>
-            <span class="qr-source">(отсканирован)</span>
-          </div>
-        </div>
-        
-        <!-- Существующие QR-коды -->
-        <div v-if="existingQrCodes.length > 0" class="existing-qr-section">
-          <label class="field-label">Существующие QR-коды</label>
-          <div class="qr-codes-list">
-            <div v-for="qr in existingQrCodes" :key="qr" class="qr-code-item">
-              <code>{{ qr }}</code>
-              <button 
-                @click="removeQrCode(qr)" 
-                class="remove-qr-btn"
-                title="Удалить"
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Новые QR-коды -->
-        <div v-if="newQrCodes.length > 0" class="new-qr-section">
-          <label class="field-label">Новые QR-коды</label>
-          <div class="qr-codes-list">
-            <div v-for="(qr, index) in newQrCodes" :key="index" class="qr-code-item new">
-              <code>{{ qr }}</code>
-              <button 
-                @click="removeNewQrCode(index)" 
-                class="remove-qr-btn"
-                title="Удалить"
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Сообщение об ошибке -->
-      <div v-if="errorMessage" class="error-message">
-        {{ errorMessage }}
+    <!-- 1. Нередактируемые данные -->
+    <div class="readonly-data">
+      <div class="readonly-item buh-name">{{ formData.buh_name || '—' }}</div>
+      <div class="readonly-item inv-number">{{ formData.inv_number || '—' }}</div>
+      <div class="readonly-item sklad" v-if="formData.sklad || formData.zavod">
+        Склад - {{ formData.sklad }}/{{ formData.zavod }}
       </div>
     </div>
-    
-    <!-- Футер с кнопками -->
+
+    <!-- 2. Серийный номер -->
+    <div class="field">
+      <input
+        type="text"
+        v-model="formData.sn"
+        placeholder="Серийный номер"
+        class="input-field"
+      />
+    </div>
+
+    <!-- 3. Местоположение (4 комбобокса) -->
+    <div class="location-section">
+      <!-- Территория -->
+      <div class="field">
+        <input
+          type="text"
+          v-model="place_ter"
+          list="ter-list"
+          placeholder="Территория"
+          class="input-field combo-input"
+          @change="onTerChange"
+          @blur="saveNewPlace('ter', null, place_ter)"
+        />
+        <datalist id="ter-list">
+          <option v-for="ter in placeOptions.ter" :key="ter" :value="ter" />
+        </datalist>
+      </div>
+
+      <!-- Помещение -->
+      <div class="field">
+        <input
+          type="text"
+          v-model="place_pos"
+          list="pos-list"
+          placeholder="Помещение"
+          class="input-field combo-input"
+          :disabled="!place_ter"
+          @change="onPosChange"
+          @blur="saveNewPlace('pos', place_ter, place_pos)"
+        />
+        <datalist id="pos-list">
+          <option v-for="pos in placeOptions.pos" :key="pos" :value="pos" />
+        </datalist>
+      </div>
+
+      <!-- Кабинет -->
+      <div class="field">
+        <input
+          type="text"
+          v-model="place_cab"
+          list="cab-list"
+          placeholder="Кабинет"
+          class="input-field combo-input"
+          :disabled="!place_pos"
+          @change="onCabChange"
+          @blur="saveNewPlace('cab', place_pos, place_cab)"
+        />
+        <datalist id="cab-list">
+          <option v-for="cab in placeOptions.cab" :key="cab" :value="cab" />
+        </datalist>
+      </div>
+
+      <!-- Пользователь -->
+      <div class="field">
+        <input
+          type="text"
+          v-model="place_user"
+          list="user-list"
+          placeholder="Пользователь"
+          class="input-field combo-input"
+          :disabled="!place_cab"
+          @blur="saveNewPlace('user', place_cab, place_user)"
+        />
+        <datalist id="user-list">
+          <option v-for="user in placeOptions.user" :key="user" :value="user" />
+        </datalist>
+      </div>
+    </div>
+
+    <!-- 4. Строка действий (QR + фото + карусель) -->
+    <div class="actions-row">
+      <button class="btn-action" @click="addQrCode" type="button">
+        Добавить QR-код
+      </button>
+      <button class="btn-action" @click="addPhoto" type="button">
+        Добавить фото
+      </button>
+      <!-- Карусель миниатюр -->
+      <div class="photos-carousel" v-if="photos.length > 0">
+        <div class="photo-thumb" v-for="(photo, index) in photos" :key="index">
+          <img :src="photo.thumb" alt="Фото" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Комментарий -->
+    <div class="field">
+      <textarea
+        v-model="formData.comment"
+        placeholder="Комментарий"
+        class="textarea-field"
+        rows="3"
+      />
+    </div>
+
+    <!-- 6. История изменений (таблица) -->
+    <div class="history-section">
+      <div class="history-table">
+        <div class="table-header">
+          <div class="table-col">Дата</div>
+          <div class="table-col">Пользователь</div>
+          <div class="table-col">Действие</div>
+        </div>
+        <div class="table-body">
+          <div class="table-row" v-for="(record, index) in history" :key="index">
+            <div class="table-col">{{ record.date }}</div>
+            <div class="table-col">{{ record.user }}</div>
+            <div class="table-col">{{ record.action }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Футер -->
     <template #footer>
       <button @click="handleCancel" class="btn btn-secondary">
         Отмена
       </button>
-      <button 
-        @click="handleSave" 
+      <button
+        @click="handleSave"
         class="btn btn-primary"
         :disabled="isSaving"
       >
@@ -152,8 +157,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { qrService } from '@/components/QrScanner/services/qr.service'
-import { objectService } from '@/components/ObjectForm/services/ObjectService.js'
 
 const props = defineProps({
   isOpen: {
@@ -177,10 +180,12 @@ const props = defineProps({
 
 const emit = defineEmits(['save', 'cancel'])
 
-// Реактивное состояние
+// === РЕАКТИВНЫЕ ДАННЫЕ (заглушки) ===
 const isLoading = ref(false)
 const isSaving = ref(false)
 const errorMessage = ref('')
+const photos = ref([]) // массив фотографий
+const history = ref([]) // массив истории
 
 // Данные формы
 const formData = ref({
@@ -188,177 +193,295 @@ const formData = ref({
   buh_name: '',
   sklad: '',
   zavod: '',
-  party_number: '',
-  sn: ''
+  sn: '',
+  comment: ''
 })
 
-// QR-коды
-const existingQrCodes = ref([])
-const newQrCodes = ref([])
-const reassignWarning = ref(null)
+// Данные местоположения (заглушки)
+const place_ter = ref('')
+const place_pos = ref('')
+const place_cab = ref('')
+const place_user = ref('')
+const placeOptions = ref({
+  ter: [],
+  pos: [],
+  cab: [],
+  user: []
+})
 
-// Заголовок модалки
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (заглушки) ===
+const onTerChange = () => {
+  place_pos.value = ''
+  place_cab.value = ''
+  place_user.value = ''
+  console.log('Территория изменена:', place_ter.value)
+}
+
+const onPosChange = () => {
+  place_cab.value = ''
+  place_user.value = ''
+  console.log('Помещение изменено:', place_pos.value)
+}
+
+const onCabChange = () => {
+  place_user.value = ''
+  console.log('Кабинет изменён:', place_cab.value)
+}
+
+const saveNewPlace = (level, parent, value) => {
+  console.log(`Сохранение места: ${level}, родитель: ${parent}, значение: ${value}`)
+  // Заглушка
+}
+
+const addQrCode = () => {
+  alert('Добавление QR-кода (функционал в разработке)')
+}
+
+const addPhoto = () => {
+  alert('Добавление фото (функционал в разработке)')
+}
+
+// === ОСНОВНЫЕ МЕТОДЫ ===
+const handleSave = async () => {
+  console.log('[ObjectFormModal] Сохранение...')
+  isSaving.value = true
+  
+  const saveResult = {
+    mode: props.mode,
+    qrCode: props.qrCode,
+    formData: formData.value,
+    place_ter: place_ter.value,
+    place_pos: place_pos.value,
+    place_cab: place_cab.value,
+    place_user: place_user.value,
+    comment: formData.value.comment,
+    photos: photos.value,
+    initialData: props.initialData
+  }
+  
+  console.log('Данные для сохранения:', saveResult)
+  emit('save', saveResult)
+  isSaving.value = false
+}
+
+const handleCancel = () => {
+  emit('cancel')
+}
+
+const handleClose = () => {
+  emit('cancel')
+}
+
 const modalTitle = computed(() => {
   const titles = {
-    create: 'Создание нового объекта',
+    create: 'Создание объекта',
     reassign: 'Перепривязка QR-кода',
     edit: 'Редактирование объекта'
   }
   return titles[props.mode] || 'Объект учёта'
 })
 
-// Загрузка начальных данных
-const loadInitialData = async () => {
-  console.log('[ObjectFormModal] initialData:', props.initialData);
-    console.log('[ObjectFormModal] initialData.id:', props.initialData.id); 
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    // 1. Заполняем форму из initialData
+// Загрузка данных при открытии
+watch(() => props.isOpen, (isOpen) => {
+  if (isOpen && props.initialData) {
+    // Заполняем форму из initialData
     formData.value = {
       inv_number: props.initialData.inv_number || '',
       buh_name: props.initialData.buh_name || '',
       sklad: props.initialData.sklad || '',
       zavod: props.initialData.zavod || '',
-      party_number: props.initialData.party_number || '',
-      sn: props.initialData.sn || ''
+      sn: props.initialData.sn || '',
+      comment: props.initialData.comment || ''
     }
     
-    // 2. Если передан QR-код, проверяем его (временно заглушка)
-    if (props.qrCode) {
-      // TODO: Включить когда будет API
-      // await checkQrCode(props.qrCode)
-      console.log('QR код передан:', props.qrCode)
+    // Заполняем местоположение
+    place_ter.value = props.initialData.place_ter || ''
+    place_pos.value = props.initialData.place_pos || ''
+    place_cab.value = props.initialData.place_cab || ''
+    place_user.value = props.initialData.place_user || ''
+    
+    // Заглушка для опций (позже заменим на API)
+    placeOptions.value = {
+      ter: ['Территория 1', 'Территория 2'],
+      pos: ['Помещение 1', 'Помещение 2'],
+      cab: ['Кабинет 101', 'Кабинет 102'],
+      user: ['Иванов И.И.', 'Петров П.П.']
     }
     
-    // 3. Если режим reassign, показываем предупреждение
-    if (props.mode === 'reassign') {
-      reassignWarning.value = {
-        inv_number: 'TEST123', // Временные данные
-        buh_name: 'Тестовый объект',
-        sklad: 'Склад 1',
-        zavod: 'Завод 1'
-      }
-    }
-    
-  } catch (error) {
-    errorMessage.value = `Ошибка загрузки: ${error.message}`
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Проверка QR-кода
-const checkQrCode = async (qrValue) => {
-  try {
-    const result = await qrService.checkQrCode(qrValue)
-    
-    if (result) {
-      // QR найден, показываем предупреждение
-      reassignWarning.value = {
-        inv_number: result.objectData?.inv_number || 'Нет данных',
-        buh_name: result.objectData?.buh_name || 'Нет данных',
-        sklad: result.objectData?.sklad || '',
-        zavod: result.objectData?.zavod || '',
-        objectId: result.qrRecord?.object_id
-      }
-      return result
-    }
-    
-    return null // QR не найден
-  } catch (error) {
-    console.error('Ошибка проверки QR:', error)
-    // Если ошибка сети, можно предложить ввести вручную
-    throw error
-  }
-}
-
-// Добавление нового QR-кода
-const addQrCode = () => {
-  const newCode = prompt('Введите QR-код вручную (временная функция)')
-  if (newCode && !newQrCodes.value.includes(newCode)) {
-    newQrCodes.value.push(newCode)
-  }
-}
-
-// Удаление существующего QR
-const removeQrCode = (qr) => {
-  if (confirm(`Удалить QR-код ${qr}?`)) {
-    existingQrCodes.value = existingQrCodes.value.filter(code => code !== qr)
-  }
-}
-
-// Удаление нового QR
-const removeNewQrCode = (index) => {
-  newQrCodes.value.splice(index, 1)
-}
-
-// Сохранение объекта
-const handleSave = async () => {
-  console.log('[ObjectFormModal] Кнопка Сохранить нажата')
-  isSaving.value = true
-  errorMessage.value = ''
-  
-  try {
-    // Валидация
-    if (!formData.value.inv_number) {
-      throw new Error('Инвентарный номер обязателен')
-    }
-    
-    // Подготовка данных для отправки
-    const saveResult = {
-      mode: props.mode,
-      qrCode: props.qrCode,
-      formData: formData.value,
-      existingQrCodes: existingQrCodes.value,
-      newQrCodes: newQrCodes.value,
-      initialData: props.initialData // Важно: передаём initialData!
-    }
-    
-    console.log('Отправляем данные для сохранения:', saveResult)
-    
-    // Эмитим событие с ВСЕМИ данными
-    emit('save', saveResult)
-    
-  } catch (error) {
-    errorMessage.value = `Ошибка сохранения: ${error.message}`
-    isSaving.value = false
-  }
-}
-
-// Отмена
-const handleCancel = () => {
-  emit('cancel')
-}
-
-// Закрытие
-const handleClose = () => {
-  emit('cancel')
-}
-
-// Наблюдаем за открытием модалки
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen) {
-    loadInitialData()
-  } else {
-    // Сброс состояния при закрытии
-    formData.value = {
-      inv_number: '',
-      buh_name: '',
-      sklad: '',
-      zavod: '',
-      party_number: '',
-      sn: ''
-    }
-    existingQrCodes.value = []
-    newQrCodes.value = []
-    reassignWarning.value = null
-    errorMessage.value = ''
+    // Заглушка для истории
+    history.value = [
+      { date: '2024-01-15 14:30', user: 'Иванов И.И.', action: 'Изменён серийный номер' },
+      { date: '2024-01-10 09:15', user: 'Петров П.П.', action: 'Добавлен QR-код' }
+    ]
   }
 }, { immediate: true })
 </script>
 
 <style scoped>
-@import './ObjectFormModal.css';
+/* Базовые стили (минимум для отображения) */
+.readonly-data {
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.readonly-item {
+  font-size: 15px;
+  color: #333;
+}
+
+.readonly-item.buh-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.readonly-item.inv-number {
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.readonly-item.sklad {
+  color: #888;
+  font-size: 14px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.input-field.combo-input:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  padding: 10px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.photos-carousel {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.photo-thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+}
+
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.textarea-field {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 15px;
+  font-family: inherit;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.history-section {
+  margin-top: 20px;
+}
+
+.history-table {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.table-header {
+  display: flex;
+  background: #f3f4f6;
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table-body {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.table-row {
+  display: flex;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-col {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Футер */
+.btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  min-width: 100px;
+}
+
+.btn-secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.btn-primary:disabled {
+  background-color: #93c5fd;
+  cursor: not-allowed;
+}
 </style>

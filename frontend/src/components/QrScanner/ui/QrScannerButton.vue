@@ -1,15 +1,15 @@
 <template>
-  <div>
+  <div class="qr-scanner-button-wrapper">
     <!-- Кнопка для открытия оверлея -->
     <button 
       class="scan-btn" 
       :class="[size, size === 'large' ? 'big-home-button' : '']"
       @click="showOverlay = true"
-      :title="titleText"
+      title="Сканировать камерой"
     >
       <img 
         :src="currentImage" 
-        :alt="titleText" 
+        alt="Сканировать камерой" 
         class="scan-icon"
       >
     </button>
@@ -28,7 +28,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import QrScannerOverlay from './QrScannerOverlay.vue' // Импортируем оверлей
+import QrScannerOverlay from './QrScannerOverlay.vue'
 
 const props = defineProps({
   size: {
@@ -46,23 +46,11 @@ const emit = defineEmits(['scan', 'error'])
 
 const showOverlay = ref(false)
 
-// Реактивное определение режима (для изображения кнопки)
-const canUseCamera = computed(() => {
-  const isMobile = JSON.parse(localStorage.getItem('device_isMobile') || 'false')
-  const hasCamera = JSON.parse(localStorage.getItem('device_hasCamera') || 'false')
-  return isMobile && hasCamera
-})
-
-const titleText = computed(() => {
-  return canUseCamera.value 
-    ? 'Сканировать камерой' 
-    : 'Открыть изображение с QR-кодом'
-})
-
+// Убираем проверку камеры, всегда используем scancam режим
+// Home.vue сам решает показывать кнопку или нет
 const currentImage = computed(() => {
-  const mode = canUseCamera.value ? 'scancam' : 'scanfile'
   const size = props.size === 'large' ? 'big' : 'small'
-  return `/images/${mode}_${size}.png`
+  return `/images/scancam_${size}.png` // Всегда scancam
 })
 
 // Обработчики событий от оверлея
@@ -80,24 +68,78 @@ const handleError = (error) => {
 </script>
 
 <style scoped>
-.scan-btn.small {
+/* Обертка для центрирования кнопки */
+.qr-scanner-button-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+/* Кнопка сканирования */
+.scan-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   transition: transform 0.2s ease;
+}
+
+/* Стиль для маленькой кнопки */
+.scan-btn.small {
+  padding: 0;
   max-width: 120px;
 }
 
-.scan-btn.small:hover {
+/* Стиль для большой кнопки (используется на Home) */
+.scan-btn.large {
+  padding: 0;
+  max-width: 300px;
+  width: 100%;
+}
+
+/* Класс для большой кнопки на главной странице */
+.scan-btn.big-home-button {
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* Иконка сканирования */
+.scan-icon {
+  height: auto;
+  display: block;
+  width: 100%;
+}
+
+/* Эффект при наведении */
+.scan-btn:hover {
   transform: scale(1.05);
 }
 
-.scan-icon {
-  width: 100%;
-  height: auto;
-  display: block;
+.scan-btn.small:hover {
+  transform: scale(1.03);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .scan-btn.large {
+    max-width: 250px;
+  }
+  
+  .scan-btn.big-home-button {
+    max-width: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .scan-btn.large {
+    max-width: 200px;
+  }
+  
+  .scan-btn.big-home-button {
+    max-width: 180px;
+  }
 }
 </style>

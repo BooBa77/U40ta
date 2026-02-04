@@ -1,6 +1,6 @@
 <template>
   <section class="email-attachments-section">
-    <!-- Кнопка "Получить почту" перед таблицей -->
+    <!-- Кнопка "Проверить почту" перед таблицей -->
     <!-- Скрывается в оффлайн режиме -->
     <div class="get-email-button-container" v-if="!isFlightMode">
       <button 
@@ -8,7 +8,7 @@
         @click="checkEmail" 
         :disabled="isLoadingCheck"
       >
-        <span v-if="!isLoadingCheck">Получить почту</span>
+        <span v-if="!isLoadingCheck">Проверить почту</span>
         <span v-else>Загрузка...</span>
       </button>
     </div>

@@ -7,9 +7,9 @@
     </header>
 
     <main class="home-main">
-      <!-- Кнопка сканирования QR по центру -->
-      <div class="qr-scanner-container">
-        <div v-if="deviceHasCamera === true">
+      <!-- Секция QR-сканирования - занимает центр экрана -->
+      <section class="qr-scanner-section">
+        <div v-if="deviceHasCamera === true" class="qr-button-wrapper">
           <QrScannerButton 
             size="large" 
             @scan="handleQrScan"
@@ -19,15 +19,10 @@
         <div v-else-if="deviceHasCamera === false" class="no-camera-message">
           Камера не доступна на этом устройстве
         </div>
-        <div v-else>
+        <div v-else class="no-camera-message">
           Проверка доступности камеры...
         </div>
-      </div>
-
-      <!-- Информация о результате сканирования (временно) -->
-      <div v-if="qrScanMessage" class="qr-result-info">
-        {{ qrScanMessage }}
-      </div>
+      </section>
 
       <!-- Панель инструментов МЦ: две кнопки в ряд -->
       <!-- Отображается ДО таблицы вложений, только при наличии доступа -->
@@ -42,7 +37,7 @@
 
       <!-- Условное отображение основного функционала -->
       <template v-if="hasAccessToStatements">
-        <!-- Секция почтовых вложений (с кнопкой "Получить почту" внутри) -->
+        <!-- Секция почтовых вложений (с кнопкой "Проверить почту" внутри) -->
         <EmailAttachmentsSection />
       </template>
       
@@ -60,8 +55,9 @@
       <!-- Модальное окно ObjectForm для редактирования найденного объекта -->
       <ObjectFormModal
         v-if="showObjectForm"
+        :is-open="showObjectForm" 
         :mode="objectFormMode"
-        :initialData="objectFormData"
+        :initial-data="objectFormData"
         :qrCode="scannedQrCode"
         @close="closeObjectForm"
         @saved="handleObjectSaved"
@@ -275,33 +271,87 @@ const handleQrScan = async (qrCode) => {
   console.log('Home: получен QR-код:', qrCode)
   scannedQrCode.value = qrCode
   
+  // Проверяем оффлайн режим
+  if (isFlightMode.value) {
+    qrScanMessage.value = 'Сканирование недоступно в оффлайн режиме'
+    
+    // Автоочистка сообщения через 3 секунды
+    setTimeout(() => {
+      qrScanMessage.value = ''
+    }, 3000)
+    return
+  }
+  
   try {
     const token = localStorage.getItem('auth_token')
-    const response = await fetch(`/api/qr-codes/search?code=${encodeURIComponent(qrCode)}`, {
+    
+    // Ищем точное совпадение в БД
+    const response = await fetch(`/api/qr-codes/scan?qr=${encodeURIComponent(qrCode)}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     
     if (response.ok) {
       const result = await response.json()
+      console.log('Результат поиска по QR:', result)
       
-      if (result.found) {
-        // Объект найден - открываем форму редактирования
-        objectFormMode.value = 'edit'
-        objectFormData.value = result.objectData
-        showObjectForm.value = true
-        qrScanMessage.value = '' // Очищаем сообщение
+      if (result.success && result.object_id) {
+        // QR найден, получаем данные объекта
+        await loadObjectData(result.object_id)
       } else {
-        // Объект не найден - показываем сообщение
-        qrScanMessage.value = 'QR-код не найден в базе данных'
+        // QR не найден
+        qrScanMessage.value = 'QR-код не обнаружен в БД'
         showObjectForm.value = false
+        
+        // Автоочистка сообщения через 3 секунды
+        setTimeout(() => {
+          qrScanMessage.value = ''
+        }, 3000)
       }
     } else {
-      qrScanMessage.value = 'Ошибка при поиске QR-кода'
+      qrScanMessage.value = 'Ошибка сервера при поиске QR-кода'
       showObjectForm.value = false
     }
   } catch (error) {
     console.error('Home: ошибка при обработке QR-кода:', error)
-    qrScanMessage.value = 'Ошибка подключения к серверу'
+    
+    // Проверяем, может ли это быть ошибкой сети (оффлайн)
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      qrScanMessage.value = 'Ошибка сети. Проверьте подключение к интернету'
+    } else {
+      qrScanMessage.value = 'Ошибка при обработке QR-кода'
+    }
+    
+    showObjectForm.value = false
+  }
+}
+
+/**
+ * Загрузка данных объекта по ID
+ */
+const loadObjectData = async (objectId) => {
+  try {
+    const token = localStorage.getItem('auth_token')
+    
+    // Используем существующий эндпоинт объектов
+    const response = await fetch(`/api/objects/${objectId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    
+    if (response.ok) {
+      const objectData = await response.json()
+      
+      // Объект найден - открываем форму редактирования
+      objectFormMode.value = 'edit'
+      objectFormData.value = objectData
+      showObjectForm.value = true
+      qrScanMessage.value = '' // Очищаем сообщение
+    } else {
+      qrScanMessage.value = 'Объект найден, но не удалось загрузить данные'
+      showObjectForm.value = false
+    }
+  } catch (error) {
+    console.error('Home: ошибка загрузки данных объекта:', error)
+    qrScanMessage.value = 'Ошибка загрузки данных объекта'
     showObjectForm.value = false
   }
 }
