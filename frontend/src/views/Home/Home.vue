@@ -298,7 +298,7 @@ const handleQrScan = async (qrCode) => {
         // Автоочистка сообщения через 3 секунды
         setTimeout(() => {
           qrScanMessage.value = ''
-        }, 3000)
+        }, 300000)
       }
     } else {
       qrScanMessage.value = 'Ошибка сервера при поиске QR-кода'
