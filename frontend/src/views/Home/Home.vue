@@ -22,6 +22,10 @@
         <div v-else class="no-camera-message">
           Проверка доступности камеры...
         </div>
+        <!-- Блок для отображения сообщений о результате сканирования -->
+        <div v-if="qrScanMessage" class="qr-scan-message">
+          {{ qrScanMessage }}
+        </div>
       </section>
 
       <!-- Панель инструментов МЦ: две кнопки в ряд -->
