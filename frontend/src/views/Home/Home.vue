@@ -59,7 +59,7 @@
         :mode="objectFormMode"
         :initial-data="objectFormData"
         :qrCode="scannedQrCode"
-        @close="closeObjectForm"
+        @cancel="closeObjectForm"
         @saved="handleObjectSaved"
       />
     </main>
@@ -270,17 +270,6 @@ const handleUserDataUpdatedEvent = (eventData) => {
 const handleQrScan = async (qrCode) => {
   console.log('Home: получен QR-код:', qrCode)
   scannedQrCode.value = qrCode
-  
-  // Проверяем оффлайн режим
-  if (isFlightMode.value) {
-    qrScanMessage.value = 'Сканирование недоступно в оффлайн режиме'
-    
-    // Автоочистка сообщения через 3 секунды
-    setTimeout(() => {
-      qrScanMessage.value = ''
-    }, 3000)
-    return
-  }
   
   try {
     const token = localStorage.getItem('auth_token')

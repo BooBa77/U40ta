@@ -1,138 +1,142 @@
 <template>
   <BaseModal
     :is-open="isOpen"
-    :title="modalTitle"
-    :width="'500px'"
-    :max-width="'95vw'"
+    :title="''"
+    :show-header="false"
+    :width="'100vw'"
+    :max-width="'100vw'"
+    :max-height="'100vh'"
     @close="handleClose"
   >
-    <!-- 1. Нередактируемые данные -->
-    <div class="readonly-data">
-      <div class="readonly-item buh-name">{{ formData.buh_name || '—' }}</div>
-      <div class="readonly-item inv-number">{{ formData.inv_number || '—' }}</div>
-      <div class="readonly-item sklad" v-if="formData.sklad || formData.zavod">
-        Склад - {{ formData.sklad }}/{{ formData.zavod }}
-      </div>
-    </div>
-
-    <!-- 2. Серийный номер -->
-    <div class="field">
-      <input
-        type="text"
-        v-model="formData.sn"
-        placeholder="Серийный номер"
-        class="input-field"
-      />
-    </div>
-
-    <!-- 3. Местоположение (4 комбобокса) -->
-    <div class="location-section">
-      <!-- Территория -->
-      <div class="field">
-        <input
-          type="text"
-          v-model="place_ter"
-          list="ter-list"
-          placeholder="Территория"
-          class="input-field combo-input"
-          @change="onTerChange"
-          @blur="saveNewPlace('ter', null, place_ter)"
-        />
-        <datalist id="ter-list">
-          <option v-for="ter in placeOptions.ter" :key="ter" :value="ter" />
-        </datalist>
-      </div>
-
-      <!-- Помещение -->
-      <div class="field">
-        <input
-          type="text"
-          v-model="place_pos"
-          list="pos-list"
-          placeholder="Помещение"
-          class="input-field combo-input"
-          :disabled="!place_ter"
-          @change="onPosChange"
-          @blur="saveNewPlace('pos', place_ter, place_pos)"
-        />
-        <datalist id="pos-list">
-          <option v-for="pos in placeOptions.pos" :key="pos" :value="pos" />
-        </datalist>
-      </div>
-
-      <!-- Кабинет -->
-      <div class="field">
-        <input
-          type="text"
-          v-model="place_cab"
-          list="cab-list"
-          placeholder="Кабинет"
-          class="input-field combo-input"
-          :disabled="!place_pos"
-          @change="onCabChange"
-          @blur="saveNewPlace('cab', place_pos, place_cab)"
-        />
-        <datalist id="cab-list">
-          <option v-for="cab in placeOptions.cab" :key="cab" :value="cab" />
-        </datalist>
-      </div>
-
-      <!-- Пользователь -->
-      <div class="field">
-        <input
-          type="text"
-          v-model="place_user"
-          list="user-list"
-          placeholder="Пользователь"
-          class="input-field combo-input"
-          :disabled="!place_cab"
-          @blur="saveNewPlace('user', place_cab, place_user)"
-        />
-        <datalist id="user-list">
-          <option v-for="user in placeOptions.user" :key="user" :value="user" />
-        </datalist>
-      </div>
-    </div>
-
-    <!-- 4. Строка действий (QR + фото + карусель) -->
-    <div class="actions-row">
-      <button class="btn-action" @click="addQrCode" type="button">
-        Добавить QR-код
-      </button>
-      <button class="btn-action" @click="addPhoto" type="button">
-        Добавить фото
-      </button>
-      <!-- Карусель миниатюр -->
-      <div class="photos-carousel" v-if="photos.length > 0">
-        <div class="photo-thumb" v-for="(photo, index) in photos" :key="index">
-          <img :src="photo.thumb" alt="Фото" />
+    <!-- Контейнер с вертикальной прокруткой -->
+    <div class="object-form-content">
+      <!-- 1. Нередактируемые данные -->
+      <div class="readonly-data">
+        <div class="readonly-item buh-name">{{ formData.buh_name || '—' }}</div>
+        <div class="readonly-item inv-number">{{ formData.inv_number || '—' }}</div>
+        <div class="readonly-item sklad" v-if="formData.sklad || formData.zavod">
+          Склад - {{ formData.sklad }}/{{ formData.zavod }}
         </div>
       </div>
-    </div>
 
-    <!-- 5. Комментарий -->
-    <div class="field">
-      <textarea
-        v-model="formData.comment"
-        placeholder="Комментарий"
-        class="textarea-field"
-        rows="3"
-      />
-    </div>
+      <!-- 2. Серийный номер -->
+      <div class="form-field">
+        <input
+          type="text"
+          v-model="formData.sn"
+          placeholder="Серийный номер"
+          class="input-field"
+        />
+      </div>
 
-    <!-- 6. История изменений (таблица) -->
-    <div class="history-section">
-      <div class="history-table">
-        <div class="table-header">
-          <div class="table-col">Дата</div>
-          <div class="table-col">Пользователь</div>
-          <div class="table-col">Действие</div>
+      <!-- 3. Местоположение -->
+      <div class="location-section">
+        <div class="form-field">
+          <input
+            type="text"
+            v-model="place_ter"
+            list="ter-list"
+            placeholder="Территория"
+            class="input-field combo-input"
+            @change="onTerChange"
+            @blur="saveNewPlace('ter', null, place_ter)"
+          />
+          <datalist id="ter-list">
+            <option v-for="ter in placeOptions.ter" :key="ter" :value="ter" />
+          </datalist>
         </div>
-        <div class="table-body">
-          <div class="table-row" v-for="(record, index) in history" :key="index">
-            <div class="table-col">{{ record.date }}</div>
-            <div class="table-col">{{ record.user }}</div>
-            <div class="table-col">{{ record.action }}</div>
+
+        <div class="form-field">
+          <input
+            type="text"
+            v-model="place_pos"
+            list="pos-list"
+            placeholder="Помещение"
+            class="input-field combo-input"
+            :disabled="!place_ter"
+            @change="onPosChange"
+            @blur="saveNewPlace('pos', place_ter, place_pos)"
+          />
+          <datalist id="pos-list">
+            <option v-for="pos in placeOptions.pos" :key="pos" :value="pos" />
+          </datalist>
+        </div>
+
+        <div class="form-field">
+          <input
+            type="text"
+            v-model="place_cab"
+            list="cab-list"
+            placeholder="Кабинет"
+            class="input-field combo-input"
+            :disabled="!place_pos"
+            @change="onCabChange"
+            @blur="saveNewPlace('cab', place_pos, place_cab)"
+          />
+          <datalist id="cab-list">
+            <option v-for="cab in placeOptions.cab" :key="cab" :value="cab" />
+          </datalist>
+        </div>
+
+        <div class="form-field">
+          <input
+            type="text"
+            v-model="place_user"
+            list="user-list"
+            placeholder="Пользователь"
+            class="input-field combo-input"
+            :disabled="!place_cab"
+            @blur="saveNewPlace('user', place_cab, place_user)"
+          />
+          <datalist id="user-list">
+            <option v-for="user in placeOptions.user" :key="user" :value="user" />
+          </datalist>
+        </div>
+      </div>
+
+      <!-- 4. Строка действий -->
+      <div class="actions-container">
+        <div class="actions-buttons">
+          <button class="btn-action" @click="addQrCode" type="button">
+            Добавить QR-код
+          </button>
+          <button class="btn-action" @click="addPhoto" type="button">
+            Добавить фото
+          </button>
+        </div>
+        
+        <!-- Карусель фото -->
+        <div class="photos-carousel" v-if="photos.length > 0">
+          <div class="photo-thumb" v-for="(photo, index) in photos" :key="index">
+            <img :src="photo.thumb" alt="Фото" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Комментарий -->
+      <div class="form-field">
+        <textarea
+          v-model="formData.comment"
+          placeholder="Комментарий"
+          class="textarea-field"
+          rows="3"
+        />
+      </div>
+
+      <!-- 6. История изменений -->
+      <div class="history-section">
+        <div class="history-table">
+          <div class="table-header">
+            <div class="table-col">Дата</div>
+            <div class="table-col">Пользователь</div>
+            <div class="table-col">Действие</div>
+          </div>
+          <div class="table-body">
+            <div class="table-row" v-for="(record, index) in history" :key="index">
+              <div class="table-col">{{ record.date }}</div>
+              <div class="table-col">{{ record.user }}</div>
+              <div class="table-col">{{ record.action }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -180,12 +184,12 @@ const props = defineProps({
 
 const emit = defineEmits(['save', 'cancel'])
 
-// === РЕАКТИВНЫЕ ДАННЫЕ (заглушки) ===
+// Реактивные данные
 const isLoading = ref(false)
 const isSaving = ref(false)
 const errorMessage = ref('')
-const photos = ref([]) // массив фотографий
-const history = ref([]) // массив истории
+const photos = ref([])
+const history = ref([])
 
 // Данные формы
 const formData = ref({
@@ -197,7 +201,7 @@ const formData = ref({
   comment: ''
 })
 
-// Данные местоположения (заглушки)
+// Данные местоположения
 const place_ter = ref('')
 const place_pos = ref('')
 const place_cab = ref('')
@@ -209,7 +213,7 @@ const placeOptions = ref({
   user: []
 })
 
-// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (заглушки) ===
+// Методы местоположения
 const onTerChange = () => {
   place_pos.value = ''
   place_cab.value = ''
@@ -230,9 +234,9 @@ const onCabChange = () => {
 
 const saveNewPlace = (level, parent, value) => {
   console.log(`Сохранение места: ${level}, родитель: ${parent}, значение: ${value}`)
-  // Заглушка
 }
 
+// Методы действий
 const addQrCode = () => {
   alert('Добавление QR-кода (функционал в разработке)')
 }
@@ -241,7 +245,7 @@ const addPhoto = () => {
   alert('Добавление фото (функционал в разработке)')
 }
 
-// === ОСНОВНЫЕ МЕТОДЫ ===
+// Основные методы
 const handleSave = async () => {
   console.log('[ObjectFormModal] Сохранение...')
   isSaving.value = true
@@ -265,26 +269,18 @@ const handleSave = async () => {
 }
 
 const handleCancel = () => {
+  console.log('[ObjectFormModal] Отмена')
   emit('cancel')
 }
 
 const handleClose = () => {
+  console.log('[ObjectFormModal] Закрытие через BaseModal')
   emit('cancel')
 }
-
-const modalTitle = computed(() => {
-  const titles = {
-    create: 'Создание объекта',
-    reassign: 'Перепривязка QR-кода',
-    edit: 'Редактирование объекта'
-  }
-  return titles[props.mode] || 'Объект учёта'
-})
 
 // Загрузка данных при открытии
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen && props.initialData) {
-    // Заполняем форму из initialData
     formData.value = {
       inv_number: props.initialData.inv_number || '',
       buh_name: props.initialData.buh_name || '',
@@ -294,13 +290,11 @@ watch(() => props.isOpen, (isOpen) => {
       comment: props.initialData.comment || ''
     }
     
-    // Заполняем местоположение
     place_ter.value = props.initialData.place_ter || ''
     place_pos.value = props.initialData.place_pos || ''
     place_cab.value = props.initialData.place_cab || ''
     place_user.value = props.initialData.place_user || ''
     
-    // Заглушка для опций (позже заменим на API)
     placeOptions.value = {
       ter: ['Территория 1', 'Территория 2'],
       pos: ['Помещение 1', 'Помещение 2'],
@@ -308,7 +302,6 @@ watch(() => props.isOpen, (isOpen) => {
       user: ['Иванов И.И.', 'Петров П.П.']
     }
     
-    // Заглушка для истории
     history.value = [
       { date: '2024-01-15 14:30', user: 'Иванов И.И.', action: 'Изменён серийный номер' },
       { date: '2024-01-10 09:15', user: 'Петров П.П.', action: 'Добавлен QR-код' }
@@ -318,170 +311,5 @@ watch(() => props.isOpen, (isOpen) => {
 </script>
 
 <style scoped>
-/* Базовые стили (минимум для отображения) */
-.readonly-data {
-  margin-bottom: 20px;
-  line-height: 1.4;
-}
-
-.readonly-item {
-  font-size: 15px;
-  color: #333;
-}
-
-.readonly-item.buh-name {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.readonly-item.inv-number {
-  color: #666;
-  margin-bottom: 4px;
-}
-
-.readonly-item.sklad {
-  color: #888;
-  font-size: 14px;
-}
-
-.field {
-  margin-bottom: 16px;
-}
-
-.input-field {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 15px;
-  box-sizing: border-box;
-}
-
-.input-field.combo-input:disabled {
-  background-color: #f3f4f6;
-  color: #9ca3af;
-  cursor: not-allowed;
-}
-
-.actions-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.btn-action {
-  padding: 10px 16px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.photos-carousel {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 0;
-}
-
-.photo-thumb {
-  width: 50px;
-  height: 50px;
-  border-radius: 4px;
-  overflow: hidden;
-  flex-shrink: 0;
-  border: 1px solid #e5e7eb;
-}
-
-.photo-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.textarea-field {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 15px;
-  font-family: inherit;
-  box-sizing: border-box;
-  resize: vertical;
-  min-height: 80px;
-}
-
-.history-section {
-  margin-top: 20px;
-}
-
-.history-table {
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.table-header {
-  display: flex;
-  background: #f3f4f6;
-  font-weight: 600;
-  font-size: 14px;
-  color: #374151;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.table-body {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.table-row {
-  display: flex;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.table-row:last-child {
-  border-bottom: none;
-}
-
-.table-col {
-  flex: 1;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: #4b5563;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Футер */
-.btn {
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  min-width: 100px;
-}
-
-.btn-secondary {
-  background-color: #6b7280;
-  color: white;
-}
-
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-primary:disabled {
-  background-color: #93c5fd;
-  cursor: not-allowed;
-}
+@import './ObjectFormModal.css';
 </style>
