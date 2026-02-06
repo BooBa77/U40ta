@@ -23,9 +23,6 @@ export class InventoryObject {
   @Column({ type: 'varchar', length: 100, nullable: true })
   sn: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  commentary: string;
-
   @Column({ name: 'is_written_off', type: 'boolean', default: false })
   is_written_off: boolean;
 

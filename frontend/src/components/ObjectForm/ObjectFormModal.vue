@@ -1,21 +1,18 @@
 <template>
   <BaseModal
     :is-open="isOpen"
-    :title="''"
     :show-header="false"
     :width="'100vw'"
     :max-width="'100vw'"
-    :max-height="'100vh'"
     @close="handleClose"
   >
-    <!-- Контейнер с вертикальной прокруткой -->
     <div class="object-form-content">
       <!-- 1. Нередактируемые данные -->
       <div class="readonly-data">
-        <div class="readonly-item buh-name">{{ formData.buh_name || '—' }}</div>
-        <div class="readonly-item inv-number">{{ formData.inv_number || '—' }}</div>
-        <div class="readonly-item sklad" v-if="formData.sklad || formData.zavod">
-          Склад - {{ formData.sklad }}/{{ formData.zavod }}
+        <div class="readonly-item buh-name">{{ objectData.buh_name || '—' }}</div>
+        <div class="readonly-item inv-number">{{ objectData.inv_number || '—' }}</div>
+        <div class="readonly-item sklad" v-if="objectData.sklad || objectData.zavod">
+          Склад - {{ objectData.sklad }}/{{ objectData.zavod }}
         </div>
       </div>
 
@@ -23,73 +20,68 @@
       <div class="form-field">
         <input
           type="text"
-          v-model="formData.sn"
+          v-model="objectData.sn"
           placeholder="Серийный номер"
           class="input-field"
+          :disabled="isSaving"
         />
       </div>
 
-      <!-- 3. Местоположение -->
+      <!-- 3. Местоположение (через композабл) -->
       <div class="location-section">
         <div class="form-field">
           <input
             type="text"
-            v-model="place_ter"
+            v-model="places.territory"
             list="ter-list"
             placeholder="Территория"
             class="input-field combo-input"
-            @change="onTerChange"
-            @blur="saveNewPlace('ter', null, place_ter)"
+            :disabled="isSaving"
           />
           <datalist id="ter-list">
-            <option v-for="ter in placeOptions.ter" :key="ter" :value="ter" />
+            <option v-for="ter in places.territoryOptions" :key="ter" :value="ter" />
           </datalist>
         </div>
 
         <div class="form-field">
           <input
             type="text"
-            v-model="place_pos"
+            v-model="places.room"
             list="pos-list"
             placeholder="Помещение"
             class="input-field combo-input"
-            :disabled="!place_ter"
-            @change="onPosChange"
-            @blur="saveNewPlace('pos', place_ter, place_pos)"
+            :disabled="!places.territory || isSaving"
           />
           <datalist id="pos-list">
-            <option v-for="pos in placeOptions.pos" :key="pos" :value="pos" />
+            <option v-for="pos in places.roomOptions" :key="pos" :value="pos" />
           </datalist>
         </div>
 
         <div class="form-field">
           <input
             type="text"
-            v-model="place_cab"
+            v-model="places.cabinet"
             list="cab-list"
             placeholder="Кабинет"
             class="input-field combo-input"
-            :disabled="!place_pos"
-            @change="onCabChange"
-            @blur="saveNewPlace('cab', place_pos, place_cab)"
+            :disabled="!places.room || isSaving"
           />
           <datalist id="cab-list">
-            <option v-for="cab in placeOptions.cab" :key="cab" :value="cab" />
+            <option v-for="cab in places.cabinetOptions" :key="cab" :value="cab" />
           </datalist>
         </div>
 
         <div class="form-field">
           <input
             type="text"
-            v-model="place_user"
+            v-model="places.user"
             list="user-list"
             placeholder="Пользователь"
             class="input-field combo-input"
-            :disabled="!place_cab"
-            @blur="saveNewPlace('user', place_cab, place_user)"
+            :disabled="!places.cabinet || isSaving"
           />
           <datalist id="user-list">
-            <option v-for="user in placeOptions.user" :key="user" :value="user" />
+            <option v-for="user in places.userOptions" :key="user" :value="user" />
           </datalist>
         </div>
       </div>
@@ -97,18 +89,27 @@
       <!-- 4. Строка действий -->
       <div class="actions-container">
         <div class="actions-buttons">
-          <button class="btn-action" @click="addQrCode" type="button">
+          <button class="btn-action" @click="addQrCode" :disabled="isSaving || !objectData.id">
             Добавить QR-код
           </button>
-          <button class="btn-action" @click="addPhoto" type="button">
+          <button class="btn-action" @click="addPhoto" :disabled="isSaving || !objectData.id">
             Добавить фото
           </button>
         </div>
         
         <!-- Карусель фото -->
-        <div class="photos-carousel" v-if="photos.length > 0">
-          <div class="photo-thumb" v-for="(photo, index) in photos" :key="index">
-            <img :src="photo.thumb" alt="Фото" />
+        <div class="photos-carousel" v-if="photos.photos.length > 0">
+          <div class="photo-thumb" v-for="(photo, index) in photos.photos" :key="index">
+            <img :src="photo.thumbUrl || photo.url" alt="Фото" />
+            <button 
+              v-if="!isSaving"
+              class="photo-remove-btn"
+              @click="photos.removePhoto(index)"
+              type="button"
+              title="Удалить фото"
+            >
+              ×
+            </button>
           </div>
         </div>
       </div>
@@ -116,10 +117,11 @@
       <!-- 5. Комментарий -->
       <div class="form-field">
         <textarea
-          v-model="formData.comment"
+          v-model="comment"
           placeholder="Комментарий"
           class="textarea-field"
           rows="3"
+          :disabled="isSaving"
         />
       </div>
 
@@ -132,26 +134,25 @@
             <div class="table-col">Действие</div>
           </div>
           <div class="table-body">
-            <div class="table-row" v-for="(record, index) in history" :key="index">
-              <div class="table-col">{{ record.date }}</div>
-              <div class="table-col">{{ record.user }}</div>
+            <div class="table-row" v-for="(record, index) in history.history" :key="index">
+              <div class="table-col">{{ formatDate(record.created_at) }}</div>
+              <div class="table-col">{{ record.user_name }}</div>
               <div class="table-col">{{ record.action }}</div>
             </div>
           </div>
         </div>
       </div>
+
+      <div v-if="errorMessage" class="error-message">
+        {{ errorMessage }}
+      </div>
     </div>
 
-    <!-- Футер -->
     <template #footer>
-      <button @click="handleCancel" class="btn btn-secondary">
+      <button @click="handleCancel" class="btn btn-secondary" :disabled="isSaving">
         Отмена
       </button>
-      <button
-        @click="handleSave"
-        class="btn btn-primary"
-        :disabled="isSaving"
-      >
+      <button @click="handleSave" class="btn btn-primary" :disabled="isSaving">
         {{ isSaving ? 'Сохранение...' : 'Сохранить' }}
       </button>
     </template>
@@ -159,157 +160,220 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { objectService } from '@/services/ObjectService.js'
+
+// Композаблы
+import { useAddQRcode } from '@/composables/useAddQRcode.js'
+import { useObjectPlaces } from '@/composables/useObjectPlaces.js'
+import { useObjectPhotos } from '@/composables/useObjectPhotos.js'
+import { useObjectHistory } from '@/composables/useObjectHistory.js'
 
 const props = defineProps({
-  isOpen: {
-    type: Boolean,
-    required: true
-  },
-  mode: {
-    type: String,
-    default: 'create',
-    validator: (value) => ['create', 'reassign', 'edit'].includes(value)
-  },
-  initialData: {
-    type: Object,
-    default: () => ({})
-  },
-  qrCode: {
-    type: String,
-    default: ''
-  }
+  isOpen: Boolean,
+  objectId: [Number, String, null],
+  statementId: [Number, String, null],
+  initialData: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['save', 'cancel'])
+const emit = defineEmits(['close', 'save'])
 
-// Реактивные данные
-const isLoading = ref(false)
+// Состояние
 const isSaving = ref(false)
 const errorMessage = ref('')
-const photos = ref([])
-const history = ref([])
+const comment = ref('')
 
-// Данные формы
-const formData = ref({
+// Данные объекта
+const objectData = ref({
+  id: null,
   inv_number: '',
   buh_name: '',
   sklad: '',
   zavod: '',
-  sn: '',
-  comment: ''
+  party_number: '',
+  sn: ''
 })
 
-// Данные местоположения
-const place_ter = ref('')
-const place_pos = ref('')
-const place_cab = ref('')
-const place_user = ref('')
-const placeOptions = ref({
-  ter: [],
-  pos: [],
-  cab: [],
-  user: []
-})
+// Композаблы
+const qrCodeManager = useAddQRcode()
+const places = useObjectPlaces(objectData.value)
+const photos = useObjectPhotos()
+const history = useObjectHistory()
 
-// Методы местоположения
-const onTerChange = () => {
-  place_pos.value = ''
-  place_cab.value = ''
-  place_user.value = ''
-  console.log('Территория изменена:', place_ter.value)
-}
-
-const onPosChange = () => {
-  place_cab.value = ''
-  place_user.value = ''
-  console.log('Помещение изменено:', place_pos.value)
-}
-
-const onCabChange = () => {
-  place_user.value = ''
-  console.log('Кабинет изменён:', place_cab.value)
-}
-
-const saveNewPlace = (level, parent, value) => {
-  console.log(`Сохранение места: ${level}, родитель: ${parent}, значение: ${value}`)
-}
-
-// Методы действий
-const addQrCode = () => {
-  alert('Добавление QR-кода (функционал в разработке)')
-}
-
-const addPhoto = () => {
-  alert('Добавление фото (функционал в разработке)')
-}
-
-// Основные методы
-const handleSave = async () => {
-  console.log('[ObjectFormModal] Сохранение...')
-  isSaving.value = true
-  
-  const saveResult = {
-    mode: props.mode,
-    qrCode: props.qrCode,
-    formData: formData.value,
-    place_ter: place_ter.value,
-    place_pos: place_pos.value,
-    place_cab: place_cab.value,
-    place_user: place_user.value,
-    comment: formData.value.comment,
-    photos: photos.value,
-    initialData: props.initialData
+// Методы
+const addQrCode = async () => {
+  if (!objectData.value.id) {
+    errorMessage.value = 'Сначала сохраните объект'
+    return
   }
   
-  console.log('Данные для сохранения:', saveResult)
-  emit('save', saveResult)
-  isSaving.value = false
+  await qrCodeManager.scanQrCode(objectData.value.id)
+  // Обновляем историю после добавления QR
+  await history.loadHistory(objectData.value.id)
+}
+
+const addPhoto = async () => {
+  if (!objectData.value.id) {
+    errorMessage.value = 'Сначала сохраните объект'
+    return
+  }
+  
+  await photos.addPhoto(objectData.value.id)
+}
+
+// Загрузка объекта по ID
+const loadObject = async (id) => {
+  errorMessage.value = ''
+  
+  try {
+    const object = await objectService.getObject(id)
+    
+    // Заполняем данные
+    objectData.value = {
+      id: object.id,
+      inv_number: object.inv_number || '',
+      buh_name: object.buh_name || '',
+      sklad: object.sklad || '',
+      zavod: object.zavod || '',
+      party_number: object.party_number || '',
+      sn: object.sn || ''
+    }
+    
+    // Инициализируем композаблы с данными объекта
+    places.territory.value = object.place_ter || ''
+    places.room.value = object.place_pos || ''
+    places.cabinet.value = object.place_cab || ''
+    places.user.value = object.place_user || ''
+    
+    // Загружаем фото и историю
+    await photos.loadPhotos(id)
+    await history.loadHistory(id)
+    
+  } catch (error) {
+    errorMessage.value = `Ошибка загрузки: ${error.message}`
+    console.error('Ошибка загрузки объекта:', error)
+  }
+}
+
+// Сохранение объекта
+const handleSave = async () => {
+  isSaving.value = true
+  errorMessage.value = ''
+  
+  try {
+    // Подготавливаем данные для сохранения
+    const saveData = {
+      id: objectData.value.id, // null для нового объекта
+      inv_number: objectData.value.inv_number,
+      buh_name: objectData.value.buh_name,
+      sklad: objectData.value.sklad,
+      zavod: objectData.value.zavod,
+      party_number: objectData.value.party_number || null,
+      sn: objectData.value.sn || null,
+      place_ter: places.territory.value || null,
+      place_pos: places.room.value || null,
+      place_cab: places.cabinet.value || null,
+      place_user: places.user.value || null
+    }
+    
+    // Сохраняем через ObjectService
+    const savedObject = await objectService.saveObject(saveData)
+    
+    // Обновляем ID объекта (если создавали новый)
+    objectData.value.id = savedObject.id
+    
+    // Сохраняем комментарий в историю
+    if (comment.value.trim()) {
+      await history.addHistoryRecord(
+        'Добавлен комментарий',
+        comment.value,
+        savedObject.id
+      )
+    }
+    
+    // Обновляем историю на экране
+    await history.loadHistory(savedObject.id)
+    
+    // Возвращаем результат
+    emit('save', { 
+      object_changed: true,
+      objectId: savedObject.id 
+    })
+    
+  } catch (error) {
+    errorMessage.value = `Ошибка сохранения: ${error.message}`
+    console.error('Ошибка сохранения объекта:', error)
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const handleCancel = () => {
-  console.log('[ObjectFormModal] Отмена')
-  emit('cancel')
+  emit('close', { object_changed: false })
 }
 
 const handleClose = () => {
-  console.log('[ObjectFormModal] Закрытие через BaseModal')
-  emit('cancel')
+  handleCancel()
+}
+
+// Вспомогательная функция
+const formatDate = (dateString) => {
+  if (!dateString) return '—'
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch {
+    return dateString
+  }
 }
 
 // Загрузка данных при открытии
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen && props.initialData) {
-    formData.value = {
-      inv_number: props.initialData.inv_number || '',
-      buh_name: props.initialData.buh_name || '',
-      sklad: props.initialData.sklad || '',
-      zavod: props.initialData.zavod || '',
-      sn: props.initialData.sn || '',
-      comment: props.initialData.comment || ''
+watch(() => props.isOpen, async (isOpen) => {
+  if (isOpen) {
+    // Сброс
+    objectData.value = {
+      id: null,
+      inv_number: '',
+      buh_name: '',
+      sklad: '',
+      zavod: '',
+      party_number: '',
+      sn: ''
     }
     
-    place_ter.value = props.initialData.place_ter || ''
-    place_pos.value = props.initialData.place_pos || ''
-    place_cab.value = props.initialData.place_cab || ''
-    place_user.value = props.initialData.place_user || ''
+    comment.value = ''
+    errorMessage.value = ''
     
-    placeOptions.value = {
-      ter: ['Территория 1', 'Территория 2'],
-      pos: ['Помещение 1', 'Помещение 2'],
-      cab: ['Кабинет 101', 'Кабинет 102'],
-      user: ['Иванов И.И.', 'Петров П.П.']
+    if (props.objectId) {
+      // Режим редактирования существующего объекта
+      await loadObject(props.objectId)
+    } else if (props.initialData) {
+      // Режим создания нового объекта из ведомости
+      objectData.value = {
+        id: null,
+        inv_number: props.initialData.inv_number || '',
+        buh_name: props.initialData.buh_name || '',
+        sklad: props.initialData.sklad || '',
+        zavod: props.initialData.zavod || '',
+        party_number: props.initialData.party_number || '',
+        sn: props.initialData.sn || ''
+      }
+      
+      // Инициализируем места из initialData
+      places.territory.value = props.initialData.place_ter || ''
+      places.room.value = props.initialData.place_pos || ''
+      places.cabinet.value = props.initialData.place_cab || ''
+      places.user.value = props.initialData.place_user || ''
     }
-    
-    history.value = [
-      { date: '2024-01-15 14:30', user: 'Иванов И.И.', action: 'Изменён серийный номер' },
-      { date: '2024-01-10 09:15', user: 'Петров П.П.', action: 'Добавлен QR-код' }
-    ]
   }
 }, { immediate: true })
 </script>
 
-<style scoped>
-@import './ObjectFormModal.css';
-</style>
+<style scoped src="./ObjectFormModal.css"></style>

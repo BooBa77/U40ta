@@ -22,10 +22,6 @@
         <div v-else class="no-camera-message">
           Проверка доступности камеры...
         </div>
-        <!-- Блок для отображения сообщений о результате сканирования -->
-        <div v-if="qrScanMessage" class="qr-scan-message">
-          {{ qrScanMessage }}
-        </div>
       </section>
 
       <!-- Панель инструментов МЦ: две кнопки в ряд -->
@@ -66,6 +62,24 @@
         @cancel="closeObjectForm"
         @saved="handleObjectSaved"
       />
+
+      <!-- Информационное модальное окно для сообщений -->
+      <div v-if="showInfoModal" class="info-modal-overlay" @click="closeInfoModal">
+        <div class="info-modal-content" @click.stop>
+          <div class="info-modal-header">
+            <h3>{{ infoModalTitle }}</h3>
+            <button class="info-modal-close" @click="closeInfoModal">&times;</button>
+          </div>
+          <div class="info-modal-body">
+            {{ infoModalMessage }}
+          </div>
+          <div class="info-modal-footer">
+            <button class="info-modal-button" @click="closeInfoModal">
+              Закрыть
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <footer class="home-footer">
@@ -93,16 +107,57 @@ const deviceHasCamera = ref(null) // Состояние проверки кам�
 
 // Состояния сканирования QR
 const scannedQrCode = ref('') // Отсканированный QR-код
-const qrScanMessage = ref('') // Сообщение о результате сканирования
 const showObjectForm = ref(false) // Показать модальное окно ObjectForm
 const objectFormMode = ref('edit') // Режим модального окна (edit/create)
 const objectFormData = ref(null) // Данные для заполнения формы
+
+// Информационное модальное окно
+const showInfoModal = ref(false)
+const infoModalTitle = ref('')
+const infoModalMessage = ref('')
+let infoModalTimeout = null
 
 // Оффлайн режим
 const isFlightMode = ref(false)
 
 // SSE соединение для отслеживания изменений прав доступа
 const eventSource = ref(null)
+
+/**
+ * Показать информационное модальное окно
+ */
+const showInfoMessage = (title, message, autoClose = true) => {
+  // Очищаем предыдущий таймер
+  if (infoModalTimeout) {
+    clearTimeout(infoModalTimeout)
+    infoModalTimeout = null
+  }
+  
+  infoModalTitle.value = title
+  infoModalMessage.value = message
+  showInfoModal.value = true
+  
+  // Автоматическое закрытие через 3 секунды
+  if (autoClose) {
+    infoModalTimeout = setTimeout(() => {
+      closeInfoModal()
+    }, 10000)
+  }
+}
+
+/**
+ * Закрыть информационное модальное окно
+ */
+const closeInfoModal = () => {
+  showInfoModal.value = false
+  infoModalTitle.value = ''
+  infoModalMessage.value = ''
+  
+  if (infoModalTimeout) {
+    clearTimeout(infoModalTimeout)
+    infoModalTimeout = null
+  }
+}
 
 /**
  * Проверка аутентификации пользователя
@@ -292,16 +347,11 @@ const handleQrScan = async (qrCode) => {
         await loadObjectData(result.object_id)
       } else {
         // QR не найден
-        qrScanMessage.value = 'QR-код не обнаружен в БД'
+        showInfoMessage('QR-код не найден', 'Данный QR-код не обнаружен в базе данных.')
         showObjectForm.value = false
-        
-        // Автоочистка сообщения через 3 секунды
-        setTimeout(() => {
-          qrScanMessage.value = ''
-        }, 300000)
       }
     } else {
-      qrScanMessage.value = 'Ошибка сервера при поиске QR-кода'
+      showInfoMessage('Ошибка сервера', 'Ошибка сервера при поиске QR-кода.')
       showObjectForm.value = false
     }
   } catch (error) {
@@ -309,9 +359,9 @@ const handleQrScan = async (qrCode) => {
     
     // Проверяем, может ли это быть ошибкой сети (оффлайн)
     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      qrScanMessage.value = 'Ошибка сети. Проверьте подключение к интернету'
+      showInfoMessage('Ошибка сети', 'Проверьте подключение к интернету.')
     } else {
-      qrScanMessage.value = 'Ошибка при обработке QR-кода'
+      showInfoMessage('Ошибка обработки', 'Ошибка при обработке QR-кода.')
     }
     
     showObjectForm.value = false
@@ -337,14 +387,13 @@ const loadObjectData = async (objectId) => {
       objectFormMode.value = 'edit'
       objectFormData.value = objectData
       showObjectForm.value = true
-      qrScanMessage.value = '' // Очищаем сообщение
     } else {
-      qrScanMessage.value = 'Объект найден, но не удалось загрузить данные'
+      showInfoMessage('Ошибка загрузки', 'Объект найден, но не удалось загрузить данные.')
       showObjectForm.value = false
     }
   } catch (error) {
     console.error('Home: ошибка загрузки данных объекта:', error)
-    qrScanMessage.value = 'Ошибка загрузки данных объекта'
+    showInfoMessage('Ошибка загрузки', 'Ошибка загрузки данных объекта.')
     showObjectForm.value = false
   }
 }
@@ -354,7 +403,7 @@ const loadObjectData = async (objectId) => {
  */
 const handleScanError = (error) => {
   console.log('Home: ошибка сканирования:', error)
-  qrScanMessage.value = `Ошибка сканирования: ${error}`
+  showInfoMessage('Ошибка сканирования', `Ошибка сканирования: ${error}`)
 }
 
 /**
@@ -374,12 +423,7 @@ const handleObjectSaved = (savedObject) => {
   showObjectForm.value = false
   objectFormData.value = null
   scannedQrCode.value = ''
-  qrScanMessage.value = 'Объект успешно сохранен'
-  
-  // Автоматически очищаем сообщение через 3 секунды
-  setTimeout(() => {
-    qrScanMessage.value = ''
-  }, 3000)
+  showInfoMessage('Успешно', 'Объект успешно сохранен.')
 }
 
 /**
@@ -443,6 +487,11 @@ onUnmounted(() => {
   if (eventSource.value) {
     eventSource.value.close()
     console.log('Home: SSE соединение закрыто')
+  }
+  
+  // Очистка таймера модального окна
+  if (infoModalTimeout) {
+    clearTimeout(infoModalTimeout)
   }
   
   // Отписка от событий

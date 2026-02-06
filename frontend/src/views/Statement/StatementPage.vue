@@ -41,13 +41,13 @@
 
       <!-- Модалка ObjectForm -->
       <ObjectFormModal
-        v-if="statementsLength > 0"
         :is-open="objectFormIsOpen"
-        :mode="objectFormMode"
-        :initial-data="objectFormInitialData"
+        :object-id="objectFormObjectId"
+        :statement-id="objectFormStatementId"
         :qr-code="objectFormQrCode"
-        @save="objectFormManager.handleObjectFormSave"
-        @cancel="objectFormManager.handleObjectFormCancel"
+        :initial-data="objectFormInitialData"
+        @save="handleObjectFormSave"
+        @cancel="handleObjectFormCancel"
       />
 
       <!-- Таблица -->
@@ -82,14 +82,12 @@ import { useStatementColumns } from './composables/useStatementColumns'
 import { useStatementProcessing } from './composables/useStatementProcessing'
 import { useSimpleFiltersManager } from './composables/useFiltersManager'
 import { useIgnoreManager } from './composables/useIgnoreManager'
-import { useObjectFormManager } from './composables/useObjectFormManager'
-import { useQrScannerManager } from './composables/useQrScannerManager'
+import { useQrScannerManager } from './composables/useQrScannerManager' <!-- ВОССТАНАВЛИВАЕМ -->
+import { statementService } from './services/statement.service'
 
 const route = useRoute()
 const router = useRouter()
 const attachmentId = route.params.id
-
-console.log('[STATEMENT-PAGE] Инициализация для attachmentId:', attachmentId)
 
 // === ДАННЫЕ ===
 const { loading, error, statements, reload, getRowGroup } = useStatementData(attachmentId)
@@ -114,12 +112,36 @@ const {
 } = useSimpleFiltersManager(attachmentId, processedStatements)
 
 // === МЕНЕДЖЕРЫ ===
-const objectFormManager = useObjectFormManager(reload)
-const qrScannerManager = useQrScannerManager(objectFormManager.openObjectForm)
 const ignoreManager = useIgnoreManager(attachmentId, reload)
+const qrScannerManager = useQrScannerManager(openObjectFormFromQr) <!-- ИЗМЕНЯЕМ -->
 
-// === COMPUTED-ОБЕРТКИ ДЛЯ ШАБЛОНА ===
-// Фильтры
+// === СОСТОЯНИЕ OBJECT FORM ===
+const objectFormIsOpen = ref(false)
+const objectFormObjectId = ref(null)
+const objectFormStatementId = ref(null)
+const objectFormQrCode = ref('')
+const objectFormInitialData = ref({})
+
+// === ФУНКЦИЯ ДЛЯ QR-SCANNER MANAGER ===
+const openObjectFormFromQr = (params) => {
+  console.log('[STATEMENT-PAGE] Открытие формы из QR-менеджера:', params)
+  
+  // Определяем objectId: если есть existingObjectId - редактирование, иначе новый
+  objectFormObjectId.value = params.existingObjectId || null
+  
+  // Всегда передаем statementId строки ведомости
+  objectFormStatementId.value = params.rowData?.id || null
+  
+  // QR-код для привязки
+  objectFormQrCode.value = params.qrCode || ''
+  
+  // Данные для формы
+  objectFormInitialData.value = params.rowData || {}
+  
+  objectFormIsOpen.value = true
+}
+
+// === COMPUTED-ОБЕРТКИ ===
 const filterModalIsOpen = computed(() => showFilterModal.value)
 const filterModalTitle = computed(() => modalTitle.value)
 const filterModalOptions = computed(() => filterOptions.value)
@@ -127,13 +149,6 @@ const filterModalSelectedValues = computed(() => currentFilterValues.value)
 const filterModalIsLoading = computed(() => isLoadingOptions.value)
 const activeFiltersValue = computed(() => activeFilters.value)
 
-// ObjectForm
-const objectFormIsOpen = computed(() => objectFormManager.showObjectForm.value)
-const objectFormMode = computed(() => objectFormManager.objectFormData.value.mode)
-const objectFormInitialData = computed(() => objectFormManager.objectFormData.value.initialData)
-const objectFormQrCode = computed(() => objectFormManager.objectFormData.value.qrCode)
-
-// Данные
 const statementsLength = computed(() => statements.value?.length || 0)
 const tableStatements = computed(() => filteredStatements.value)
 const statementTitle = computed(() => {
@@ -141,6 +156,57 @@ const statementTitle = computed(() => {
   const firstRow = statements.value[0]
   return `${firstRow.doc_type} ${firstRow.sklad}`
 })
+
+// === ОБРАБОТЧИКИ OBJECT FORM ===
+const handleObjectFormSave = async (result) => {
+  console.log('[STATEMENT-PAGE] Результат сохранения объекта:', result)
+  
+  // Закрываем модалку
+  objectFormIsOpen.value = false
+  resetObjectFormState()
+  
+  // Если объект изменился
+  if (result.object_changed) {
+    // 1. Если создавали новый объект для строки ведомости
+    if (objectFormStatementId.value && objectFormObjectId.value === null) {
+      try {
+        console.log('[STATEMENT-PAGE] Устанавливаем have_object=true для записи:', {
+          attachmentId,
+          statementId: objectFormStatementId.value
+        })
+        
+        // Обновляем have_object для записи ведомости
+        await statementService.updateStatementHaveObject(
+          attachmentId,
+          objectFormStatementId.value,
+          true
+        )
+        
+      } catch (error) {
+        console.error('[STATEMENT-PAGE] Ошибка обновления ведомости:', error)
+        // Показываем ошибку пользователю
+      }
+    }
+    
+    // 2. Всегда перезагружаем ведомость для отображения изменений
+    reload()
+  }
+}
+
+const handleObjectFormCancel = () => {
+  console.log('[STATEMENT-PAGE] Отмена создания объекта')
+  objectFormIsOpen.value = false
+  resetObjectFormState()
+}
+
+const resetObjectFormState = () => {
+  setTimeout(() => {
+    objectFormObjectId.value = null
+    objectFormStatementId.value = null
+    objectFormQrCode.value = ''
+    objectFormInitialData.value = {}
+  }, 300)
+}
 
 // === МЕТОДЫ ===
 const handleBack = () => {
