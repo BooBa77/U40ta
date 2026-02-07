@@ -2,7 +2,7 @@
  * Сервис для работы с объектами инвентаризации
  * Поддерживает онлайн/офлайн режимы работы
  */
-import { offlineCache } from '../../../services/OfflineCacheService'
+import { offlineCache } from '@/services/OfflineCacheService'
 
 export class ObjectService {
   constructor() {

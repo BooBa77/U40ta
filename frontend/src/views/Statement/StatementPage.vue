@@ -82,7 +82,7 @@ import { useStatementColumns } from './composables/useStatementColumns'
 import { useStatementProcessing } from './composables/useStatementProcessing'
 import { useSimpleFiltersManager } from './composables/useFiltersManager'
 import { useIgnoreManager } from './composables/useIgnoreManager'
-import { useQrScannerManager } from './composables/useQrScannerManager' <!-- ВОССТАНАВЛИВАЕМ -->
+import { useQrScannerManager } from './composables/useQrScannerManager'
 import { statementService } from './services/statement.service'
 
 const route = useRoute()
@@ -113,7 +113,7 @@ const {
 
 // === МЕНЕДЖЕРЫ ===
 const ignoreManager = useIgnoreManager(attachmentId, reload)
-const qrScannerManager = useQrScannerManager(openObjectFormFromQr) <!-- ИЗМЕНЯЕМ -->
+const qrScannerManager = useQrScannerManager(openObjectFormFromQr)
 
 // === СОСТОЯНИЕ OBJECT FORM ===
 const objectFormIsOpen = ref(false)

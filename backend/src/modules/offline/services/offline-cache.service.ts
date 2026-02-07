@@ -116,7 +116,6 @@ export class OfflineCacheService {
       inv_number: obj.inv_number,
       party_number: obj.party_number,
       sn: obj.sn,
-      commentary: obj.commentary,
       is_written_off: obj.is_written_off,
       checked_at: obj.checked_at,
       place_ter: obj.place_ter,

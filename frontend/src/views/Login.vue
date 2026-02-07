@@ -69,9 +69,32 @@ export default {
 
         const data = await response.json()
 
-        // Теперь ВСЕГДА получаем токен
+        // ВСЕГДА получаем токен
         localStorage.setItem('auth_token', data.access_token)
-        router.push('/') // Всегда успешный редирект
+        // проверяем redirect
+        if (!import.meta.env.DEV) {
+          const urlParams = new URLSearchParams(window.location.search)
+          const redirect = urlParams.get('redirect')
+          
+          if (redirect) {
+            // Если redirect - это полный URL (начинается с http)
+            if (redirect.startsWith('http')) {
+              // Это наш QR-код, переходим на Home с qr параметром
+              router.push({
+                path: '/',
+                query: { qr: redirect }
+              })
+              return
+            } else {
+              // Обычный путь
+              router.push(redirect)
+              return
+            }
+          }
+        }
+        
+        // Нет redirect или development - на главную
+        router.push('/')        
         
       } catch (error) {
         console.error('Auth error:', error)
