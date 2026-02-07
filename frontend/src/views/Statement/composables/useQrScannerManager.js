@@ -2,7 +2,7 @@
  * Менеджер для обработки QR-сканирования
  * Управляет логикой проверки и обработки QR-кодов
  */
-import { qrService } from '@/services/qr.service'
+import { qrService } from '@/services/qr-service'
 
 export function useQrScannerManager(openObjectFormCallback) {
   /**
