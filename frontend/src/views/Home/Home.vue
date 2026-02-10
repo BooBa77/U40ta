@@ -90,7 +90,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
@@ -98,6 +98,7 @@ import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // Основные состояния компонента
 const userAbr = ref('') // Аббревиатура пользователя
@@ -476,6 +477,18 @@ onMounted(() => {
         isFlightMode.value = JSON.parse(event.newValue || 'false')
       }
     })
+    
+    // ============ обработка QR параметра (при входе по ссылке из QR-кода) ============
+    const qrParam = route.query.qr
+    if (qrParam && typeof qrParam === 'string') {
+      console.log('Home: QR параметр из URL:', qrParam)
+      // Используем ту же функцию, что и при сканировании камерой
+      handleQrScan(qrParam)
+      
+      // Очищаем query-параметр из URL
+      // чтобы при обновлении страницы модалка не открывалась снова
+      router.replace({ query: {} })
+    }
   }
 })
 
