@@ -13,8 +13,8 @@ export function useQrScannerManager(openObjectFormCallback) {
     
     try {
       // Используем qrService для проверки QR
-      const qrWithObject = await qrService.getQrCodeWithObject(qrCode)
-      
+      const qrWithObject = await qrService.findObjectIdByQrCode(qrCode)
+
       if (!qrWithObject) {
         // Сценарий А: код не найден
         console.log('QR-код не найден, создаём новый объект')

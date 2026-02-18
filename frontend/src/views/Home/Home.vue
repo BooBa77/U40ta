@@ -96,6 +96,8 @@ import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
+import { qrService } from '@/services/qr-service.js'
+import { objectService } from '@/services/object-service.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -325,44 +327,31 @@ const handleUserDataUpdatedEvent = (eventData) => {
 
 /**
  * Обработка результата сканирования QR-кода
- * Ищет объект в БД и открывает ObjectForm в режиме редактирования если найден
  */
 const handleQrScan = async (qrCode) => {
   console.log('Home: получен QR-код:', qrCode)
   scannedQrCode.value = qrCode
   
   try {
-    const token = localStorage.getItem('auth_token')
+    // Используем qrService для получения кода
+    const result = await qrService.findObjectIdByQrCode(qrCode)
     
-    // Ищем точное совпадение в БД
-    const response = await fetch(`/api/qr-codes/scan?qr=${encodeURIComponent(qrCode)}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    
-    if (response.ok) {
-      const result = await response.json()
-      console.log('Результат поиска по QR:', result)
-      
-      if (result.success && result.object_id) {
-        // QR найден, получаем данные объекта
-        await loadObjectData(result.object_id)
-      } else {
-        // QR не найден
-        showInfoMessage('QR-код не найден', 'Данный QR-код не обнаружен в базе данных.')
-        showObjectForm.value = false
-      }
+    if (result && result.object_id) {
+      // QR найден, получаем данные объекта
+      await loadObjectData(result.object_id)
     } else {
-      showInfoMessage('Ошибка сервера', 'Ошибка сервера при поиске QR-кода.')
+      // QR не найден
+      showInfoMessage('QR-код не найден', 'Данный QR-код не обнаружен в базе данных.')
       showObjectForm.value = false
     }
   } catch (error) {
     console.error('Home: ошибка при обработке QR-кода:', error)
     
-    // Проверяем, может ли это быть ошибкой сети (оффлайн)
+    // qrService сам выбрасывает понятные ошибки
     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
       showInfoMessage('Ошибка сети', 'Проверьте подключение к интернету.')
     } else {
-      showInfoMessage('Ошибка обработки', 'Ошибка при обработке QR-кода.')
+      showInfoMessage('Ошибка обработки', error.message || 'Ошибка при обработке QR-кода.')
     }
     
     showObjectForm.value = false
@@ -374,27 +363,16 @@ const handleQrScan = async (qrCode) => {
  */
 const loadObjectData = async (objectId) => {
   try {
-    const token = localStorage.getItem('auth_token')
+    const objectData = await objectService.getObject(objectId)
     
-    // Используем существующий эндпоинт объектов
-    const response = await fetch(`/api/objects/${objectId}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
+    // Объект найден - открываем форму редактирования
+    objectFormMode.value = 'edit'
+    objectFormData.value = objectData
+    showObjectForm.value = true
     
-    if (response.ok) {
-      const objectData = await response.json()
-      
-      // Объект найден - открываем форму редактирования
-      objectFormMode.value = 'edit'
-      objectFormData.value = objectData
-      showObjectForm.value = true
-    } else {
-      showInfoMessage('Ошибка загрузки', 'Объект найден, но не удалось загрузить данные.')
-      showObjectForm.value = false
-    }
   } catch (error) {
     console.error('Home: ошибка загрузки данных объекта:', error)
-    showInfoMessage('Ошибка загрузки', 'Ошибка загрузки данных объекта.')
+    showInfoMessage('Ошибка загрузки', error.message || 'Ошибка загрузки данных объекта.')
     showObjectForm.value = false
   }
 }

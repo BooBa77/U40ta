@@ -43,9 +43,8 @@
       <ObjectFormModal
         :is-open="objectFormIsOpen"
         :object-id="objectFormObjectId"
-        :statement-id="objectFormStatementId"
-        :qr-code="objectFormQrCode"
         :initial-data="objectFormInitialData"
+        :initial-qr-code="objectFormQrCode"
         @save="handleObjectFormSave"
         @cancel="handleObjectFormCancel"
       />
@@ -60,7 +59,7 @@
         :has-party-or-quantity="hasPartyOrQuantity"
         @filter-click="handleFilterClick"
         @ignore-change="ignoreManager.handleIgnoreChange"
-        @qr-scan="qrScannerManager.handleQrScan"
+        @qr-scan="openObjectFormFromRowData"
       />
       <div v-else class="empty">
         В ведомости нет данных
@@ -70,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatementTable from './components/StatementTable.vue'
 import FilterModal from './components/FilterModal.vue'
@@ -82,7 +81,6 @@ import { useStatementColumns } from './composables/useStatementColumns'
 import { useStatementProcessing } from './composables/useStatementProcessing'
 import { useSimpleFiltersManager } from './composables/useFiltersManager'
 import { useIgnoreManager } from './composables/useIgnoreManager'
-import { useQrScannerManager } from './composables/useQrScannerManager'
 import { statementService } from './services/statement.service'
 
 const route = useRoute()
@@ -111,32 +109,20 @@ const {
   resetAllFilters
 } = useSimpleFiltersManager(attachmentId, processedStatements)
 
-// === МЕНЕДЖЕРЫ ===
-const ignoreManager = useIgnoreManager(attachmentId, reload)
-const qrScannerManager = useQrScannerManager(openObjectFormFromQr)
-
 // === СОСТОЯНИЕ OBJECT FORM ===
 const objectFormIsOpen = ref(false)
 const objectFormObjectId = ref(null)
-const objectFormStatementId = ref(null)
-const objectFormQrCode = ref('')
+//const objectFormStatementId = ref(null)
 const objectFormInitialData = ref({})
 
-// === ФУНКЦИЯ ДЛЯ QR-SCANNER MANAGER ===
-const openObjectFormFromQr = (params) => {
-  console.log('[STATEMENT-PAGE] Открытие формы из QR-менеджера:', params)
+// === ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ФОРМЫ ИЗ ТАБЛИЦЫ ===
+const openObjectFormFromRowData = ({ rowData }) => {
+  console.log('[STATEMENT-PAGE] Открытие формы для строки ведомости:', rowData)
   
-  // Определяем objectId: если есть existingObjectId - редактирование, иначе новый
-  objectFormObjectId.value = params.existingObjectId || null
-  
-  // Всегда передаем statementId строки ведомости
-  objectFormStatementId.value = params.rowData?.id || null
-  
-  // QR-код для привязки
-  objectFormQrCode.value = params.qrCode || ''
-  
-  // Данные для формы
-  objectFormInitialData.value = params.rowData || {}
+  // Всегда создаём новый объект (objectId = null)
+  objectFormObjectId.value = null
+  //objectFormStatementId.value = rowData.id || null
+  objectFormInitialData.value = rowData
   
   objectFormIsOpen.value = true
 }
@@ -167,15 +153,14 @@ const handleObjectFormSave = async (result) => {
   
   // Если объект изменился
   if (result.object_changed) {
-    // 1. Если создавали новый объект для строки ведомости
-    if (objectFormStatementId.value && objectFormObjectId.value === null) {
+    // Обновляем have_object для записи ведомости
+    if (objectFormStatementId.value) {
       try {
         console.log('[STATEMENT-PAGE] Устанавливаем have_object=true для записи:', {
           attachmentId,
           statementId: objectFormStatementId.value
         })
         
-        // Обновляем have_object для записи ведомости
         await statementService.updateStatementHaveObject(
           attachmentId,
           objectFormStatementId.value,
@@ -184,11 +169,10 @@ const handleObjectFormSave = async (result) => {
         
       } catch (error) {
         console.error('[STATEMENT-PAGE] Ошибка обновления ведомости:', error)
-        // Показываем ошибку пользователю
       }
     }
     
-    // 2. Всегда перезагружаем ведомость для отображения изменений
+    // Перезагружаем ведомость для отображения изменений
     reload()
   }
 }
@@ -203,7 +187,6 @@ const resetObjectFormState = () => {
   setTimeout(() => {
     objectFormObjectId.value = null
     objectFormStatementId.value = null
-    objectFormQrCode.value = ''
     objectFormInitialData.value = {}
   }, 300)
 }
@@ -219,6 +202,10 @@ const handleFilterClick = (columnId) => {
   console.log('[STATEMENT-PAGE] Клик по фильтру для колонки:', columnId)
   openFilterModal(columnId)
 }
+
+// === МЕНЕДЖЕРЫ ===
+const ignoreManager = useIgnoreManager(attachmentId, reload)
+
 </script>
 
 <style scoped>

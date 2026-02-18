@@ -30,13 +30,8 @@
           @click="handleRowClick(row)"
         >
           <td>
-            <!-- ЗАМЕНЯЕМ qr-placeholder на QrScannerButton -->
             <QrScannerButton 
               size="small"
-              :item-data="{ 
-                inv_number: getInvNumber(row.original),
-                buh_name: getBuhName(row.original)
-              }"
               @scan="(scannedData) => handleQrScan(scannedData, row.original)"
               @error="handleQrError"
             />
@@ -108,7 +103,7 @@ const props = defineProps({
   }
 })
 
-// ДОБАВЛЯЕМ событие qr-scan
+// ДОБАВЛЯЕМ события
 const emit = defineEmits(['filter-click', 'ignore-change', 'qr-scan'])
 
 const tableContainer = ref(null)
@@ -139,19 +134,20 @@ const handleRowClick = (row) => {
 
 // ДОБАВЛЯЕМ обработчик QR сканирования
 const handleQrScan = (scannedData, rowData) => {
-  console.log('QR отсканирован:', {
-    qrCode: scannedData,
-    rowData: {
-      inv_number: getInvNumber(rowData),
-      buh_name: getBuhName(rowData),
-      fullData: rowData
-    }
-  })
+  console.log('[StatementTable] QR отсканирован, передаём наверх')
   
   // ПРОСТО передаём событие наверх
   emit('qr-scan', {
     qrCode: scannedData,
-    rowData: rowData,
+    rowData: {
+      //id: row.original.id,
+      inv_number: row.original.inv_number,
+      buh_name: row.original.buh_name,
+      sklad: row.original.sklad,
+      zavod: row.original.zavod,
+      party_number: row.original.party_number
+      // всё, что нужно для создания объекта
+    }
   })
 }
 
