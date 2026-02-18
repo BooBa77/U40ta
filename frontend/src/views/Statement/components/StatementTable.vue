@@ -138,16 +138,8 @@ const handleQrScan = (scannedData, rowData) => {
   
   // ПРОСТО передаём событие наверх
   emit('qr-scan', {
-    qrCode: scannedData,
-    rowData: {
-      //id: row.original.id,
-      inv_number: row.original.inv_number,
-      buh_name: row.original.buh_name,
-      sklad: row.original.sklad,
-      zavod: row.original.zavod,
-      party_number: row.original.party_number
-      // всё, что нужно для создания объекта
-    }
+    scannedData,
+    rowData
   })
 }
 

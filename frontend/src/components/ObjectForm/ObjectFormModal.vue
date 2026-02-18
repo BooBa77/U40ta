@@ -222,7 +222,7 @@ const resetForm = () => {
 // Обработчики
 const handleCancel = () => {
   resetForm()
-  emit('close', { object_changed: false })
+  emit('cancel', { object_changed: false })
 }
 
 const handleClose = () => handleCancel()

@@ -186,7 +186,6 @@ const handleObjectFormCancel = () => {
 const resetObjectFormState = () => {
   setTimeout(() => {
     objectFormObjectId.value = null
-    objectFormStatementId.value = null
     objectFormInitialData.value = {}
   }, 300)
 }
