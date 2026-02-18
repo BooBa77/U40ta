@@ -27,66 +27,47 @@
         />
       </div>
 
-      <!-- 3. Местоположение -->
+      <!-- 3. Местоположение (заглушка) -->
       <div class="location-section">
         <div class="form-field">
           <input
             type="text"
-            v-model="places.territory.value"
-            list="ter-list"
+            v-model="places.territory"
             placeholder="Территория"
-            class="input-field combo-input"
+            class="input-field"
             :disabled="isSaving"
           />
-          <datalist id="ter-list">
-            <option v-for="ter in places.territoryOptions" :key="ter" :value="ter" />
-          </datalist>
         </div>
-
         <div class="form-field">
           <input
             type="text"
-            v-model="places.room.value"
-            list="pos-list"
+            v-model="places.room"
             placeholder="Помещение"
-            class="input-field combo-input"
-            :disabled="!places.territory.value || isSaving"
+            class="input-field"
+            :disabled="isSaving"
           />
-          <datalist id="pos-list">
-            <option v-for="pos in places.roomOptions" :key="pos" :value="pos" />
-          </datalist>
         </div>
-
         <div class="form-field">
           <input
             type="text"
-            v-model="places.cabinet.value"
-            list="cab-list"
+            v-model="places.cabinet"
             placeholder="Кабинет"
-            class="input-field combo-input"
-            :disabled="!places.room.value || isSaving"
+            class="input-field"
+            :disabled="isSaving"
           />
-          <datalist id="cab-list">
-            <option v-for="cab in places.cabinetOptions" :key="cab" :value="cab" />
-          </datalist>
         </div>
-
         <div class="form-field">
           <input
             type="text"
-            v-model="places.user.value"
-            list="user-list"
+            v-model="places.user"
             placeholder="Пользователь"
-            class="input-field combo-input"
-            :disabled="!places.cabinet.value || isSaving"
+            class="input-field"
+            :disabled="isSaving"
           />
-          <datalist id="user-list">
-            <option v-for="user in places.userOptions" :key="user" :value="user" />
-          </datalist>
         </div>
       </div>
 
-      <!-- 4. Строка действий -->
+      <!-- 4. Кнопки действий -->
       <div class="actions-container">
         <div class="actions-buttons">
           <button class="btn-action" @click="addQrCode" :disabled="isSaving || !objectData.id">
@@ -95,22 +76,6 @@
           <button class="btn-action" @click="addPhoto" :disabled="isSaving || !objectData.id">
             Добавить фото
           </button>
-        </div>
-        
-        <!-- Карусель фото -->
-        <div class="photos-carousel" v-if="photos.photos.value.length > 0">
-          <div class="photo-thumb" v-for="(photo, index) in photos.photos.value" :key="index">
-            <img :src="photo.thumbUrl || photo.url" alt="Фото" />
-            <button 
-              v-if="!isSaving"
-              class="photo-remove-btn"
-              @click="photos.removePhoto(index)"
-              type="button"
-              title="Удалить фото"
-            >
-              ×
-            </button>
-          </div>
         </div>
       </div>
 
@@ -123,24 +88,6 @@
           rows="3"
           :disabled="isSaving"
         />
-      </div>
-
-      <!-- 6. История изменений -->
-      <div class="history-section">
-        <div class="history-table">
-          <div class="table-header">
-            <div class="table-col">Дата</div>
-            <div class="table-col">Пользователь</div>
-            <div class="table-col">Действие</div>
-          </div>
-          <div class="table-body">
-            <div class="table-row" v-for="(record, index) in history.history.value" :key="index">
-              <div class="table-col">{{ formatDate(record.created_at) }}</div>
-              <div class="table-col">{{ record.user_name }}</div>
-              <div class="table-col">{{ record.action }}</div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div v-if="errorMessage" class="error-message">
@@ -164,50 +111,43 @@ import { ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { objectService } from '@/services/object-service.js'
 import { qrService } from '@/services/qr-service.js'
-
-// Локальные композаблы
 import { useObjectFormLifecycle } from './composables/useObjectFormLifecycle'
-import { useObjectPlaces } from './composables/useObjectPlaces'
-import { useObjectPhotos } from './composables/useObjectPhotos'
 import { useObjectQrManager } from './composables/useObjectQrManager'
-import { useObjectHistory } from '@/composables/useObjectHistory'
 
 const props = defineProps({
   isOpen: Boolean,
   objectId: [Number, String, null],
-  initialData: { type: Object, default: () => ({}) }
+  initialData: { type: Object, default: () => ({}) },
+  initialQrCode: { type: String, default: null }
 })
 
 const emit = defineEmits(['close', 'save'])
 
-// 1. ЖИЗНЕННЫЙ ЦИКЛ
-const {
-  isSaving,
-  errorMessage,
-  comment,
-  objectData,
-  loadObject,
-  initFromRowData,
-  resetForm,
-  prepareSaveData
-} = useObjectFormLifecycle(props, emit)
+// Состояния
+const isSaving = ref(false)
+const errorMessage = ref('')
+const comment = ref('')
 
-// 2. МЕСТОПОЛОЖЕНИЕ
-const places = useObjectPlaces()
+// Данные объекта
+const objectData = ref({
+  id: null,
+  inv_number: '',
+  buh_name: '',
+  sklad: '',
+  zavod: '',
+  party_number: '',
+  sn: ''
+})
 
-// 3. ФОТО
-const photos = useObjectPhotos()
+// Местоположение (временные простые поля)
+const places = ref({
+  territory: '',
+  room: '',
+  cabinet: '',
+  user: ''
+})
 
-// 4. QR-МЕНЕДЖЕР
-const handleCancel = () => {
-  resetForm()
-  places.reset()
-  resetQr()  // очищаем QR-менеджер
-  emit('close', { object_changed: false })
-}
-
-const handleClose = () => handleCancel()
-
+// QR-менеджер
 const {
   pendingQrCodes,
   isScanning,
@@ -215,28 +155,93 @@ const {
   saveQrCodes,
   reset: resetQr
 } = useObjectQrManager(objectData, {
-  onCancel: handleClose    // если отказались от ввода первого кода, выход без сохранений
+  onCancel: () => handleCancel()
 })
 
-// Методы
+// Загрузка существующего объекта
+const loadObject = async (id) => {
+  try {
+    const object = await objectService.getObject(id)
+    objectData.value = {
+      id: object.id,
+      inv_number: object.inv_number || '',
+      buh_name: object.buh_name || '',
+      sklad: object.sklad || '',
+      zavod: object.zavod || '',
+      party_number: object.party_number || '',
+      sn: object.sn || ''
+    }
+    places.value = {
+      territory: object.place_ter || '',
+      room: object.place_pos || '',
+      cabinet: object.place_cab || '',
+      user: object.place_user || ''
+    }
+  } catch (error) {
+    errorMessage.value = `Ошибка загрузки: ${error.message}`
+    throw error
+  }
+}
+
+// Инициализация из строки ведомости
+const initFromRowData = (data) => {
+  objectData.value = {
+    id: null,
+    inv_number: data.inv_number || '',
+    buh_name: data.buh_name || '',
+    sklad: data.sklad || '',
+    zavod: data.zavod || '',
+    party_number: data.party_number || '',
+    sn: data.sn || ''
+  }
+}
+
+// Сброс формы
+const resetForm = () => {
+  objectData.value = {
+    id: null,
+    inv_number: '',
+    buh_name: '',
+    sklad: '',
+    zavod: '',
+    party_number: '',
+    sn: ''
+  }
+  places.value = {
+    territory: '',
+    room: '',
+    cabinet: '',
+    user: ''
+  }
+  comment.value = ''
+  errorMessage.value = ''
+  isSaving.value = false
+  resetQr()
+}
+
+// Обработчики
+const handleCancel = () => {
+  resetForm()
+  emit('close', { object_changed: false })
+}
+
+const handleClose = () => handleCancel()
+
 const addQrCode = async () => {
   if (!objectData.value.id) {
     errorMessage.value = 'Сначала сохраните объект'
     return
   }
-  await scanQrCode()  // дополнительный код (isFirst = false по умолчанию)
+  await scanQrCode()
 }
 
-// 5. ИСТОРИЯ (глобальный)
-const history = useObjectHistory()
-
-// Методы (раскидать)
 const addPhoto = async () => {
   if (!objectData.value.id) {
     errorMessage.value = 'Сначала сохраните объект'
     return
   }
-  await photos.addPhoto(objectData.value.id)
+  // Заглушка для фото
+  console.log('Добавление фото для объекта', objectData.value.id)
 }
 
 const handleSave = async () => {
@@ -246,24 +251,19 @@ const handleSave = async () => {
   try {
     const saveData = {
       ...objectData.value,
-      place_ter: places.territory.value,
-      place_pos: places.room.value,
-      place_cab: places.cabinet.value,
-      place_user: places.user.value
+      place_ter: places.value.territory || null,
+      place_pos: places.value.room || null,
+      place_cab: places.value.cabinet || null,
+      place_user: places.value.user || null
     }
     
-    // 1. Сохраняем объект
+    // Сохраняем объект
     const savedObject = await objectService.saveObject(saveData)
     objectData.value.id = savedObject.id
     
-    // 2. Привязываем QR-коды
+    // Привязываем QR-коды
     if (pendingQrCodes.value.length > 0) {
       await saveQrCodes(savedObject.id)
-    }
-    
-    // 3. Комментарий в историю
-    if (comment.value.trim()) {
-      await history.addHistoryRecord('Добавлен комментарий', comment.value, savedObject.id)
     }
     
     emit('save', { 
@@ -278,36 +278,42 @@ const handleSave = async () => {
   }
 }
 
-const formatDate = (dateString) => {
-  if (!dateString) return '—'
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  } catch {
-    return dateString
-  }
-}
-
-// Загрузка при открытии
+// Открытие модалки
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     resetForm()
-    places.reset()
-    resetQr()
     
     if (props.objectId) {
-      const object = await loadObject(props.objectId)
-      places.initFromObject(object)
-      await photos.loadPhotos(props.objectId)
+      // Редактирование существующего
+      await loadObject(props.objectId)
     } else {
+      // Создание нового из строки ведомости
       initFromRowData(props.initialData)
-      await scanQrCode({ isFirst: true })  // ПЕРВЫЙ код
+      
+      // Обрабатываем переданный QR-код
+      if (props.initialQrCode) {
+        try {
+          const existing = await qrService.findObjectIdByQrCode(props.initialQrCode)
+          
+          if (existing?.object_id) {
+            const confirmReassign = confirm(
+              `QR-код "${props.initialQrCode}" уже привязан к другому объекту.\nПерепривязать к новому объекту?`
+            )
+            
+            if (!confirmReassign) {
+              handleCancel()
+              return
+            }
+          }
+          
+          pendingQrCodes.value.push(props.initialQrCode)
+          console.log('Код добавлен в очередь:', props.initialQrCode)
+          
+        } catch (error) {
+          console.error('Ошибка проверки QR-кода:', error)
+          pendingQrCodes.value.push(props.initialQrCode)
+        }
+      }
     }
   }
 }, { immediate: true })
