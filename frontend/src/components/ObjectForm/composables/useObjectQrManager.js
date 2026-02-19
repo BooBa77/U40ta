@@ -1,25 +1,58 @@
 import { ref } from 'vue'
-import { useQrCamera } from '@/components/QRScanner/composables/useQrCamera'
-import { qrService } from '@/services/qr-service'
+import { useQrCamera } from '@/components/QrScanner/composables/useQrCamera'
+import { qrService } from '@/services/qr-service.js'
 
 export function useObjectQrManager(objectData, { onCancel } = {}) {
   const pendingQrCodes = ref([])
   const isScanning = ref(false)
   
-  // Сканирование QR-кода
+  // Обработка отсканированного кода
+  const handleScannedCode = async (qrCode, { isFirst = false } = {}) => {
+    try {
+      // Проверяем существование кода в БД
+      const existing = await qrService.findObjectIdByQrCode(qrCode)
+      
+      if (existing?.object_id) {
+        // Код уже привязан к другому объекту
+        const confirmReassign = confirm(
+          `QR-код "${qrCode}" уже привязан к другому объекту.\nПерепривязать к этому объекту?`
+        )
+        
+        if (!confirmReassign) {
+          // Если это первый код и пользователь отказался - закрываем модалку
+          if (isFirst) {
+            onCancel?.()
+          }
+          // Для дополнительного кода просто ничего не делаем
+          return false
+        }
+        // Если согласился - код будет перезаписан при сохранении
+      }
+      
+      // Добавляем код в очередь
+      pendingQrCodes.value.push(qrCode)
+      console.log('Код добавлен в очередь:', qrCode)
+      return true
+      
+    } catch (error) {
+      console.error('Ошибка проверки кода:', error)
+      // При ошибке проверки всё равно добавляем - сохраним как есть
+      pendingQrCodes.value.push(qrCode)
+      return true
+    }
+  }
+  
+  // Сканирование QR-кода камерой
   const scanQrCode = async ({ isFirst = false } = {}) => {
     isScanning.value = true
     
     try {
-      // Используем композабл камеры
       const { startCameraScan } = useQrCamera({
         onScan: async (result) => {
-          // Обрабатываем результат сканирования
-          await handleScannedCode(result)
-          
-          // Если это первый код и он не добавился (закрыли камеру)
-          if (isFirst && !pendingQrCodes.value.length) {
-            onCancel?.()
+          const added = await handleScannedCode(result, { isFirst })
+          if (!added && isFirst) {
+            // Если первый код не добавился и пользователь отказался - onCancel уже вызван в handleScannedCode
+            return
           }
         },
         onError: (error) => {
@@ -38,35 +71,13 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
     }
   }
   
-  // Обработка отсканированного кода
-  const handleScannedCode = async (qrCode) => {
+  // Обработка переданного кода (без сканирования)
+  const processInitialQrCode = async (qrCode, { isFirst = false } = {}) => {
+    isScanning.value = true
     try {
-      // Проверяем существование кода в БД
-      const existing = await qrService.findObjectIdByQrCode(qrCode)
-      
-      if (existing) {
-        console.log(`Код ${qrCode} уже привязан к объекту ${existing.object_id}, будет перезаписан`)
-      }
-      
-      // Добавляем в массив (дубликаты не проверяем - пусть хоть сто раз)
-      pendingQrCodes.value.push(qrCode)
-      console.log('Код добавлен в очередь:', qrCode)
-      
-    } catch (error) {
-      console.error('Ошибка проверки кода:', error)
-      // Даже при ошибке проверки добавляем - последний сохранил
-      pendingQrCodes.value.push(qrCode)
-    }
-  }
-  
-  // Загрузка существующих кодов объекта (для режима редактирования)
-  const loadExistingQrCodes = async (objectId) => {
-    try {
-      const codes = await qrService.getObjectQrCodes?.(objectId) || []
-      // Если есть метод получения кодов объекта - добавляем их в pending
-      pendingQrCodes.value = [...pendingQrCodes.value, ...codes]
-    } catch (error) {
-      console.error('Ошибка загрузки существующих кодов:', error)
+      await handleScannedCode(qrCode, { isFirst })
+    } finally {
+      isScanning.value = false
     }
   }
   
@@ -104,16 +115,15 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
   const reset = () => {
     pendingQrCodes.value = []
     isScanning.value = false
-    // Останавливаем камеру, если активна
     const { stopCameraScan } = useQrCamera()
-    stopCameraScan()
+    stopCameraScan?.()
   }
   
   return {
     pendingQrCodes,
     isScanning,
     scanQrCode,
-    loadExistingQrCodes,
+    processInitialQrCode,  // метод для переданного QR-кода
     saveQrCodes,
     reset
   }

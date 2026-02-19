@@ -4,7 +4,7 @@
     :show-header="false"
     :width="'100vw'"
     :max-width="'100vw'"
-    @close="handleClose"
+    @close="handleCancel"
   >
     <div class="object-form-content">
       <!-- 1. Нередактируемые данные -->
@@ -27,59 +27,20 @@
         />
       </div>
 
-      <!-- 3. Местоположение (заглушка) -->
-      <div class="location-section">
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="places.territory"
-            placeholder="Территория"
-            class="input-field"
-            :disabled="isSaving"
-          />
-        </div>
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="places.room"
-            placeholder="Помещение"
-            class="input-field"
-            :disabled="isSaving"
-          />
-        </div>
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="places.cabinet"
-            placeholder="Кабинет"
-            class="input-field"
-            :disabled="isSaving"
-          />
-        </div>
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="places.user"
-            placeholder="Пользователь"
-            class="input-field"
-            :disabled="isSaving"
-          />
-        </div>
-      </div>
-
-      <!-- 4. Кнопки действий -->
+      <!-- 3. Кнопки действий -->
       <div class="actions-container">
         <div class="actions-buttons">
-          <button class="btn-action" @click="addQrCode" :disabled="isSaving || !objectData.id">
+          <button 
+            class="btn-action" 
+            @click="addQrCode" 
+            :disabled="isSaving"
+          >
             Добавить QR-код
-          </button>
-          <button class="btn-action" @click="addPhoto" :disabled="isSaving || !objectData.id">
-            Добавить фото
           </button>
         </div>
       </div>
 
-      <!-- 5. Комментарий -->
+      <!-- 4. Комментарий -->
       <div class="form-field">
         <textarea
           v-model="comment"
@@ -111,7 +72,7 @@ import { ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { objectService } from '@/services/object-service.js'
 import { qrService } from '@/services/qr-service.js'
-import { useObjectFormLifecycle } from './composables/useObjectFormLifecycle'
+import { historyService } from '@/services/history-service.js'
 import { useObjectQrManager } from './composables/useObjectQrManager'
 
 const props = defineProps({
@@ -121,7 +82,7 @@ const props = defineProps({
   initialQrCode: { type: String, default: null }
 })
 
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(['save', 'cancel'])
 
 // Состояния
 const isSaving = ref(false)
@@ -139,23 +100,14 @@ const objectData = ref({
   sn: ''
 })
 
-// Местоположение (временные простые поля)
-const places = ref({
-  territory: '',
-  room: '',
-  cabinet: '',
-  user: ''
-})
-
 // QR-менеджер
 const {
   pendingQrCodes,
-  isScanning,
   scanQrCode,
   saveQrCodes,
   reset: resetQr
 } = useObjectQrManager(objectData, {
-  onCancel: () => handleCancel()
+  onCancel: () => handleCancel()  // при отказе от первого кода закрываем модалку
 })
 
 // Загрузка существующего объекта
@@ -170,12 +122,6 @@ const loadObject = async (id) => {
       zavod: object.zavod || '',
       party_number: object.party_number || '',
       sn: object.sn || ''
-    }
-    places.value = {
-      territory: object.place_ter || '',
-      room: object.place_pos || '',
-      cabinet: object.place_cab || '',
-      user: object.place_user || ''
     }
   } catch (error) {
     errorMessage.value = `Ошибка загрузки: ${error.message}`
@@ -207,12 +153,6 @@ const resetForm = () => {
     party_number: '',
     sn: ''
   }
-  places.value = {
-    territory: '',
-    room: '',
-    cabinet: '',
-    user: ''
-  }
   comment.value = ''
   errorMessage.value = ''
   isSaving.value = false
@@ -225,23 +165,8 @@ const handleCancel = () => {
   emit('cancel', { object_changed: false })
 }
 
-const handleClose = () => handleCancel()
-
 const addQrCode = async () => {
-  if (!objectData.value.id) {
-    errorMessage.value = 'Сначала сохраните объект'
-    return
-  }
-  await scanQrCode()
-}
-
-const addPhoto = async () => {
-  if (!objectData.value.id) {
-    errorMessage.value = 'Сначала сохраните объект'
-    return
-  }
-  // Заглушка для фото
-  console.log('Добавление фото для объекта', objectData.value.id)
+  await scanQrCode()  // менеджер сам всё сделает
 }
 
 const handleSave = async () => {
@@ -249,27 +174,27 @@ const handleSave = async () => {
   errorMessage.value = ''
   
   try {
-    const saveData = {
-      ...objectData.value,
-      place_ter: places.value.territory || null,
-      place_pos: places.value.room || null,
-      place_cab: places.value.cabinet || null,
-      place_user: places.value.user || null
-    }
-    
-    // Сохраняем объект
-    const savedObject = await objectService.saveObject(saveData)
+    // 1. Сохраняем объект
+    const savedObject = await objectService.saveObject(objectData.value)
     objectData.value.id = savedObject.id
     
-    // Привязываем QR-коды
+    // 2. Привязываем QR-коды
     if (pendingQrCodes.value.length > 0) {
       await saveQrCodes(savedObject.id)
     }
     
-    emit('save', { 
-      object_changed: true,
-      objectId: savedObject.id 
-    })
+    // 3. Записи в историю
+    await historyService.addHistoryRecord(savedObject.id, 'Объект создан')
+    
+    if (comment.value.trim()) {
+      await historyService.addHistoryRecord(savedObject.id, comment.value.trim())
+    }
+    
+    // 4. Сообщаем родителю
+    emit('save', { object_changed: true })
+    
+    // 5. Закрываем модалку
+    resetForm()
     
   } catch (error) {
     errorMessage.value = `Ошибка сохранения: ${error.message}`
@@ -290,30 +215,13 @@ watch(() => props.isOpen, async (isOpen) => {
       // Создание нового из строки ведомости
       initFromRowData(props.initialData)
       
-      // Обрабатываем переданный QR-код
+      // Если есть переданный код - сразу сканируем его как первый
       if (props.initialQrCode) {
-        try {
-          const existing = await qrService.findObjectIdByQrCode(props.initialQrCode)
-          
-          if (existing?.object_id) {
-            const confirmReassign = confirm(
-              `QR-код "${props.initialQrCode}" уже привязан к другому объекту.\nПерепривязать к новому объекту?`
-            )
-            
-            if (!confirmReassign) {
-              handleCancel()
-              return
-            }
-          }
-          
-          pendingQrCodes.value.push(props.initialQrCode)
-          console.log('Код добавлен в очередь:', props.initialQrCode)
-          
-        } catch (error) {
-          console.error('Ошибка проверки QR-кода:', error)
-          pendingQrCodes.value.push(props.initialQrCode)
-        }
+        await processInitialQrCode(props.initialQrCode, { isFirst: true })
+      } else {
+        await scanQrCode({ isFirst: true })
       }
+
     }
   }
 }, { immediate: true })
