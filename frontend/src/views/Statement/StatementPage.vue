@@ -114,15 +114,16 @@ const objectFormIsOpen = ref(false)
 const objectFormObjectId = ref(null)
 //const objectFormStatementId = ref(null)
 const objectFormInitialData = ref({})
+const objectFormQrCode = ref(null)
 
 // === ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ФОРМЫ ИЗ ТАБЛИЦЫ ===
-const openObjectFormFromRowData = ({ rowData }) => {
+const openObjectFormFromRowData = ({ scannedData, rowData }) => {
   console.log('[STATEMENT-PAGE] Открытие формы для строки ведомости:', rowData)
+  console.log('[STATEMENT-PAGE] Отсканированный код:', scannedData)
   
-  // Всегда создаём новый объект (objectId = null)
   objectFormObjectId.value = null
-  //objectFormStatementId.value = rowData.id || null
   objectFormInitialData.value = rowData
+  objectFormQrCode.value = scannedData
   
   objectFormIsOpen.value = true
 }

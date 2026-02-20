@@ -18,6 +18,51 @@ export class ObjectService {
   }
 
   /**
+   * Универсальный метод для запросов к API
+   * @param {string} endpoint - API endpoint (без /api/)
+   * @param {Object} options - Параметры запроса
+   * @returns {Promise<any>} Ответ от сервера
+   */
+  async apiRequest(endpoint, options = {}) {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      throw new Error('Токен авторизации не найден')
+    }
+
+    // Базовые настройки для всех запросов
+    const defaultOptions = {
+      method: 'GET', // по умолчанию GET
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }
+
+    // Объединяем с переданными опциями
+    const requestOptions = {
+      ...defaultOptions,
+      ...options,
+      headers: {
+        ...defaultOptions.headers,
+        ...options.headers
+      }
+    }
+
+    // Для методов с телом (POST, PUT) преобразуем объект в JSON
+    if (requestOptions.body && typeof requestOptions.body !== 'string') {
+      requestOptions.body = JSON.stringify(requestOptions.body)
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, requestOptions)
+
+    if (!response.ok) {
+      throw new Error(`HTTP ошибка: ${response.status}`)
+    }
+
+    return await response.json()
+  }
+
+  /**
    * Получает объект по ID
    * @param {string|number} id - ID объекта
    * @returns {Promise<Object>} Объект инвентаризации
@@ -152,31 +197,16 @@ export class ObjectService {
    */
   async createInApi(objectData) {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('Токен авторизации не найден')
-      }
-
-      const response = await fetch(`${this.baseUrl}/objects`, {
+      // Убираем id из данных
+      const { id, ...dataToSend } = objectData
+      
+      const data = await this.apiRequest('/objects', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(objectData)
+        body: dataToSend
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ошибка: ${response.status}`)
-      }
-
-      const data = await response.json()
+      
       console.log('[ObjectService] Объект создан через API:', data)
-      
-      // Сохраняем в кэш
-      await this.saveToCache(data)
-      
-      return data
+      return data.object
     } catch (error) {
       console.error('[ObjectService] Ошибка создания через API:', error)
       throw error

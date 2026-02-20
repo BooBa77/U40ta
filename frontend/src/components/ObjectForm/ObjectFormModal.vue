@@ -105,6 +105,7 @@ const {
   pendingQrCodes,
   scanQrCode,
   saveQrCodes,
+  processInitialQrCode,
   reset: resetQr
 } = useObjectQrManager(objectData, {
   onCancel: () => handleCancel()  // при отказе от первого кода закрываем модалку

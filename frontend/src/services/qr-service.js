@@ -162,19 +162,20 @@ export class QrService {
   /**
    * Создаёт QR-код через API
    */
-  async createInApi(qrValue, objectId) {
+  async createInApi(objectData) {
     try {
+      // Убираем id из данных
+      const { id, ...dataToSend } = objectData
+      
       const data = await this.apiRequest('/qr-codes', {
         method: 'POST',
-        body: {
-          qr_value: qrValue,
-          object_id: Number(objectId)
-        }
+        body: dataToSend
       })
-
-      return data.success === true
+      
+      console.log('[ObjectService] Объект создан через API:', data)
+      return data.object
     } catch (error) {
-      console.error('[QrService] Ошибка создания через API:', error)
+      console.error('[ObjectService] Ошибка создания через API:', error)
       throw error
     }
   }

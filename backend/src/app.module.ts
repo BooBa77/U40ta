@@ -10,6 +10,7 @@ import { StatementsModule } from './modules/statements/statements.module';
 import { OfflineModule } from './modules/offline/offline.module';
 import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
 import { ObjectsModule } from './modules/objects/objects.module';
+import { ObjectChangesModule } from './modules/object_changes/object_changes.module';
 
 @Module({
   imports: [
@@ -79,7 +80,11 @@ import { ObjectsModule } from './modules/objects/objects.module';
 
     // ObjectsModule - модуль работы с объектами инвентарного учёта
     // Предоставляет CRUD операции для объектов склада с полями: инв.номер, серийный номер, место использования
-    ObjectsModule,    
+    ObjectsModule,
+
+    // ObjectChangesModule - модуль журналирования событий с объектами
+    // История перемещений, коментарии
+    ObjectChangesModule,    
   ],
   
   // providers - массив сервисов, не объявленных в других модулях
