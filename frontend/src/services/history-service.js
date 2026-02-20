@@ -2,7 +2,7 @@
  * Сервис для работы с историей изменений объектов
  * Поддерживает онлайн/офлайн режимы работы
  */
-import { offlineCache } from '@/services/OfflineCacheService'
+import { offlineCache } from '@/services/offline-cache-service'
 
 export class HistoryService {
   constructor() {

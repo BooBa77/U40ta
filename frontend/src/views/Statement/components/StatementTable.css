@@ -48,7 +48,7 @@
 }
 
 /* ============ КОЛОНКИ ТАБЛИЦЫ ============ */
-/* Колонка 1: QR (50px) */
+/* Колонка 1: QR (50px) - контейнер для кнопки/иконки */
 .table-header th:nth-child(1),
 .statement-table tbody td:nth-child(1) {
   width: 50px;
@@ -139,24 +139,33 @@
   vertical-align: middle;
 }
 
-/* QR-плейсхолдер */
-.qr-placeholder {
+/* Иконка существующего объекта (заменяет QR-кнопку) */
+.object-exists-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  background-color: #3b82f6;
-  color: white;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  font-size: 1.2rem;
   margin: 0 auto;
 }
 
-.qr-placeholder:hover {
-  background-color: #2563eb;
+/* ============ ФИЛЬТРУЕМЫЕ ЗАГОЛОВКИ ============ */
+.filterable-header {
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.filterable-header:hover {
+  background-color: #f3f4f6;
+}
+
+/* Жёлтый фон для отфильтрованных заголовков */
+.filterable-header.filtered {
+  background-color: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  border-right: 3px solid #f59e0b;
 }
 
 /* ============ ЦВЕТОВЫЕ ГРУППЫ СТРОК ============ */
@@ -196,22 +205,14 @@
   background-color: #E6E6E6;
 }
 
-/* ============ ФИЛЬТРУЕМЫЕ ЗАГОЛОВКИ ============ */
-.filterable-header {
-  cursor: pointer;
-  position: relative;
-  transition: background-color 0.2s;
+/* ============ СКРЫТИЕ ГРУППИРОВАННЫХ СТРОК ============ */
+.group-hidden {
+  display: none;
 }
 
-.filterable-header:hover {
-  background-color: #f3f4f6;
-}
-
-/* Жёлтый фон для отфильтрованных заголовков */
-.filterable-header.filtered {
-  background-color: #fef3c7;
-  border-left: 3px solid #f59e0b;
-  border-right: 3px solid #f59e0b;
+/* Убедимся, что hover не применяется к скрытым строкам */
+.group-hidden:hover td {
+  background-color: transparent !important;
 }
 
 /* ============ МОБИЛЬНАЯ АДАПТАЦИЯ ============ */
@@ -271,10 +272,10 @@
     font-size: 0.75em;
   }
   
-  .qr-placeholder {
+  .object-exists-icon {
     width: 28px;
     height: 28px;
-    font-size: 0.6875rem;
+    font-size: 1rem;
   }
   
   .statement-table input[type="checkbox"] {
@@ -287,32 +288,7 @@
     border-left: 2px solid #f59e0b;
     border-right: 2px solid #f59e0b;
   }
-}
-
-/* ============ ПОДСКАЗКА ПРОКРУТКИ ============ */
-.statement-table::after {
-  display: none !important;
-}
-
-@media (max-width: 768px) {
-  .statement-table::after {
-    display: block;
-  }
-}
-
-/* ============ СКРЫТИЕ ГРУППИРОВАННЫХ СТРОК ============ */
-.group-hidden {
-  display: none;
-}
-
-/* Убедимся, что hover не применяется к скрытым строкам */
-.group-hidden:hover td {
-  background-color: transparent !important;
-}
-
-
-/* ============ МОБИЛЬНАЯ АДАПТАЦИЯ ============ */
-@media (max-width: 768px) {
+  
   /* Убедимся, что скрытые строки не занимают места на мобильных */
   .group-hidden {
     display: none;

@@ -71,11 +71,11 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
     }
   }
   
-  // Обработка переданного кода (без сканирования)
-  const processInitialQrCode = async (qrCode, { isFirst = false } = {}) => {
+  // Обработка переданного QR-кода без сканирования
+  const processInitialQrCode = async (qrCode) => {
     isScanning.value = true
     try {
-      await handleScannedCode(qrCode, { isFirst })
+      await handleScannedCode(qrCode, true)
     } finally {
       isScanning.value = false
     }

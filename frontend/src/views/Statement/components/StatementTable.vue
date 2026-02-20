@@ -30,11 +30,25 @@
           @click="handleRowClick(row)"
         >
           <td>
+            <!-- Показываем кнопку сканирования только если:
+                 1. Нет объекта (have_object = false)
+                 2. Есть камера на устройстве
+            -->
             <QrScannerButton 
+              v-if="shouldShowQrButton(row.original)"
               size="small"
               @scan="(scannedData) => handleQrScan(scannedData, row.original)"
               @error="handleQrError"
             />
+            <!-- Показываем плейсхолдер если камера есть, но объект уже создан -->
+            <div 
+              v-else-if="deviceHasCamera && (row.original.have_object || row.original.haveObject)"
+              class="object-exists-icon" 
+              title="Объект уже создан"
+            >
+              ✅
+            </div>
+            <!-- Если камеры нет, ничего не показываем (пустая ячейка) -->
           </td>
           <td>
             <input 
@@ -70,12 +84,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { 
   useVueTable, 
   getCoreRowModel 
 } from '@tanstack/vue-table'
-// ДОБАВЛЯЕМ импорт
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 
 const props = defineProps({
@@ -103,10 +116,42 @@ const props = defineProps({
   }
 })
 
-// ДОБАВЛЯЕМ события
 const emit = defineEmits(['filter-click', 'ignore-change', 'qr-scan'])
 
 const tableContainer = ref(null)
+const deviceHasCamera = ref(false) // Состояние наличия камеры
+
+// Проверка наличия камеры при монтировании компонента (как в Home.vue)
+const checkCameraAvailability = async () => {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      deviceHasCamera.value = false
+      return
+    }
+    
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const hasCamera = devices.some(device => device.kind === 'videoinput')
+    deviceHasCamera.value = hasCamera
+    
+    console.log('[StatementTable] наличие камеры:', deviceHasCamera.value)
+  } catch (error) {
+    console.error('[StatementTable] ошибка проверки камеры:', error)
+    deviceHasCamera.value = false
+  }
+}
+
+// Метод для проверки условий отображения кнопки QR
+const shouldShowQrButton = (row) => {
+  // Не показываем для скрытых строк
+  if (row.hiddenByGroup) return false
+  
+  // Проверяем наличие камеры
+  if (!deviceHasCamera.value) return false
+  
+  // Проверяем, что объект не создан (have_object = false)
+  const hasObject = row.have_object || row.haveObject || false
+  return !hasObject
+}
 
 const table = useVueTable({
   data: props.statements,
@@ -132,7 +177,6 @@ const handleRowClick = (row) => {
   console.log('Клик по строке:', row.original)
 }
 
-// ДОБАВЛЯЕМ обработчик QR сканирования
 const handleQrScan = (scannedData, rowData) => {
   console.log('[StatementTable] QR отсканирован, передаём наверх')
   
@@ -143,7 +187,6 @@ const handleQrScan = (scannedData, rowData) => {
   })
 }
 
-// ДОБАВЛЯЕМ обработчик ошибок QR
 const handleQrError = (error) => {
   console.error('Ошибка сканирования QR:', error)
 }
@@ -174,6 +217,11 @@ const getPartyNumber = (row) => {
 const getBuhName = (row) => {
   return row.buh_name || row.buhName || '—'
 }
+
+// Проверяем наличие камеры при монтировании
+onMounted(() => {
+  checkCameraAvailability()
+})
 
 watch(() => props.statements, () => {
   table.setOptions(prev => ({

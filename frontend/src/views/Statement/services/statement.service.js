@@ -2,7 +2,7 @@
  * Сервис для работы с ведомостями (statements)
  * Поддерживает онлайн/офлайн режимы работы
  */
-import { offlineCache } from '../../../services/OfflineCacheService'
+import { offlineCache } from '../../../services/offline-cache-service'
 
 export class StatementService {
   constructor() {

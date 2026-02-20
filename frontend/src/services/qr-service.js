@@ -2,7 +2,7 @@
  * Сервис для работы с QR-кодами
  * Поддерживает онлайн/офлайн режимы
  */
-import { offlineCache } from '@/services/OfflineCacheService'
+import { offlineCache } from '@/services/offline-cache-service'
 
 export class QrService {
   constructor() {

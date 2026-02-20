@@ -214,14 +214,8 @@ watch(() => props.isOpen, async (isOpen) => {
     } else {
       // Создание нового из строки ведомости
       initFromRowData(props.initialData)
-      
-      // Если есть переданный код - сразу сканируем его как первый
-      if (props.initialQrCode) {
-        await processInitialQrCode(props.initialQrCode, { isFirst: true })
-      } else {
-        await scanQrCode({ isFirst: true })
-      }
-
+      // Поступивший из ведомости QR-код передаём менеджеру как первичный
+      await processInitialQrCode(props.initialQrCode)
     }
   }
 }, { immediate: true })

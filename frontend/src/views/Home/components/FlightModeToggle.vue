@@ -33,7 +33,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { offlineCache } from '../../../services/OfflineCacheService.js'
+import { offlineCache } from '@/services/offline-cache-service'
 
 const FLIGHT_MODE_KEY = 'u40ta_flight_mode'
 const isFlightMode = ref(false)
