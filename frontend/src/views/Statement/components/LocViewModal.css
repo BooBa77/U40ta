@@ -1,0 +1,152 @@
+/* ============ ОСНОВНОЙ КОНТЕЙНЕР ============ */
+.loading-state,
+.error-state {
+  padding: 40px 20px;
+  text-align: center;
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.error-state {
+  color: #dc2626;
+}
+
+.retry-button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.retry-button:hover {
+  background-color: #dc2626;
+}
+
+/* ============ КОНТЕЙНЕР ТАБЛИЦЫ ============ */
+.table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin: 16px 0;
+}
+
+.location-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.location-table th {
+  position: sticky;
+  top: 0;
+  background-color: #f9fafb;
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
+  z-index: 10;
+}
+
+.location-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #4b5563;
+}
+
+.location-table tr:last-child td {
+  border-bottom: none;
+}
+
+.location-row:hover td {
+  background-color: #f9fafb;
+}
+
+/* ============ ЯЧЕЙКИ ТАБЛИЦЫ ============ */
+.number-cell {
+  width: 50px;
+  text-align: center;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.location-cell {
+  min-width: 200px;
+}
+
+.action-cell {
+  width: 100px;
+  text-align: right;
+  padding-right: 12px !important;
+}
+
+.empty-cell {
+  text-align: center;
+  padding: 40px 20px !important;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ============ КНОПКИ ДЕЙСТВИЙ ============ */
+.action-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid;
+}
+
+.open-button {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+.open-button:hover {
+  background-color: #2563eb;
+}
+
+/* ============ МОБИЛЬНАЯ АДАПТАЦИЯ ============ */
+@media (max-width: 768px) {
+  .table-container {
+    max-height: 300px;
+    margin: 12px 0;
+  }
+  
+  .location-table th,
+  .location-table td {
+    padding: 8px 6px;
+    font-size: 0.8125rem;
+  }
+  
+  .number-cell {
+    width: 40px;
+  }
+  
+  .location-cell {
+    min-width: 150px;
+  }
+  
+  .action-cell {
+    width: 80px;
+  }
+  
+  .action-button {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+  
+  .loading-state,
+  .error-state {
+    padding: 30px 16px;
+    font-size: 0.875rem;
+  }
+}

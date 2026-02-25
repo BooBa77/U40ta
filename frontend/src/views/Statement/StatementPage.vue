@@ -49,6 +49,16 @@
         @cancel="handleObjectFormCancel"
       />
 
+      <!-- НОВАЯ МОДАЛКА: LocViewModal -->
+      <LocViewModal
+        :is-open="locViewIsOpen"
+        :inv-number="selectedGroup.invNumber"
+        :party-number="selectedGroup.partyNumber"
+        :zavod="selectedGroup.zavod"
+        :sklad="selectedGroup.sklad"
+        @close="handleLocViewClose"
+      />
+
       <!-- Таблица -->
       <StatementTable 
         v-if="statementsLength > 0"
@@ -60,6 +70,7 @@
         @filter-click="handleFilterClick"
         @ignore-change="ignoreManager.handleIgnoreChange"
         @qr-scan="openObjectFormFromRowData"
+        @row-click="handleRowClick"
       />
       <div v-else class="empty">
         В ведомости нет данных
@@ -74,6 +85,7 @@ import { useRoute, useRouter } from 'vue-router'
 import StatementTable from './components/StatementTable.vue'
 import FilterModal from './components/FilterModal.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
+import LocViewModal from './components/LocViewModal.vue'
 
 // Композиции
 import { useStatementData } from './composables/useStatementData'
@@ -112,21 +124,18 @@ const {
 // === СОСТОЯНИЕ OBJECT FORM ===
 const objectFormIsOpen = ref(false)
 const objectFormObjectId = ref(null)
-//const objectFormStatementId = ref(null)
+const objectFormStatementId = ref(null) // id записи в ведомости
 const objectFormInitialData = ref({})
 const objectFormQrCode = ref(null)
 
-// === ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ФОРМЫ ИЗ ТАБЛИЦЫ ===
-const openObjectFormFromRowData = ({ scannedData, rowData }) => {
-  console.log('[STATEMENT-PAGE] Открытие формы для строки ведомости:', rowData)
-  console.log('[STATEMENT-PAGE] Отсканированный код:', scannedData)
-  
-  objectFormObjectId.value = null
-  objectFormInitialData.value = rowData
-  objectFormQrCode.value = scannedData
-  
-  objectFormIsOpen.value = true
-}
+// === НОВОЕ СОСТОЯНИЕ ДЛЯ LOC VIEW ===
+const locViewIsOpen = ref(false)
+const selectedGroup = ref({
+  invNumber: '',
+  partyNumber: null,
+  zavod: '',
+  sklad: ''
+})
 
 // === COMPUTED-ОБЕРТКИ ===
 const filterModalIsOpen = computed(() => showFilterModal.value)
@@ -144,26 +153,73 @@ const statementTitle = computed(() => {
   return `${firstRow.doc_type} ${firstRow.sklad}`
 })
 
+// === ОБРАБОТЧИК КЛИКА ПО СТРОКЕ ТАБЛИЦЫ ===
+const handleRowClick = (groupParams) => {
+  console.log('[StatementPage] Клик по строке, открываем LocViewModal с параметрами:', groupParams)
+  
+  // Сохраняем параметры группы
+  selectedGroup.value = {
+    invNumber: groupParams.invNumber,
+    partyNumber: groupParams.partyNumber,
+    zavod: groupParams.zavod,
+    sklad: groupParams.sklad
+  }
+  
+  // Открываем модалку
+  locViewIsOpen.value = true
+}
+
+/**
+ * Закрытие LocViewModal
+ */
+const handleLocViewClose = () => {
+  console.log('[StatementPage] Закрытие LocViewModal')
+  locViewIsOpen.value = false
+  
+  // Сбрасываем выбранную группу (с задержкой, чтобы не мешать анимации)
+  setTimeout(() => {
+    selectedGroup.value = {
+      invNumber: '',
+      partyNumber: null,
+      zavod: '',
+      sklad: ''
+    }
+  }, 300)
+}
+
+// === ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ФОРМЫ ИЗ ТАБЛИЦЫ ===
+const openObjectFormFromRowData = ({ scannedData, rowData }) => {
+  console.log('[STATEMENT-PAGE] Открытие формы для строки ведомости:', rowData)
+  console.log('[STATEMENT-PAGE] Отсканированный код:', scannedData)
+  
+  objectFormStatementId.value = rowData.id || null
+  objectFormObjectId.value = null
+  objectFormInitialData.value = rowData
+  objectFormQrCode.value = scannedData
+  
+  objectFormIsOpen.value = true
+}
+
 // === ОБРАБОТЧИКИ OBJECT FORM ===
 const handleObjectFormSave = async (result) => {
-  console.log('[STATEMENT-PAGE] Результат сохранения объекта:', result)
+  console.log('[STATEMENT-PAGE] Результат сохранения объекта:', result, objectFormStatementId.value)
   
   // Закрываем модалку
   objectFormIsOpen.value = false
   resetObjectFormState()
-  
+
+  console.log('Модалка закрыта', objectFormStatementId.value)
+
   // Если объект изменился
-  if (result.object_changed) {
+  if (result.wasCreated) {
     // Обновляем have_object для записи ведомости
     if (objectFormStatementId.value) {
       try {
         console.log('[STATEMENT-PAGE] Устанавливаем have_object=true для записи:', {
-          attachmentId,
           statementId: objectFormStatementId.value
         })
         
         await statementService.updateStatementHaveObject(
-          attachmentId,
           objectFormStatementId.value,
           true
         )

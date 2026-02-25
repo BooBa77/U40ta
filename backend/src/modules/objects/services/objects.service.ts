@@ -9,7 +9,7 @@ import { UpdateObjectDto } from '../dto/update-object.dto';
 export class ObjectsService {
   constructor(
     @InjectRepository(InventoryObject)
-    private readonly objectRepository: Repository<InventoryObject>, // ← один репозиторий
+    private readonly objectRepository: Repository<InventoryObject>,
   ) {}
 
   async findOne(id: number): Promise<InventoryObject> {
@@ -18,6 +18,36 @@ export class ObjectsService {
       throw new NotFoundException(`Object with ID ${id} not found`);
     }
     return object;
+  }
+
+  /**
+   * Находит объекты по инвентарному номеру в определённом складе
+   */
+  async findByInv(
+    invNumber: string, 
+    zavod?: number,
+    sklad?: string
+  ): Promise<InventoryObject[]> {
+    console.log(`[ObjectsService] Поиск объектов: inv=${invNumber}, zavod=${zavod}, sklad=${sklad}`);
+    
+    const queryBuilder = this.objectRepository
+      .createQueryBuilder('object')
+      .where('object.inv_number = :invNumber', { invNumber });
+    
+    // Фильтрация по заводу
+    if (zavod !== undefined && !isNaN(zavod)) {
+      queryBuilder.andWhere('object.zavod = :zavod', { zavod });
+    }
+    
+    // Фильтрация по складу
+    if (sklad && sklad.trim() !== '') {
+      queryBuilder.andWhere('object.sklad = :sklad', { sklad });
+    }
+    
+    const objects = await queryBuilder.getMany();
+    
+    console.log(`[ObjectsService] Найдено объектов: ${objects.length}`);
+    return objects;
   }
 
   // Создание объекта через репозиторий

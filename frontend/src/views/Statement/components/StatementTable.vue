@@ -29,7 +29,7 @@
           ]"
           @click="handleRowClick(row)"
         >
-          <td>
+          <td @click.stop>
             <!-- Показываем кнопку сканирования только если:
                  1. Нет объекта (have_object = false)
                  2. Есть камера на устройстве
@@ -39,18 +39,21 @@
               size="small"
               @scan="(scannedData) => handleQrScan(scannedData, row.original)"
               @error="handleQrError"
+              @click.stop
             />
-            <!-- Показываем плейсхолдер если камера есть, но объект уже создан -->
+            <!-- Показываем плейсхолдер если камера есть, но объект уже создан 
             <div 
               v-else-if="deviceHasCamera && (row.original.have_object || row.original.haveObject)"
               class="object-exists-icon" 
               title="Объект уже создан"
+              @click.stop
             >
               ✅
             </div>
+            -->
             <!-- Если камеры нет, ничего не показываем (пустая ячейка) -->
           </td>
-          <td>
+          <td @click.stop>
             <input 
               type="checkbox" 
               :checked="getCheckboxValue(row.original)"
@@ -90,6 +93,7 @@ import {
   getCoreRowModel 
 } from '@tanstack/vue-table'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
+import { useCamera } from '@/composables/useCamera.js'
 
 const props = defineProps({
   statements: {
@@ -116,29 +120,15 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['filter-click', 'ignore-change', 'qr-scan'])
+const emit = defineEmits([
+  'filter-click', 
+  'ignore-change', 
+  'qr-scan',
+  'row-click'  // Новый эмит для клика по строке
+])
 
 const tableContainer = ref(null)
-const deviceHasCamera = ref(false) // Состояние наличия камеры
-
-// Проверка наличия камеры при монтировании компонента (как в Home.vue)
-const checkCameraAvailability = async () => {
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-      deviceHasCamera.value = false
-      return
-    }
-    
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    const hasCamera = devices.some(device => device.kind === 'videoinput')
-    deviceHasCamera.value = hasCamera
-    
-    console.log('[StatementTable] наличие камеры:', deviceHasCamera.value)
-  } catch (error) {
-    console.error('[StatementTable] ошибка проверки камеры:', error)
-    deviceHasCamera.value = false
-  }
-}
+const { hasCamera } = useCamera() // Состояние камеры
 
 // Метод для проверки условий отображения кнопки QR
 const shouldShowQrButton = (row) => {
@@ -146,7 +136,7 @@ const shouldShowQrButton = (row) => {
   if (row.hiddenByGroup) return false
   
   // Проверяем наличие камеры
-  if (!deviceHasCamera.value) return false
+  if (!hasCamera.value) return false
   
   // Проверяем, что объект не создан (have_object = false)
   const hasObject = row.have_object || row.haveObject || false
@@ -173,12 +163,39 @@ const hasFilter = (columnId) => {
   return props.activeFilters[columnId] && props.activeFilters[columnId].length > 0
 }
 
+/**
+ * Обработчик клика по строке таблицы
+ * Открывает LocViewModal с параметрами группы
+ */
 const handleRowClick = (row) => {
-  console.log('Клик по строке:', row.original)
+  console.log('[StatementTable] Клик по строке:', row.original)
+  
+  // Не эмитим событие для скрытых строк
+  if (row.original.hiddenByGroup) {
+    console.log('[StatementTable] Строка скрыта, пропускаем')
+    return
+  }
+  
+  // Извлекаем данные для передачи в модалку
+  const rowData = row.original
+  
+  // Формируем объект с параметрами группы
+  const groupParams = {
+    invNumber: rowData.inv_number || rowData.invNumber,
+    partyNumber: rowData.party_number || rowData.partyNumber || null,
+    zavod: rowData.zavod,
+    sklad: rowData.sklad
+  }
+  
+  console.log('[StatementTable] Эмит row-click с параметрами:', groupParams)
+  emit('row-click', groupParams)
 }
 
 const handleQrScan = (scannedData, rowData) => {
   console.log('[StatementTable] QR отсканирован, передаём наверх')
+  
+  // Останавливаем всплытие, чтобы не сработал клик по строке
+  event?.stopPropagation()
   
   // ПРОСТО передаём событие наверх
   emit('qr-scan', {
@@ -192,6 +209,11 @@ const handleQrError = (error) => {
 }
 
 const handleCheckboxChange = (row, checked) => {
+  console.log('[StatementTable] Изменение чекбокса:', { row, checked })
+  
+  // Останавливаем всплытие, чтобы не сработал клик по строке
+  event?.stopPropagation()
+  
   const inv = row.inv_number || row.invNumber
   const party = row.party_number || row.partyNumber || ''
   
@@ -217,11 +239,6 @@ const getPartyNumber = (row) => {
 const getBuhName = (row) => {
   return row.buh_name || row.buhName || '—'
 }
-
-// Проверяем наличие камеры при монтировании
-onMounted(() => {
-  checkCameraAvailability()
-})
 
 watch(() => props.statements, () => {
   table.setOptions(prev => ({

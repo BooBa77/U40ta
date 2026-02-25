@@ -31,6 +31,7 @@
       <div class="actions-container">
         <div class="actions-buttons">
           <button 
+            v-if="hasCamera"
             class="btn-action" 
             @click="addQrCode" 
             :disabled="isSaving"
@@ -74,6 +75,7 @@ import { objectService } from '@/services/object-service.js'
 import { qrService } from '@/services/qr-service.js'
 import { historyService } from '@/services/history-service.js'
 import { useObjectQrManager } from './composables/useObjectQrManager'
+import { useCamera } from '@/composables/useCamera.js'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -88,6 +90,7 @@ const emit = defineEmits(['save', 'cancel'])
 const isSaving = ref(false)
 const errorMessage = ref('')
 const comment = ref('')
+const { hasCamera } = useCamera() // Состояние камеры
 
 // Данные объекта
 const objectData = ref({
@@ -163,7 +166,7 @@ const resetForm = () => {
 // Обработчики
 const handleCancel = () => {
   resetForm()
-  emit('cancel', { object_changed: false })
+  emit('cancel', { was_created: false })
 }
 
 const addQrCode = async () => {
@@ -177,6 +180,9 @@ const handleSave = async () => {
   try {
     // 1. Сохраняем объект
     const savedObject = await objectService.saveObject(objectData.value)
+    // Определяем, был ли объект создан (не было ID -> появился ID)
+    const wasCreated = !objectData.value.id && savedObject.id
+    // Обновляем ID в данных
     objectData.value.id = savedObject.id
     
     // 2. Привязываем QR-коды
@@ -185,14 +191,17 @@ const handleSave = async () => {
     }
     
     // 3. Записи в историю
-    await historyService.addHistoryRecord(savedObject.id, 'Объект создан')
-    
+    await historyService.addHistoryRecord(
+      savedObject.id, 
+      wasCreated ? 'Объект создан' : 'Объект изменён'
+    )
+    // Вставить менеджер журналирования    
     if (comment.value.trim()) {
       await historyService.addHistoryRecord(savedObject.id, comment.value.trim())
     }
     
     // 4. Сообщаем родителю
-    emit('save', { object_changed: true })
+    emit('save', { was_created: wasCreated })
     
     // 5. Закрываем модалку
     resetForm()

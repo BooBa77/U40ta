@@ -371,6 +371,89 @@ export class ObjectService {
       return false
     }
   }
+
+  /**
+   * Получает объекты по инвентарному номеру в определённом складе
+   * @param {string} inv - Инвентарный номер
+   * @param {number} [zavod] - Номер завода (опционально)
+   * @param {string} [sklad] - Код склада (опционально)
+   * @returns {Promise<Array>} Массив объектов
+   */
+  async getObjectsByInv(inv, zavod, sklad) {
+    const params = new URLSearchParams();
+    params.append('inv', inv);
+    
+    if (zavod !== undefined && zavod !== null) {
+      params.append('zavod', zavod);
+    }
+    
+    if (sklad !== undefined && sklad !== null) {
+      params.append('sklad', sklad);
+    }
+    
+    if (this.isFlightMode()) {
+      console.log(`[ObjectService] Офлайн-режим: поиск объектов по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
+      return this.getObjectsByInvFromCache(inv, zavod, sklad);
+    }
+    
+    console.log(`[ObjectService] Онлайн-режим: поиск объектов по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
+    return this.getObjectsByInvFromApi(params);
+  }
+
+  /**
+   * Поиск объектов в кэше IndexedDB
+   */
+  async getObjectsByInvFromCache(inv, zavod, sklad) {
+    try {
+      const allObjects = await offlineCache.db.objects.toArray();
+      
+      // Фильтруем по условиям
+      const filtered = allObjects.filter(obj => {
+        // Проверяем inv
+        if (obj.inv_number !== inv) return false;
+        
+        // Проверяем zavod, если передан
+        if (zavod !== undefined && obj.zavod !== zavod) return false;
+        
+        // Проверяем sklad, если передан
+        if (sklad !== undefined && obj.sklad !== sklad) return false;
+        
+        return true;
+      });
+      
+      console.log(`[ObjectService] Из кэша найдено объектов: ${filtered.length}`);
+      return filtered;
+    } catch (error) {
+      console.error('[ObjectService] Ошибка поиска в кэше:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Поиск объектов через API
+   */
+  async getObjectsByInvFromApi(params) {
+    try {
+      const data = await this.apiRequest(`/objects/by-inv?${params.toString()}`);
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Ошибка поиска объектов');
+      }
+      
+      // Сохраняем найденные объекты в кэш
+      if (data.objects && data.objects.length > 0) {
+        for (const obj of data.objects) {
+          await this.saveToCache(obj);
+        }
+      }
+      
+      return data.objects || [];
+    } catch (error) {
+      console.error('[ObjectService] Ошибка поиска через API:', error);
+      throw error;
+    }
+  }
+
 }
 
 // Экспортируем синглтон

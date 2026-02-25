@@ -9,14 +9,14 @@
     <main class="home-main">
       <!-- Секция QR-сканирования - занимает центр экрана -->
       <section class="qr-scanner-section">
-        <div v-if="deviceHasCamera === true" class="qr-button-wrapper">
+        <div v-if="hasCamera === true" class="qr-button-wrapper">
           <QrScannerButton 
             size="large" 
             @scan="handleQrScan"
             @error="handleScanError"
           />
         </div>
-        <div v-else-if="deviceHasCamera === false" class="no-camera-message">
+        <div v-else-if="hasCamera === false" class="no-camera-message">
           Камера не доступна на этом устройстве
         </div>
         <div v-else class="no-camera-message">
@@ -98,6 +98,7 @@ import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 import { qrService } from '@/services/qr-service.js'
 import { objectService } from '@/services/object-service.js'
+import { useCamera } from '@/composables/useCamera.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -106,7 +107,7 @@ const route = useRoute()
 const userAbr = ref('') // Аббревиатура пользователя
 const hasAccessToStatements = ref(false) // Флаг доступа к ведомостям
 const accessChecked = ref(false) // Флаг завершения проверки доступа
-const deviceHasCamera = ref(null) // Состояние проверки камеры
+const { hasCamera } = useCamera() // Состояние камеры
 
 // Состояния сканирования QR
 const scannedQrCode = ref('') // Отсканированный QR-код
@@ -221,28 +222,6 @@ const checkAccessToStatements = async () => {
     console.error('Home: ошибка проверки доступа к ведомостям:', error)
     hasAccessToStatements.value = false
     accessChecked.value = true
-  }
-}
-
-/**
- * Проверка наличия камеры на устройстве
- * Определяет можно ли использовать QR-сканер
- */
-const checkCameraAvailability = async () => {
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-      deviceHasCamera.value = false
-      return
-    }
-    
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    const hasCamera = devices.some(device => device.kind === 'videoinput')
-    deviceHasCamera.value = hasCamera
-    
-    console.log('Home: наличие камеры:', deviceHasCamera.value)
-  } catch (error) {
-    console.error('Home: ошибка проверки камеры:', error)
-    deviceHasCamera.value = false
   }
 }
 
@@ -439,9 +418,6 @@ onMounted(() => {
     
     // Проверка доступа к ведомостям
     checkAccessToStatements()
-    
-    // Проверка наличия камеры
-    checkCameraAvailability()
     
     // Подключение к SSE для отслеживания изменений прав
     connectToSSE()

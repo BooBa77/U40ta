@@ -253,26 +253,24 @@ export class StatementService {
   /**
    * Обновляет статус have_object для записи ведомости
    */
-  async updateStatementHaveObject(attachmentId, statementId, haveObject) {
-    const attachmentIdNum = Number(attachmentId)
+  async updateStatementHaveObject(statementId, haveObject) {
     const statementIdNum = Number(statementId)
     
     if (this.isFlightMode()) {
       console.log(`[StatementService] Офлайн-режим: обновление have_object для записи ${statementIdNum}`)
-      return this.updateHaveObjectInCache(attachmentIdNum, statementIdNum, haveObject)
+      return this.updateHaveObjectInCache(statementIdNum, haveObject)
     }
     
     console.log(`[StatementService] Онлайн-режим: обновление have_object для записи ${statementIdNum}`)
-    return this.updateHaveObjectInApi(attachmentIdNum, statementIdNum, haveObject)
+    return this.updateHaveObjectInApi(statementIdNum, haveObject)
   }
 
   /**
    * Обновляет have_object в кэше IndexedDB
    */
-  async updateHaveObjectInCache(attachmentId, statementId, haveObject) {
+  async updateHaveObjectInCache(statementId, haveObject) {
     try {
       console.log(`[StatementService] Обновление have_object в кэше:`, {
-        attachmentId,
         statementId,
         haveObject
       })
@@ -317,7 +315,6 @@ export class StatementService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          attachmentId,
           statementId,
           haveObject
         })
@@ -334,6 +331,96 @@ export class StatementService {
     }
   }  
 
+  /**
+   * Получает записи ведомости по инвентарному номеру для ещё не созданных обьектов
+   * @param {string} inv - Инвентарный номер
+   * @param {number} [zavod] - Номер завода (опционально)
+   * @param {string} [sklad] - Код склада (опционально)
+   * @returns {Promise<Array>} Массив записей ведомости
+   */
+  async getStatementsByInv(inv, zavod, sklad) {
+    const params = new URLSearchParams();
+    params.append('inv', inv);
+    
+    if (zavod !== undefined && zavod !== null) {
+      params.append('zavod', zavod);
+    }
+    
+    if (sklad !== undefined && sklad !== null) {
+      params.append('sklad', sklad);
+    }
+    
+    if (this.isFlightMode()) {
+      console.log(`[StatementService] Офлайн-режим: поиск записей по inv=${inv}`);
+      return this.getStatementsByInvFromCache(inv, zavod, sklad);
+    }
+    
+    console.log(`[StatementService] Онлайн-режим: поиск записей по inv=${inv}`);
+    return this.getStatementsByInvFromApi(params);
+  }
+
+  /**
+   * Поиск записей ведомости в кэше IndexedDB
+   */
+  async getStatementsByInvFromCache(inv, zavod, sklad) {
+    try {
+      const allStatements = await offlineCache.db.processed_statements.toArray();
+      
+      const filtered = allStatements.filter(st => {
+        // Только где объект не создан
+        if (st.have_object) return false;
+        
+        // Проверяем inv
+        if (st.inv_number !== inv) return false;
+        
+        // Проверяем zavod, если передан
+        if (zavod !== undefined && st.zavod !== zavod) return false;
+        
+        // Проверяем sklad, если передан
+        if (sklad !== undefined && st.sklad !== sklad) return false;
+        
+        return true;
+      });
+      
+      console.log(`[StatementService] Из кэша найдено записей: ${filtered.length}`);
+      return filtered;
+    } catch (error) {
+      console.error('[StatementService] Ошибка поиска в кэше:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Поиск записей ведомости через API
+   */
+  async getStatementsByInvFromApi(params) {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Токен авторизации не найден');
+
+      const response = await fetch(`/api/statements/by-inv?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ошибка: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Ошибка поиска записей');
+      }
+      
+      return data.statements || [];
+    } catch (error) {
+      console.error('[StatementService] Ошибка поиска через API:', error);
+      throw error;
+    }
+  }
 
 }
 

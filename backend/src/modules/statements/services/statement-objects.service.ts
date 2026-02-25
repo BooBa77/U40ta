@@ -4,6 +4,7 @@ import { Repository, In } from 'typeorm';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { InventoryObject } from '../../objects/entities/object.entity';
 import { EmailAttachment } from '../../email/entities/email-attachment.entity';
+import { AppEventsService } from '../../app-events/app-events.service';
 
 @Injectable()
 export class StatementObjectsService {
@@ -17,6 +18,7 @@ export class StatementObjectsService {
     @InjectRepository(EmailAttachment)
     private emailAttachmentRepo: Repository<EmailAttachment>,
     
+    private readonly appEventsService: AppEventsService,
   ) {}
 
   /**
@@ -139,14 +141,11 @@ export class StatementObjectsService {
   }
 
   /**
-   * Задаёт have_object для одной записи
+   * Задаёт have_object для одной записи при создании объекта
    */
-  async updateSingleHaveObject(attachmentId: number, statementId: number): Promise<void> {
+  async updateSingleHaveObject(statementId: number): Promise<void> {
     const statement = await this.processedStatementRepo.findOne({
-      where: { 
-        id: statementId,
-        emailAttachmentId: attachmentId 
-      }
+      where: { id: statementId }  // ← убрали emailAttachmentId
     });
 
     if (!statement) return;
@@ -163,5 +162,10 @@ export class StatementObjectsService {
 
     statement.have_object = !!object;
     await this.processedStatementRepo.save(statement);
-  }  
+    
+    // Отправляем SSE уведомление об изменении ведомости
+    this.appEventsService.notifyStatementUpdated(statementId);
+    console.log(`Отправлено SSE уведомление об изменении записи ведомости № ${statementId}`);  
+  }
+ 
 }

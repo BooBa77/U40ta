@@ -47,16 +47,7 @@ const detectDevice = async () => {
   const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
   const isMobile = mobileRegex.test(userAgent) || ('ontouchstart' in window)
   
-  let hasCamera = false
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    hasCamera = devices.some(device => device.kind === 'videoinput')
-  } catch (error) {
-    hasCamera = false
-  }
-  
   localStorage.setItem('device_isMobile', JSON.stringify(isMobile))
-  localStorage.setItem('device_hasCamera', JSON.stringify(hasCamera))
 }
 
 // Загрузка списка пользователей
