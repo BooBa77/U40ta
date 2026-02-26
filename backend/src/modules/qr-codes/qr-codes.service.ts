@@ -5,12 +5,14 @@ import { QrCode } from './entities/qr-code.entity';
 import { CreateQrCodeDto } from './dto/create-qr-code.dto';
 import { UpdateQrOwnerDto } from './dto/update-qr-owner.dto';
 import { QrScanResult } from './interfaces/qr-scan-result.interface';
+import { QrCodesHistoryService } from '../qr-codes-history/qr-codes-history.service';
 
 @Injectable()
 export class QrCodesService {
   constructor(
     @InjectRepository(QrCode)
     private qrCodesRepository: Repository<QrCode>,
+    private qrCodesHistoryService: QrCodesHistoryService,
   ) {}
 
   // Поиск объекта по QR
@@ -45,14 +47,25 @@ export class QrCodesService {
     }
 
     const qrCode = this.qrCodesRepository.create(createQrCodeDto);
-    return this.qrCodesRepository.save(qrCode);
+    
+    // Сначала сохраняем, чтобы получить id
+    const savedQrCode = await this.qrCodesRepository.save(qrCode);
+
+    // Журналируем создание
+    await this.qrCodesHistoryService.logChange({
+      qr_code_id: savedQrCode.id,
+      old_object_id: 0,  // 0 = создание нового QR-кода
+      new_object_id: savedQrCode.object_id,
+      changed_by: createQrCodeDto.changed_by, // нужно добавить в DTO
+    });
+
+    return savedQrCode;
   }
 
   // Переназначение QR
-  async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto): Promise<any> {
-    const { qr_value, new_object_id } = updateQrOwnerDto;
+  async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto): Promise<{ success: boolean }> {
+    const { qr_value, new_object_id, changed_by } = updateQrOwnerDto;
     
-    // Находим QR-код
     const qrCode = await this.qrCodesRepository.findOne({
       where: { qr_value }
     });
@@ -61,23 +74,22 @@ export class QrCodesService {
       throw new NotFoundException(`QR-код ${qr_value} не найден`);
     }
 
+    const old_object_id = qrCode.object_id;
+    
     // Обновляем владельца
     qrCode.object_id = new_object_id;
-    
     await this.qrCodesRepository.save(qrCode);
     
-    return {
-      success: true,
-      message: `Владелец QR-кода обновлён на объект ${new_object_id}`
-    };
-  }
-
-  // Удалить QR
-  async remove(qrValue: string): Promise<void> {
-    const result = await this.qrCodesRepository.delete({ qr_value: qrValue });
+    // Журналируем изменение
+    await this.qrCodesHistoryService.logChange({
+      qr_code_id: qrCode.id,
+      old_object_id,
+      new_object_id,
+      changed_by,
+    });
     
-    if (result.affected === 0) {
-      throw new NotFoundException(`QR-код ${qrValue} не найден`);
-    }
-  }
+    return {
+      success: true
+    };
+  }  
 }

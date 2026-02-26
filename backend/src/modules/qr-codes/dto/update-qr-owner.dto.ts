@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MaxLength, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsInt, Min } from 'class-validator';
 
 export class UpdateQrOwnerDto {
   @IsString()
@@ -8,4 +8,8 @@ export class UpdateQrOwnerDto {
 
   @IsInt()
   new_object_id: number;
+
+  @IsInt()
+  @Min(1)
+  changed_by: number; // ID пользователя, который выполняет изменение
 }

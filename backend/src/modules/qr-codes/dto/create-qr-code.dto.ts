@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MaxLength, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsInt, Min } from 'class-validator';
 
 export class CreateQrCodeDto {
   @IsString()
@@ -8,4 +8,8 @@ export class CreateQrCodeDto {
 
   @IsInt()
   object_id: number;
+
+  @IsInt()
+  @Min(1)  // ID пользователя не может быть 0 или отрицательным
+  changed_by: number;
 }
