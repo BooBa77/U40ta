@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { QrCodesChange } from './entities/qr-codes-change.entity';
+import { QrCodesChange } from './entities/qr-codes-changes.entity';
 import { CreateQrChangeDto } from './dto/create-qr-change.dto';
 
 @Injectable()

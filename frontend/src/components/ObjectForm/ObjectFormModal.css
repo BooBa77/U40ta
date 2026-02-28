@@ -1,6 +1,8 @@
+/* ObjectFormModal.css */
+
 /* Контейнер модалки на весь экран */
 .object-form-content {
-  height: calc(100vh - 120px); /* Высота минус футер и отступы */
+  height: calc(100vh - 120px);
   overflow-y: auto;
   padding: 16px;
   display: flex;
@@ -8,7 +10,9 @@
   gap: 16px;
 }
 
-/* Нередактируемые данные */
+/* ============================================================================
+ * Нередактируемые данные (информация из ведомости)
+ * ========================================================================== */
 .readonly-data {
   margin-bottom: 0;
   line-height: 1.3;
@@ -35,11 +39,27 @@
   font-size: 13px;
 }
 
-/* Поля формы */
-.form-field {
-  margin-bottom: 0;
+/* ============================================================================
+ * Секция местоположения (4 уровня с каскадной зависимостью)
+ * ========================================================================== */
+.places-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 12px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
 }
 
+/* Каждое поле в отдельности */
+.form-field {
+  margin-bottom: 0;
+  position: relative;
+}
+
+/* Поля ввода (общие для всех input) */
 .input-field {
   width: 100%;
   padding: 10px 12px;
@@ -48,15 +68,54 @@
   font-size: 15px;
   box-sizing: border-box;
   background-color: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.input-field.combo-input:disabled {
+.input-field:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input-field:disabled {
   background-color: #f3f4f6;
   color: #9ca3af;
   cursor: not-allowed;
+  border-color: #e5e7eb;
 }
 
-/* Строка действий - НОВАЯ СТРУКТУРА */
+/* Стили для datalist (браузеры рендерят по-своему, но это минимально) */
+.input-field[list] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+/* Индикатор загрузки вариантов */
+.places-loading {
+  font-size: 13px;
+  color: #6b7280;
+  padding: 4px 0;
+  font-style: italic;
+}
+
+/* Ошибка загрузки местоположений */
+.places-error {
+  font-size: 13px;
+  color: #dc2626;
+  padding: 4px 0;
+}
+
+/* ============================================================================
+ * Поля формы (общие)
+ * ========================================================================== */
+.form-field {
+  margin-bottom: 0;
+}
+
+/* Строка действий с кнопками */
 .actions-container {
   display: flex;
   gap: 12px;
@@ -83,13 +142,21 @@
   white-space: nowrap;
   text-align: center;
   width: 150px;
+  transition: background-color 0.2s;
 }
 
-.btn-action:hover {
+.btn-action:hover:not(:disabled) {
   background: #2563eb;
 }
 
-/* Карусель фото */
+.btn-action:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+ * Карусель фото (не используется сейчас, но оставим)
+ * ========================================================================== */
 .photos-carousel {
   display: flex;
   gap: 8px;
@@ -116,7 +183,9 @@
   object-fit: cover;
 }
 
-/* Текстовое поле комментария */
+/* ============================================================================
+ * Текстовое поле комментария
+ * ========================================================================== */
 .textarea-field {
   width: 100%;
   padding: 10px 12px;
@@ -128,60 +197,36 @@
   resize: vertical;
   min-height: 70px;
   line-height: 1.4;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* История изменений */
-.history-section {
-  margin-top: 8px;
-  flex-grow: 1;
-  min-height: 150px;
+.textarea-field:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.history-table {
-  border: 1px solid #e5e7eb;
+.textarea-field:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+ * Сообщения об ошибках
+ * ========================================================================== */
+.error-message {
+  color: #dc2626;
+  font-size: 14px;
+  padding: 8px 12px;
+  background-color: #fef2f2;
   border-radius: 6px;
-  overflow: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  border-left: 3px solid #dc2626;
 }
 
-.table-header {
-  display: flex;
-  background: #f3f4f6;
-  font-weight: 600;
-  font-size: 13px;
-  color: #374151;
-  border-bottom: 1px solid #e5e7eb;
-  flex-shrink: 0;
-}
-
-.table-body {
-  overflow-y: auto;
-  flex-grow: 1;
-}
-
-.table-row {
-  display: flex;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.table-row:last-child {
-  border-bottom: none;
-}
-
-.table-col {
-  flex: 1;
-  padding: 8px 10px;
-  font-size: 13px;
-  color: #4b5563;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-/* Кнопки футера */
+/* ============================================================================
+ * Кнопки футера модалки
+ * ========================================================================== */
 .btn {
   padding: 10px 20px;
   border-radius: 6px;
@@ -190,6 +235,7 @@
   cursor: pointer;
   border: none;
   min-width: 100px;
+  transition: background-color 0.2s;
 }
 
 .btn-secondary {
@@ -197,7 +243,7 @@
   color: white;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background-color: #4b5563;
 }
 
@@ -215,7 +261,9 @@
   cursor: not-allowed;
 }
 
-/* Адаптация для очень маленьких экранов */
+/* ============================================================================
+ * Адаптация для мобильных устройств (до 480px)
+ * ========================================================================== */
 @media (max-width: 480px) {
   .object-form-content {
     height: calc(100vh - 100px);
@@ -230,6 +278,11 @@
   .readonly-item.inv-number,
   .readonly-item.sklad {
     font-size: 12px;
+  }
+  
+  .places-section {
+    padding: 8px;
+    gap: 8px;
   }
   
   .input-field,
@@ -262,11 +315,6 @@
   .photo-thumb {
     width: 45px;
     height: 45px;
-  }
-  
-  .table-col {
-    padding: 6px 8px;
-    font-size: 12px;
   }
   
   .btn {

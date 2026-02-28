@@ -1,6 +1,9 @@
 /**
  * Сервис для работы с объектами инвентаризации
  * Поддерживает онлайн/офлайн режимы работы
+ * 
+ * Онлайн-режим (flightMode = false): все запросы к API
+ * Офлайн-режим (flightMode = true): все операции в IndexedDB
  */
 import { offlineCache } from '@/services/offline-cache-service'
 
@@ -8,6 +11,10 @@ export class ObjectService {
   constructor() {
     this.baseUrl = '/api'
   }
+
+  //============================================================================
+  // БАЗОВЫЕ МЕТОДЫ
+  //============================================================================
 
   /**
    * Проверяет, активен ли режим полёта
@@ -29,16 +36,14 @@ export class ObjectService {
       throw new Error('Токен авторизации не найден')
     }
 
-    // Базовые настройки для всех запросов
     const defaultOptions = {
-      method: 'GET', // по умолчанию GET
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     }
 
-    // Объединяем с переданными опциями
     const requestOptions = {
       ...defaultOptions,
       ...options,
@@ -48,7 +53,6 @@ export class ObjectService {
       }
     }
 
-    // Для методов с телом (POST, PUT) преобразуем объект в JSON
     if (requestOptions.body && typeof requestOptions.body !== 'string') {
       requestOptions.body = JSON.stringify(requestOptions.body)
     }
@@ -62,8 +66,12 @@ export class ObjectService {
     return await response.json()
   }
 
+  //============================================================================
+  // ПОЛУЧЕНИЕ ОБЪЕКТА ПО ID
+  //============================================================================
+
   /**
-   * Получает объект по ID
+   * Менеджер: получает объект по ID
    * @param {string|number} id - ID объекта
    * @returns {Promise<Object>} Объект инвентаризации
    */
@@ -80,7 +88,7 @@ export class ObjectService {
   }
 
   /**
-   * Получает объект из кэша IndexedDB
+   * Исполнитель для офлайн: получает объект из IndexedDB
    */
   async getFromCache(id) {
     try {
@@ -90,7 +98,6 @@ export class ObjectService {
         throw new Error(`Объект с ID ${id} не найден в кэше`)
       }
       
-      console.log(`[ObjectService] Из кэша получен объект:`, object)
       return object
     } catch (error) {
       console.error('[ObjectService] Ошибка получения из кэша:', error)
@@ -99,32 +106,11 @@ export class ObjectService {
   }
 
   /**
-   * Получает объект с сервера через API
+   * Исполнитель для онлайн: получает объект через API
    */
   async getFromApi(id) {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('Токен авторизации не найден')
-      }
-
-      const response = await fetch(`${this.baseUrl}/objects/${id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ошибка: ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      // Сохраняем в кэш для офлайн-использования
-      await this.saveToCache(data)
-      
+      const data = await this.apiRequest(`/objects/${id}`)
       return data
     } catch (error) {
       console.error('[ObjectService] Ошибка получения с сервера:', error)
@@ -132,8 +118,32 @@ export class ObjectService {
     }
   }
 
+  //============================================================================
+  // УНИВЕРСАЛЬНОЕ СОХРАНЕНИЕ
+  //============================================================================
+
   /**
-   * Создаёт новый объект
+   * Управляющий метод: создаёт или обновляет объект в зависимости от наличия ID
+   * @param {Object} objectData - Данные объекта (может содержать id)
+   * @returns {Promise<Object>} Сохранённый объект
+   */
+  async saveObject(objectData) {
+    const hasId = objectData.id && objectData.id !== null
+    
+    if (hasId) {
+      const { id, ...updateData } = objectData
+      return this.updateObject(id, updateData)
+    } else {
+      return this.createObject(objectData)
+    }
+  }
+  
+  //============================================================================
+  // СОЗДАНИЕ ОБЪЕКТА
+  //============================================================================
+
+  /**
+   * Менеджер: создаёт новый объект
    * @param {Object} objectData - Данные объекта
    * @returns {Promise<Object>} Созданный объект с ID
    */
@@ -141,16 +151,14 @@ export class ObjectService {
     console.log('[ObjectService] Создание объекта:', objectData)
     
     if (this.isFlightMode()) {
-      // ОФЛАЙН-РЕЖИМ: создаём в IndexedDB с временным отрицательным ID
       return this.createInCache(objectData)
     }
     
-    // ОНЛАЙН-РЕЖИМ: отправляем на сервер
     return this.createInApi(objectData)
   }
 
   /**
-   * Создаёт объект в кэше IndexedDB
+   * Исполнитель для офлайн: создаёт объект в IndexedDB
    */
   async createInCache(objectData) {
     try {
@@ -175,15 +183,8 @@ export class ObjectService {
         updated_at: new Date().toISOString()
       }
       
-      if (offlineCache.db.objects) {
-        await offlineCache.db.objects.add(newObject)
-        console.log(`[ObjectService] Объект создан в кэше с ID ${tempId}`)
-      } else {
-        console.warn('[ObjectService] Таблица objects не существует, объект не сохранён')
-      }
-      
-      // Добавляем в очередь синхронизации
-      await this.addToSyncQueue('create', newObject)
+      await offlineCache.db.objects.add(newObject)
+      console.log(`[ObjectService] Объект создан в кэше с ID ${tempId}`)
       
       return newObject
     } catch (error) {
@@ -193,11 +194,10 @@ export class ObjectService {
   }
 
   /**
-   * Создаёт объект через API
+   * Исполнитель для онлайн: создаёт объект через API
    */
   async createInApi(objectData) {
     try {
-      // Убираем id из данных
       const { id, ...dataToSend } = objectData
       
       const data = await this.apiRequest('/objects', {
@@ -213,8 +213,12 @@ export class ObjectService {
     }
   }
 
+  //============================================================================
+  // ОБНОВЛЕНИЕ ОБЪЕКТА
+  //============================================================================
+
   /**
-   * Обновляет существующий объект
+   * Менеджер: обновляет существующий объект
    * @param {number} id - ID объекта
    * @param {Object} updateData - Данные для обновления
    * @returns {Promise<Object>} Обновлённый объект
@@ -230,31 +234,25 @@ export class ObjectService {
   }
 
   /**
-   * Обновляет объект в кэше IndexedDB
+   * Исполнитель для офлайн: обновляет объект в IndexedDB
    */
   async updateInCache(id, updateData) {
     try {
-      // Получаем текущий объект
       const existingObject = await offlineCache.db.objects.get(id)
       
       if (!existingObject) {
         throw new Error(`Объект с ID ${id} не найден в кэше`)
       }
       
-      // Обновляем поля
       const updatedObject = {
         ...existingObject,
         ...updateData,
         updated_at: new Date().toISOString()
       }
       
-      // Сохраняем
       await offlineCache.db.objects.put(updatedObject)
-      
-      // Добавляем в очередь синхронизации
-      await this.addToSyncQueue('update', { id, ...updateData })
-      
       console.log(`[ObjectService] Объект ${id} обновлён в кэше`)
+      
       return updatedObject
     } catch (error) {
       console.error('[ObjectService] Ошибка обновления в кэше:', error)
@@ -263,33 +261,16 @@ export class ObjectService {
   }
 
   /**
-   * Обновляет объект через API
+   * Исполнитель для онлайн: обновляет объект через API
    */
   async updateInApi(id, updateData) {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('Токен авторизации не найден')
-      }
-
-      const response = await fetch(`${this.baseUrl}/objects/${id}`, {
+      const data = await this.apiRequest(`/objects/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
+        body: updateData
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ошибка: ${response.status}`)
-      }
-
-      const data = await response.json()
       
-      // Обновляем кэш
-      await this.saveToCache(data)
-      
+      console.log(`[ObjectService] Объект ${id} обновлён через API`)
       return data
     } catch (error) {
       console.error('[ObjectService] Ошибка обновления через API:', error)
@@ -297,163 +278,147 @@ export class ObjectService {
     }
   }
 
-  /**
-   * Универсальный метод сохранения объекта
-   * Создаёт новый или обновляет существующий
-   * @param {Object} objectData - Данные объекта (может содержать id)
-   * @returns {Promise<Object>} Сохранённый объект
-   */
-  async saveObject(objectData) {
-    const hasId = objectData.id && objectData.id !== null
-    
-    if (hasId) {
-      // Обновление существующего
-      const { id, ...updateData } = objectData
-      return this.updateObject(id, updateData)
-    } else {
-      // Создание нового
-      return this.createObject(objectData)
-    }
-  }
+  //============================================================================
+  // ПОИСК ОБЪЕКТОВ ПО ИНВЕНТАРНОМУ НОМЕРУ
+  //============================================================================
 
   /**
-   * Добавляет операцию в очередь синхронизации
-   */
-  async addToSyncQueue(action, data) {
-    try {
-      if (!offlineCache.db.sync_queue) {
-        console.warn('[ObjectService] Таблица sync_queue не существует')
-        return
-      }
-      
-      const syncRecord = {
-        table: 'objects',
-        action: action,
-        data: data,
-        created_at: new Date().toISOString(),
-        synced: false
-      }
-      
-      await offlineCache.db.sync_queue.add(syncRecord)
-      console.log(`[ObjectService] Операция добавлена в очередь синхронизации`)
-    } catch (error) {
-      console.error('[ObjectService] Ошибка добавления в очередь синхронизации:', error)
-    }
-  }
-
-  /**
-   * Сохраняет объект в кэш IndexedDB
-   */
-  async saveToCache(objectData) {
-    try {
-      if (!objectData || !objectData.id) {
-        console.warn('[ObjectService] Попытка сохранить некорректные данные в кэш')
-        return
-      }
-      
-      if (offlineCache.db.objects) {
-        await offlineCache.db.objects.put(objectData)
-        console.log(`[ObjectService] Объект ID ${objectData.id} сохранён в кэш`)
-      }
-    } catch (error) {
-      console.error('[ObjectService] Ошибка сохранения в кэш:', error)
-    }
-  }
-
-  /**
-   * Проверяет доступность объекта в кэше
-   */
-  async hasCachedObject(id) {
-    try {
-      const object = await offlineCache.db.objects.get(id)
-      return !!object
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * Получает объекты по инвентарному номеру в определённом складе
+   * Менеджер: получает объекты по инвентарному номеру
    * @param {string} inv - Инвентарный номер
-   * @param {number} [zavod] - Номер завода (опционально)
-   * @param {string} [sklad] - Код склада (опционально)
+   * @param {number} [zavod] - Номер завода
+   * @param {string} [sklad] - Код склада
    * @returns {Promise<Array>} Массив объектов
    */
   async getObjectsByInv(inv, zavod, sklad) {
-    const params = new URLSearchParams();
-    params.append('inv', inv);
+    const params = new URLSearchParams()
+    params.append('inv', inv)
     
     if (zavod !== undefined && zavod !== null) {
-      params.append('zavod', zavod);
+      params.append('zavod', zavod)
     }
     
     if (sklad !== undefined && sklad !== null) {
-      params.append('sklad', sklad);
+      params.append('sklad', sklad)
     }
     
     if (this.isFlightMode()) {
-      console.log(`[ObjectService] Офлайн-режим: поиск объектов по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
-      return this.getObjectsByInvFromCache(inv, zavod, sklad);
+      console.log(`[ObjectService] Офлайн-режим: поиск по inv=${inv}, zavod=${zavod}, sklad=${sklad}`)
+      return this.getByInvFromCache(inv, zavod, sklad)
     }
     
-    console.log(`[ObjectService] Онлайн-режим: поиск объектов по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
-    return this.getObjectsByInvFromApi(params);
+    console.log(`[ObjectService] Онлайн-режим: поиск по inv=${inv}, zavod=${zavod}, sklad=${sklad}`)
+    return this.getByInvFromApi(params)
   }
 
   /**
-   * Поиск объектов в кэше IndexedDB
+   * Исполнитель для офлайн: ищет объекты в IndexedDB по инвентарному номеру
    */
-  async getObjectsByInvFromCache(inv, zavod, sklad) {
+  async getByInvFromCache(inv, zavod, sklad) {
     try {
-      const allObjects = await offlineCache.db.objects.toArray();
+      const allObjects = await offlineCache.db.objects.toArray()
       
-      // Фильтруем по условиям
       const filtered = allObjects.filter(obj => {
-        // Проверяем inv
-        if (obj.inv_number !== inv) return false;
-        
-        // Проверяем zavod, если передан
-        if (zavod !== undefined && obj.zavod !== zavod) return false;
-        
-        // Проверяем sklad, если передан
-        if (sklad !== undefined && obj.sklad !== sklad) return false;
-        
-        return true;
-      });
+        if (obj.inv_number !== inv) return false
+        if (zavod !== undefined && obj.zavod !== zavod) return false
+        if (sklad !== undefined && obj.sklad !== sklad) return false
+        return true
+      })
       
-      console.log(`[ObjectService] Из кэша найдено объектов: ${filtered.length}`);
-      return filtered;
+      console.log(`[ObjectService] Из кэша найдено объектов: ${filtered.length}`)
+      return filtered
     } catch (error) {
-      console.error('[ObjectService] Ошибка поиска в кэше:', error);
-      return [];
+      console.error('[ObjectService] Ошибка поиска в кэше:', error)
+      return []
     }
   }
 
   /**
-   * Поиск объектов через API
+   * Исполнитель для онлайн: ищет объекты через API по инвентарному номеру
    */
-  async getObjectsByInvFromApi(params) {
+  async getByInvFromApi(params) {
     try {
-      const data = await this.apiRequest(`/objects/by-inv?${params.toString()}`);
+      const data = await this.apiRequest(`/objects/by-inv?${params.toString()}`)
       
       if (!data.success) {
-        throw new Error(data.error || 'Ошибка поиска объектов');
+        throw new Error(data.error || 'Ошибка поиска объектов')
       }
       
-      // Сохраняем найденные объекты в кэш
-      if (data.objects && data.objects.length > 0) {
-        for (const obj of data.objects) {
-          await this.saveToCache(obj);
-        }
-      }
-      
-      return data.objects || [];
+      return data.objects || []
     } catch (error) {
-      console.error('[ObjectService] Ошибка поиска через API:', error);
-      throw error;
+      console.error('[ObjectService] Ошибка поиска через API:', error)
+      throw error
     }
   }
 
+  //============================================================================
+  // ПОЛУЧЕНИЕ МЕСТОПОЛОЖЕНИЙ
+  //============================================================================
+
+  /**
+   * Менеджер: получает все уникальные комбинации местоположений
+   * @returns {Promise<Array<{ter: string, pos: string|null, cab: string|null, user: string|null}>>}
+   */
+  async getPlaceCombinations() {
+    if (this.isFlightMode()) {
+      console.log('[ObjectService] Офлайн-режим: получение местоположений из кэша')
+      return this.getPlacesFromCache()
+    }
+    
+    console.log('[ObjectService] Онлайн-режим: получение местоположений с сервера')
+    return this.getPlacesFromApi()
+  }
+
+  /**
+   * Исполнитель для офлайн: получает уникальные комбинации местоположений из IndexedDB
+   */
+  async getPlacesFromCache() {
+    try {
+      const allObjects = await offlineCache.db.objects.toArray()
+      
+      const combinationsMap = new Map()
+      
+      allObjects.forEach(obj => {
+        if (!obj.place_ter || obj.place_ter.trim() === '') return
+        
+        const key = `${obj.place_ter}|${obj.place_pos || ''}|${obj.place_cab || ''}|${obj.place_user || ''}`
+        
+        if (!combinationsMap.has(key)) {
+          combinationsMap.set(key, {
+            ter: obj.place_ter,
+            pos: obj.place_pos || null,
+            cab: obj.place_cab || null,
+            user: obj.place_user || null
+          })
+        }
+      })
+      
+      const combinations = Array.from(combinationsMap.values())
+      console.log(`[ObjectService] Из кэша построено комбинаций: ${combinations.length}`)
+      return combinations
+      
+    } catch (error) {
+      console.error('[ObjectService] Ошибка построения комбинаций из кэша:', error)
+      return []
+    }
+  }
+
+  /**
+   * Исполнитель для онлайн: получает комбинации местоположений через API
+   */
+  async getPlacesFromApi() {
+    try {
+      const data = await this.apiRequest('/objects/place-combinations')
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Ошибка загрузки комбинаций местоположений')
+      }
+      
+      return data.combinations || []
+    } catch (error) {
+      console.error('[ObjectService] Ошибка получения местоположений с сервера:', error)
+      throw error
+    }
+  }
 }
 
 // Экспортируем синглтон

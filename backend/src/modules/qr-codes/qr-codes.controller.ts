@@ -35,10 +35,4 @@ export class QrCodesController {
   async updateOwner(@Body() updateQrOwnerDto: UpdateQrOwnerDto) {
     return this.qrCodesService.updateOwner(updateQrOwnerDto);
   }
-  // Удалить QR (может понадобится)
-  @Delete(':qr_value')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('qr_value') qrValue: string) {
-    return this.qrCodesService.remove(qrValue);
-  }
 }

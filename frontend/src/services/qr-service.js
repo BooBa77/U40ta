@@ -1,6 +1,9 @@
 /**
  * Сервис для работы с QR-кодами
  * Поддерживает онлайн/офлайн режимы
+  * 
+ * Онлайн-режим (flightMode = false): все запросы к API
+ * Офлайн-режим (flightMode = true): все операции в IndexedDB
  */
 import { offlineCache } from '@/services/offline-cache-service'
 
@@ -8,6 +11,10 @@ export class QrService {
   constructor() {
     this.baseUrl = '/api'
   }
+
+  //============================================================================
+  // БАЗОВЫЕ МЕТОДЫ
+  //============================================================================
 
   /**
    * Проверяет, активен ли режим полёта
@@ -60,6 +67,10 @@ export class QrService {
 
     return await response.json()
   }
+
+  //============================================================================
+  // ПОЛУЧЕНИЕ ОБЪЕКТА ПО QR-КОДУ
+  //============================================================================
 
   /**
    * Ищет ID объекта по QR-коду
@@ -118,6 +129,10 @@ export class QrService {
       throw error
     }
   }
+  
+  //============================================================================
+  // СОЗДАНИЕ QR-КОДА
+  //============================================================================
 
   /**
    * Создаёт новую запись QR-кода
@@ -159,27 +174,30 @@ export class QrService {
     }
   }
 
-javascript
-/**
- * Создаёт QR-код через API
- */
-async createInApi(qrValue, objectId) {
-  try {
-    const data = await this.apiRequest('/qr-codes', {
-      method: 'POST',
-      body: {
-        qr_value: qrValue,
-        object_id: Number(objectId)
-      }
-    })
-    
-    console.log('[QrService] QR-код создан через API:', data)
-    return data.success === true
-  } catch (error) {
-    console.error('[QrService] Ошибка создания через API:', error)
-    throw error
+  /**
+   * Создаёт QR-код через API
+   */
+  async createInApi(qrValue, objectId) {
+    try {
+      const data = await this.apiRequest('/qr-codes', {
+        method: 'POST',
+        body: {
+          qr_value: qrValue,
+          object_id: Number(objectId)
+        }
+      })
+      
+      console.log('[QrService] QR-код создан через API:', data)
+      return data.success === true
+    } catch (error) {
+      console.error('[QrService] Ошибка создания через API:', error)
+      throw error
+    }
   }
-}
+  
+  //============================================================================
+  // ИЗМЕНЕНИЕ QR-КОДА
+  //============================================================================
 
   /**
    * Меняет владельца QR-кода

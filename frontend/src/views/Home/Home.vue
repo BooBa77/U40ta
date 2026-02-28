@@ -99,12 +99,12 @@ import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 import { qrService } from '@/services/qr-service.js'
 import { objectService } from '@/services/object-service.js'
 import { useCamera } from '@/composables/useCamera.js'
+import { useCurrentUser } from '@/composables/useCurrentUser'
 
 const router = useRouter()
 const route = useRoute()
 
 // Основные состояния компонента
-const userAbr = ref('') // Аббревиатура пользователя
 const hasAccessToStatements = ref(false) // Флаг доступа к ведомостям
 const accessChecked = ref(false) // Флаг завершения проверки доступа
 const { hasCamera } = useCamera() // Состояние камеры
@@ -177,29 +177,13 @@ const checkAuth = () => {
 }
 
 /**
- * Загрузка аббревиатуры пользователя
+ * Загрузка аббревиатуры пользователя из композабла
  * Вызывается при загрузке и при получении SSE событий об изменении данных пользователя
  */
-const loadUserAbr = async () => {
-  try {
-    const token = localStorage.getItem('auth_token')
-    const payloadBase64 = token.split('.')[1]
-    const payloadJson = atob(payloadBase64)
-    const payload = JSON.parse(payloadJson)
-    
-    const response = await fetch(`/api/users/${payload.sub}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    
-    if (response.ok) {
-      const user = await response.json()
-      userAbr.value = user.abr
-      console.log('Home: аббревиатура пользователя загружена:', userAbr.value)
-    }
-  } catch (error) {
-    console.error('Home: ошибка загрузки данных пользователя:', error)
-  }
-}
+const { 
+  userAbr, 
+  fetchUserAbr 
+} = useCurrentUser()
 
 /**
  * Проверка доступа к ведомостям через таблицу mol_access
@@ -282,7 +266,7 @@ const handleAccessChangedEvent = (eventData) => {
     console.log('Home: получено событие изменения прав доступа для текущего пользователя')
     
     // Перезагружаем данные пользователя
-    loadUserAbr() // abr мог измениться при регистрации админом
+    fetchUserAbr() // abr мог измениться при регистрации админом
     checkAccessToStatements() // доступ к ведомостям мог измениться
   }
 }
@@ -300,7 +284,7 @@ const handleUserDataUpdatedEvent = (eventData) => {
   
   if (!eventData.data || !eventData.data.userId || eventData.data.userId === currentUserId) {
     console.log('Home: получено событие обновления данных пользователя')
-    loadUserAbr() // Перезагружаем аббревиатуру
+    fetchUserAbr() // Перезагружаем аббревиатуру
   }
 }
 
@@ -414,7 +398,7 @@ const handleFlightModeChange = (event) => {
 onMounted(() => {
   if (checkAuth()) {
     // Загрузка данных пользователя
-    loadUserAbr()
+    fetchUserAbr()
     
     // Проверка доступа к ведомостям
     checkAccessToStatements()

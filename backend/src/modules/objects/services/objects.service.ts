@@ -67,4 +67,32 @@ export class ObjectsService {
     Object.assign(object, updateObjectDto);
     return this.objectRepository.save(object);
   }
+
+  /**
+   * Получение уникальных комбинаций place_ter, place_pos, place_cab, place_user
+   * Возвращает массив объектов с полями ter, pos, cab, user
+   * ter - обязательно не NULL и не пустое
+   * pos, cab, user могут быть NULL (их потом фильтруем на клиенте)
+   */
+  async getPlaceCombinations(): Promise<{ ter: string; pos: string | null; cab: string | null; user: string | null }[]> {
+    console.log('[ObjectsService] Загрузка уникальных комбинаций местоположений');
+    
+    const result = await this.objectRepository
+      .createQueryBuilder('object')
+      .select('object.place_ter', 'ter')
+      .addSelect('object.place_pos', 'pos')
+      .addSelect('object.place_cab', 'cab')
+      .addSelect('object.place_user', 'user')
+      .where('object.place_ter IS NOT NULL')
+      .andWhere('object.place_ter != :empty', { empty: '' })
+      .distinct(true)
+      .orderBy('object.place_ter')
+      .addOrderBy('object.place_pos')
+      .addOrderBy('object.place_cab')
+      .addOrderBy('object.place_user')
+      .getRawMany();
+    
+    console.log(`[ObjectsService] Загружено комбинаций: ${result.length}`);
+    return result;
+  }  
 }

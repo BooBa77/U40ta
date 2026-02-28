@@ -55,6 +55,28 @@ export class ObjectsController {
   }
 
   /**
+   * Получение всех уникальных комбинаций местоположений
+   * GET /api/objects/place-combinations
+   */
+  @Get('place-combinations')
+  async getPlaceCombinations() {
+    try {
+      const combinations = await this.objectsService.getPlaceCombinations();
+      return {
+        success: true,
+        combinations
+      };
+    } catch (error) {
+      console.error('[ObjectsController] Ошибка получения комбинаций:', error);
+      return {
+        success: false,
+        error: error.message,
+        combinations: []
+      };
+    }
+  }  
+
+  /**
    * Получение объекта по ID
    * GET /api/objects/:id
    */
@@ -92,4 +114,5 @@ export class ObjectsController {
       };
     }
   }
+
 }
