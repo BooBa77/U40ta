@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import * as express from 'express';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 
@@ -25,6 +26,9 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Разрешенные HTTP методы
     credentials: true, // Разрешить передачу куков и авторизационных заголовков
   });
+  // Для поддержки больших файлов (фото)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   // Глобальная валидация входящих данных
   // ValidationPipe автоматически проверяет данные по правилам, которые мы задаем в DTO классах

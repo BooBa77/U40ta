@@ -53,12 +53,6 @@
   border-left: 3px solid #3b82f6;
 }
 
-/* Каждое поле в отдельности */
-.form-field {
-  margin-bottom: 0;
-  position: relative;
-}
-
 /* Поля ввода (общие для всех input) */
 .input-field {
   width: 100%;
@@ -84,7 +78,7 @@
   border-color: #e5e7eb;
 }
 
-/* Стили для datalist (браузеры рендерят по-своему, но это минимально) */
+/* Стили для полей с datalist */
 .input-field[list] {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -109,29 +103,26 @@
 }
 
 /* ============================================================================
- * Поля формы (общие)
+ * Секция медиа (QR-коды и фото)
  * ========================================================================== */
-.form-field {
-  margin-bottom: 0;
-}
-
-/* Строка действий с кнопками */
-.actions-container {
+.media-section {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: flex-start;
   margin: 0;
-  min-height: 50px;
+  min-height: 60px;
 }
 
-.actions-buttons {
+/* Вертикальная группа кнопок */
+.media-buttons {
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
+  width: 150px;
 }
 
-.btn-action {
+.btn-media {
   padding: 10px 16px;
   background: #3b82f6;
   color: white;
@@ -141,46 +132,122 @@
   cursor: pointer;
   white-space: nowrap;
   text-align: center;
-  width: 150px;
+  width: 100%;
   transition: background-color 0.2s;
 }
 
-.btn-action:hover:not(:disabled) {
+.btn-media:hover:not(:disabled) {
   background: #2563eb;
 }
 
-.btn-action:disabled {
+.btn-media:disabled {
   background: #93c5fd;
   cursor: not-allowed;
 }
 
-/* ============================================================================
- * Карусель фото (не используется сейчас, но оставим)
- * ========================================================================== */
+/* Карусель фото */
 .photos-carousel {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding: 4px 0;
-  flex-grow: 1;
-  min-height: 60px;
+  flex: 1;
+  min-height: 70px;
   align-items: center;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #e5e7eb;
 }
 
+.photos-carousel::-webkit-scrollbar {
+  height: 4px;
+}
+
+.photos-carousel::-webkit-scrollbar-track {
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+
+.photos-carousel::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 4px;
+}
+
+/* Миниатюра фото */
 .photo-thumb {
-  width: 50px;
-  height: 50px;
-  border-radius: 6px;
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
-  border: 1px solid #e5e7eb;
+  border: 2px solid #e5e7eb;
   background: #f9fafb;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.photo-thumb:hover {
+  border-color: #3b82f6;
 }
 
 .photo-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Кнопка удаления фото - всегда видимый красный крестик */
+.photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444; /* Красный фон */
+  color: white;
+  border: 2px solid white; /* Белая обводка для контраста */
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Тень для объема */
+  z-index: 10; /* Поверх всего */
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.photo-remove:active {
+  transform: scale(0.95); /* Эффект нажатия */
+  background: #dc2626; /* Темнее при нажатии */
+}
+
+.photo-remove:disabled {
+  background: #9ca3af;
+  border-color: #d1d5db;
+  transform: none;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Индикатор загрузки фото */
+.photos-loading {
+  color: #6b7280;
+  font-size: 13px;
+  font-style: italic;
+  padding: 8px;
+}
+
+/* Пустая карусель (плейсхолдер) - только если нет фото */
+.photos-carousel:empty::before {
+  content: 'Нет фото';
+  color: #9ca3af;
+  font-size: 13px;
+  font-style: italic;
+  padding: 8px;
 }
 
 /* ============================================================================
@@ -291,17 +358,19 @@
     font-size: 14px;
   }
   
-  .actions-container {
+  /* Медиа-секция на мобильных */
+  .media-section {
     flex-direction: column;
+    gap: 12px;
+  }
+  
+  .media-buttons {
+    flex-direction: row;
+    width: 100%;
     gap: 8px;
   }
   
-  .actions-buttons {
-    flex-direction: row;
-    width: 100%;
-  }
-  
-  .btn-action {
+  .btn-media {
     width: 50%;
     padding: 8px 12px;
     font-size: 13px;
@@ -309,12 +378,20 @@
   
   .photos-carousel {
     width: 100%;
-    min-height: 50px;
+    min-height: 60px;
   }
   
   .photo-thumb {
-    width: 45px;
-    height: 45px;
+    width: 50px;
+    height: 50px;
+  }
+  
+  /* Крестик на мобильных чуть меньше */
+  .photo-remove {
+    width: 20px;
+    height: 20px;
+    font-size: 16px;
+    border-width: 1.5px;
   }
   
   .btn {

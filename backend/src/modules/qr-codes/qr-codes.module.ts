@@ -4,11 +4,13 @@ import { QrCode } from './entities/qr-code.entity';
 import { QrCodesService } from './qr-codes.service';
 import { QrCodesController } from './qr-codes.controller';
 import { QrCodesHistoryModule } from '../qr-codes-history/qr-codes-history.module';
+import { JwtAuthModule } from '../auth/jwt-auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([QrCode]),
-    QrCodesHistoryModule, // Импортируем модуль истории
+    JwtAuthModule,
+    QrCodesHistoryModule,
   ],
   controllers: [QrCodesController],
   providers: [QrCodesService],

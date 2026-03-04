@@ -37,7 +37,7 @@ export class QrCodesService {
   }
 
   // Создать QR
-  async create(createQrCodeDto: CreateQrCodeDto): Promise<QrCode> {
+  async create(createQrCodeDto: CreateQrCodeDto, userId: number): Promise<QrCode> {
     const existing = await this.qrCodesRepository.findOne({
       where: { qr_value: createQrCodeDto.qr_value },
     });
@@ -47,24 +47,22 @@ export class QrCodesService {
     }
 
     const qrCode = this.qrCodesRepository.create(createQrCodeDto);
-    
-    // Сначала сохраняем, чтобы получить id
     const savedQrCode = await this.qrCodesRepository.save(qrCode);
 
     // Журналируем создание
     await this.qrCodesHistoryService.logChange({
       qr_code_id: savedQrCode.id,
-      old_object_id: 0,  // 0 = создание нового QR-кода
+      old_object_id: 0,
       new_object_id: savedQrCode.object_id,
-      changed_by: createQrCodeDto.changed_by, // нужно добавить в DTO
+      changed_by: userId,  // ID из токена
     });
 
     return savedQrCode;
   }
 
   // Переназначение QR
-  async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto): Promise<{ success: boolean }> {
-    const { qr_value, new_object_id, changed_by } = updateQrOwnerDto;
+  async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto, userId: number): Promise<{ success: boolean }> {
+    const { qr_value, new_object_id } = updateQrOwnerDto;
     
     const qrCode = await this.qrCodesRepository.findOne({
       where: { qr_value }
@@ -76,7 +74,6 @@ export class QrCodesService {
 
     const old_object_id = qrCode.object_id;
     
-    // Обновляем владельца
     qrCode.object_id = new_object_id;
     await this.qrCodesRepository.save(qrCode);
     
@@ -85,7 +82,7 @@ export class QrCodesService {
       qr_code_id: qrCode.id,
       old_object_id,
       new_object_id,
-      changed_by,
+      changed_by: userId,  // ID из токена
     });
     
     return {

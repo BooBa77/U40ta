@@ -211,7 +211,7 @@ const handleObjectFormSave = async (result) => {
   console.log('Модалка закрыта', objectFormStatementId.value)
 
   // Если объект изменился
-  if (result.wasCreated) {
+  if (result.was_created) {
     // Обновляем have_object для записи ведомости
     if (objectFormStatementId.value) {
       try {

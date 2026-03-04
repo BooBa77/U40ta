@@ -20,20 +20,6 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   /**
-   * GET /api/users - возвращает список всех пользователей системы
-   * В режиме разработки доступен без авторизации для выбора тестового пользователя
-   * В продакшене требует валидный JWT токен
-   * 
-   * @returns Promise<User[]> - массив пользователей из таблицы users
-   */
-  @Get()
-  async findAll() {
-    // Вызываем сервис для получения всех пользователей из базы данных
-    const users = await this.usersService.findAll();
-    return users;
-  }
-
-  /**
    * GET /api/users/me/abr - возвращает аббревиатуру текущего пользователя
    */
   @Get('me/abr')
@@ -79,6 +65,20 @@ export class UsersController {
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.usersService.findById(+id); // +id преобразует строку в число
+  }
+
+  /**
+   * GET /api/users - возвращает список всех пользователей системы
+   * В режиме разработки доступен без авторизации для выбора тестового пользователя
+   * В продакшене требует валидный JWT токен
+   * 
+   * @returns Promise<User[]> - массив пользователей из таблицы users
+   */
+  @Get()
+  async findAll() {
+    // Вызываем сервис для получения всех пользователей из базы данных
+    const users = await this.usersService.findAll();
+    return users;
   }
 
 }

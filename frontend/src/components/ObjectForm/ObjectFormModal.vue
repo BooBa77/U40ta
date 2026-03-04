@@ -98,9 +98,9 @@
         />
       </div>
 
-      <!-- 4. Кнопки действий -->
-      <div class="actions-container">
-        <div class="actions-buttons">
+      <!-- 4. Кнопки действий и карусель фото -->
+      <div class="media-section">
+        <div class="actions-buttons-vertical">
           <button 
             v-if="hasCamera"
             class="btn-action" 
@@ -109,6 +109,30 @@
           >
             Добавить QR-код
           </button>
+          <button 
+            v-if="hasCamera"
+            class="btn-action" 
+            @click="addPhoto" 
+            :disabled="isSaving"
+          >
+            Добавить фото
+          </button>
+        </div>
+        
+        <div class="photos-carousel" v-if="photos.length > 0">
+          <div 
+            v-for="(photo, index) in photos" 
+            :key="index" 
+            class="photo-thumb"
+            @click="openViewer(index)"
+          >
+            <img :src="photo.thumbnail" alt="Фото">
+            <button 
+              class="photo-remove" 
+              @click.stop="removePhoto(index)"
+              :disabled="isSaving"
+            >×</button>
+          </div>
         </div>
       </div>
 
@@ -144,6 +168,7 @@ import { ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { objectService } from '@/services/object-service.js'
 import { qrService } from '@/services/qr-service.js'
+import { useObjectPhotos } from './composables/useObjectPhotos'
 import { historyService } from '@/services/history-service.js'
 import { useObjectQrManager } from './composables/useObjectQrManager'
 import { useCamera } from '@/composables/useCamera.js'
@@ -206,6 +231,13 @@ const {
 } = useObjectQrManager(objectData, {
   onCancel: () => handleCancel()
 })
+// Photo-менеджер
+const {
+  photos,
+  loadPhotos,
+  addPhoto,
+  removePhoto
+} = useObjectPhotos()
 
 // Загрузка существующего объекта
 const loadObject = async (id) => {
@@ -328,6 +360,7 @@ watch(() => props.isOpen, async (isOpen) => {
     if (props.objectId) {
       // Редактирование существующего
       await loadObject(props.objectId)
+      await loadPhotos(props.objectId)
     } else {
       // Создание нового из строки ведомости
       initFromRowData(props.initialData)

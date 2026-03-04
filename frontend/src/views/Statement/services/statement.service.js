@@ -301,7 +301,7 @@ export class StatementService {
   /**
    * Обновляет have_object через API
    */
-  async updateHaveObjectInApi(attachmentId, statementId, haveObject) {
+  async updateHaveObjectInApi(statementId, haveObject) {
     try {
       const token = localStorage.getItem('auth_token')
       if (!token) {

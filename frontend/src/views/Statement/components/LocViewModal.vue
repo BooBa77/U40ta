@@ -280,7 +280,6 @@ const handleObjectFormSave = async (result) => {
           statementId: objectFormStatementId.value
         })
         await statementService.updateStatementHaveObject(
-           attachmentId,
            objectFormStatementId.value,
            true
         )
