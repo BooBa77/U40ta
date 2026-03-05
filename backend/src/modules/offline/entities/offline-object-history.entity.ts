@@ -2,8 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 't
 import { InventoryObject } from '../../objects/entities/object.entity';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('offline_object_changes')
-export class ObjectOfflineChange {
+@Entity('offline_object_history')
+export class ObjectOfflineHistory {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 

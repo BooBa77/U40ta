@@ -1,11 +1,11 @@
 /**
  * Сервис для работы с QR-кодами
  * Поддерживает онлайн/офлайн режимы
-  * 
+ * 
  * Онлайн-режим (flightMode = false): все запросы к API
  * Офлайн-режим (flightMode = true): все операции в IndexedDB
  */
-import { offlineCache } from '@/services/offline-cache-service'
+import { offlineCache } from './offline-cache-service'
 
 export class QrService {
   constructor() {
@@ -96,10 +96,7 @@ export class QrService {
    */
   async findInCache(qrValue) {
     try {
-      const qrRecord = await offlineCache.db.qr_codes
-        .where('qr_value')
-        .equals(qrValue)
-        .first()
+      const qrRecord = await offlineCache.getQrCode(qrValue)
 
       console.log(`[QrService] Результат поиска в кэше:`, qrRecord ? 'найден' : 'не найден')
       return qrRecord || null
@@ -165,7 +162,7 @@ export class QrService {
         object_id: objectId
       }
 
-      const id = await offlineCache.db.qr_codes.add(newQrCode)
+      const id = await offlineCache.saveQrCode(newQrCode)
       console.log(`[QrService] QR-код создан в кэше с ID: ${id}`)
       return { ...newQrCode, id }
     } catch (error) {
@@ -219,17 +216,15 @@ export class QrService {
    */
   async updateInCache(qrValue, newObjectId) {
     try {
-      const qrRecord = await offlineCache.db.qr_codes
-        .where('qr_value')
-        .equals(qrValue)
-        .first()
+      const qrRecord = await offlineCache.getQrCode(qrValue)
 
       if (!qrRecord) {
         throw new Error(`QR-код "${qrValue}" не найден`)
       }
 
+      // Обновляем владельца и сохраняем (saveQrCode сам запишет историю)
       qrRecord.object_id = newObjectId
-      await offlineCache.db.qr_codes.put(qrRecord)
+      await offlineCache.saveQrCode(qrRecord)
       
       console.log(`[QrService] QR-код обновлён в кэше`)
       return true
@@ -241,7 +236,6 @@ export class QrService {
 
   /**
    * Обновляет QR-код через API
-   * TODO: уточнить эндпоинт у бэкенда
    */
   async updateInApi(qrValue, newObjectId) {
     try {
@@ -256,6 +250,63 @@ export class QrService {
       return data.success === true
     } catch (error) {
       console.error('[QrService] Ошибка обновления через API:', error)
+      throw error
+    }
+  }
+
+  //============================================================================
+  // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
+  //============================================================================
+
+  /**
+   * Получает все QR-коды для объекта
+   * @param {number} objectId - ID объекта
+   * @returns {Promise<Array>}
+   */
+  async getQrCodesByObject(objectId) {
+    if (this.isFlightMode()) {
+      try {
+        const qrCode = await offlineCache.getQrCodeByObjectId(objectId)
+        return qrCode ? [qrCode] : []
+      } catch (error) {
+        console.error('[QrService] Ошибка получения QR-кодов из кэша:', error)
+        return []
+      }
+    }
+
+    try {
+      const data = await this.apiRequest(`/qr-codes/object/${objectId}`)
+      return data.qr_codes || []
+    } catch (error) {
+      console.error('[QrService] Ошибка получения QR-кодов через API:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Получает историю перемещений QR-кода
+   * @param {number} objectId - ID объекта (опционально)
+   * @returns {Promise<Array>}
+   */
+  async getQrCodeHistory(objectId) {
+    if (this.isFlightMode()) {
+      try {
+        return await offlineCache.getQrCodeHistory(objectId)
+      } catch (error) {
+        console.error('[QrService] Ошибка получения истории из кэша:', error)
+        return []
+      }
+    }
+
+    try {
+      const endpoint = objectId 
+        ? `/qr-codes/history/object/${objectId}`
+        : '/qr-codes/history'
+      
+      const data = await this.apiRequest(endpoint)
+      return data.history || []
+    } catch (error) {
+      console.error('[QrService] Ошибка получения истории через API:', error)
       throw error
     }
   }

@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 
-@Entity('object_changes')
-@Index('object_changes_object_id_fkey', ['object_id']) // для внешнего ключа
-export class ObjectChange {
+@Entity('object_history')
+@Index('object_history_object_id_fkey', ['object_id']) // для внешнего ключа
+export class ObjectHistory {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 

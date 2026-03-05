@@ -1,23 +1,23 @@
 import { Controller, Get, Post, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ObjectChangesService } from './objects_changes.service';
-import { ObjectChangeResponseDto } from './dto/object-change.response.dto';
+import { ObjectHistoryService } from './object_history.service';
+import { ObjectHistoryResponseDto } from './dto/object_history.response.dto';
 
-@Controller('object-changes')
+@Controller('object-history')
 @UseGuards(JwtAuthGuard)
-export class ObjectChangesController {
-  constructor(private readonly objectChangesService: ObjectChangesService) {}
+export class ObjectHistoryController {
+  constructor(private readonly objectHistoryService: ObjectHistoryService) {}
 
   /**
    * Получение истории изменений объекта
-   * GET /api/object-changes/:objectId
+   * GET /api/object-history/:objectId
    */
   @Get(':objectId')
   async getObjectHistory(
     @Param('objectId') objectId: string,
-  ): Promise<ObjectChangeResponseDto[]> {
+  ): Promise<ObjectHistoryResponseDto[]> {
     try {
-      const history = await this.objectChangesService.getObjectHistory(+objectId);
+      const history = await this.objectHistoryService.getObjectHistory(+objectId);
       
       // Преобразуем в DTO
       return history.map(change => ({
@@ -35,7 +35,7 @@ export class ObjectChangesController {
 
   /**
    * Добавление записи в историю
-   * POST /api/object-changes
+   * POST /api/object-history
    */
   @Post()
   async addHistoryRecord(
@@ -49,7 +49,7 @@ export class ObjectChangesController {
         throw new Error('Не удалось определить пользователя');
       }
 
-      const change = await this.objectChangesService.logChange({
+      const change = await this.objectHistoryService.logHistory({
         object_id: body.object_id,
         story_line: body.story_line,
         changed_by: userId,

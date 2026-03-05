@@ -5,7 +5,7 @@
  * Онлайн-режим (flightMode = false): все запросы к API
  * Офлайн-режим (flightMode = true): все операции в IndexedDB
  */
-import { offlineCache } from '@/services/offline-cache-service'
+import { offlineCache } from './offline-cache-service'
 
 export class ObjectService {
   constructor() {
@@ -92,7 +92,7 @@ export class ObjectService {
    */
   async getFromCache(id) {
     try {
-      const object = await offlineCache.db.objects.get(id)
+      const object = await offlineCache.getObject(id)
       
       if (!object) {
         throw new Error(`Объект с ID ${id} не найден в кэше`)
@@ -165,6 +165,7 @@ export class ObjectService {
       // Генерируем временный отрицательный ID
       const tempId = -(Date.now() * 1000 + Math.floor(Math.random() * 1000))
       
+      // Маппинг полей: из API формата в формат кэша
       const newObject = {
         id: tempId,
         inv_number: objectData.inv_number || '',
@@ -173,20 +174,24 @@ export class ObjectService {
         zavod: objectData.zavod || '',
         party_number: objectData.party_number || null,
         sn: objectData.sn || '',
-        place_ter: objectData.place_ter || null,
-        place_pos: objectData.place_pos || null,
-        place_cab: objectData.place_cab || null,
-        place_user: objectData.place_user || null,
+        // Местоположение теперь в корне объекта
+        ter: objectData.ter || objectData.place_ter || null,
+        pos: objectData.pos || objectData.place_pos || null,
+        cab: objectData.cab || objectData.place_cab || null,
+        user: objectData.user || objectData.place_user || null,
+        // Для обратной совместимости оставляем place как строку
+        place: objectData.place || null,
+        // Метаданные
         is_written_off: false,
         checked_at: objectData.checked_at || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
       
-      await offlineCache.db.objects.add(newObject)
-      console.log(`[ObjectService] Объект создан в кэше с ID ${tempId}`)
+      const id = await offlineCache.addObject(newObject)
+      console.log(`[ObjectService] Объект создан в кэше с ID ${id}`)
       
-      return newObject
+      return { ...newObject, id }
     } catch (error) {
       console.error('[ObjectService] Ошибка создания в кэше:', error)
       throw new Error('Не удалось создать объект в кэше')
@@ -238,19 +243,31 @@ export class ObjectService {
    */
   async updateInCache(id, updateData) {
     try {
-      const existingObject = await offlineCache.db.objects.get(id)
+      // Получаем существующий объект
+      const existingObject = await offlineCache.getObject(id)
       
       if (!existingObject) {
         throw new Error(`Объект с ID ${id} не найден в кэше`)
       }
       
-      const updatedObject = {
-        ...existingObject,
+      // Подготавливаем данные для обновления с маппингом полей местоположения
+      const preparedData = {
         ...updateData,
+        // Маппим поля местоположения, если они пришли в старом формате
+        ter: updateData.ter || updateData.place_ter,
+        pos: updateData.pos || updateData.place_pos,
+        cab: updateData.cab || updateData.place_cab,
+        user: updateData.user || updateData.place_user,
         updated_at: new Date().toISOString()
       }
       
-      await offlineCache.db.objects.put(updatedObject)
+      // Удаляем старые поля, если они есть
+      delete preparedData.place_ter
+      delete preparedData.place_pos
+      delete preparedData.place_cab
+      delete preparedData.place_user
+      
+      const updatedObject = await offlineCache.updateObject(id, preparedData)
       console.log(`[ObjectService] Объект ${id} обновлён в кэше`)
       
       return updatedObject
@@ -315,17 +332,9 @@ export class ObjectService {
    */
   async getByInvFromCache(inv, zavod, sklad) {
     try {
-      const allObjects = await offlineCache.db.objects.toArray()
-      
-      const filtered = allObjects.filter(obj => {
-        if (obj.inv_number !== inv) return false
-        if (zavod !== undefined && obj.zavod !== zavod) return false
-        if (sklad !== undefined && obj.sklad !== sklad) return false
-        return true
-      })
-      
-      console.log(`[ObjectService] Из кэша найдено объектов: ${filtered.length}`)
-      return filtered
+      const objects = await offlineCache.findObjectsByInv(inv, zavod, sklad)
+      console.log(`[ObjectService] Из кэша найдено объектов: ${objects.length}`)
+      return objects
     } catch (error) {
       console.error('[ObjectService] Ошибка поиска в кэше:', error)
       return []
@@ -373,21 +382,22 @@ export class ObjectService {
    */
   async getPlacesFromCache() {
     try {
-      const allObjects = await offlineCache.db.objects.toArray()
+      const objects = await offlineCache.getAllObjects()
       
       const combinationsMap = new Map()
       
-      allObjects.forEach(obj => {
-        if (!obj.place_ter || obj.place_ter.trim() === '') return
+      objects.forEach(obj => {
+        // Пропускаем объекты без территории
+        if (!obj.ter || obj.ter.trim() === '') return
         
-        const key = `${obj.place_ter}|${obj.place_pos || ''}|${obj.place_cab || ''}|${obj.place_user || ''}`
+        const key = `${obj.ter}|${obj.pos || ''}|${obj.cab || ''}|${obj.user || ''}`
         
         if (!combinationsMap.has(key)) {
           combinationsMap.set(key, {
-            ter: obj.place_ter,
-            pos: obj.place_pos || null,
-            cab: obj.place_cab || null,
-            user: obj.place_user || null
+            ter: obj.ter,
+            pos: obj.pos || null,
+            cab: obj.cab || null,
+            user: obj.user || null
           })
         }
       })

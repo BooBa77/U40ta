@@ -1,5 +1,5 @@
 // DTO для ответа с историей изменений
-export interface ObjectChangeResponseDto {
+export interface ObjectHistoryResponseDto {
   id: number;
   object_id: number;
   story_line: string;

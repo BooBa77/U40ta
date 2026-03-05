@@ -5,26 +5,26 @@ import { OfflineService } from './services/offline.service';
 import { OfflineCacheService } from './services/offline-cache.service';
 import { OfflineDataService } from './services/offline-data.service';
 import { OfflineSyncService } from './services/offline-sync.service';
-import { ObjectOfflineChange } from './entities/offline-object-change.entity';
+import { ObjectOfflineHistory } from './entities/offline-object-history.entity';
 import { InventoryObject } from '../objects/entities/object.entity';
 import { ProcessedStatement } from '../statements/entities/processed-statement.entity';
-import { ObjectChange } from '../object_changes/entities/object-change.entity';
+import { ObjectHistory } from '../object_history/entities/object_history.entity';
 import { QrCode } from '../qr-codes/entities/qr-code.entity';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { MolAccess } from '../users/entities/mol-access.entity';
 import { ObjectsModule } from '../objects/objects.module';
 import { StatementsModule } from '../statements/statements.module';
-import { ObjectChangesModule } from '../object_changes/object_changes.module';
+import { ObjectHistoryModule } from '../object_history/object_history.module';
 import { QrCodesModule } from '../qr-codes/qr-codes.module';
 
 @Module({
   imports: [
     // Регистрируем ВСЕ необходимые сущности
     TypeOrmModule.forFeature([
-      ObjectOfflineChange,
+      ObjectOfflineHistory,
       InventoryObject,
       ProcessedStatement,
-      ObjectChange,
+      ObjectHistory,
       QrCode,
       MolAccess,
     ]),
@@ -33,7 +33,7 @@ import { QrCodesModule } from '../qr-codes/qr-codes.module';
     JwtAuthModule,
     ObjectsModule,
     StatementsModule,
-    ObjectChangesModule,
+    ObjectHistoryModule,
     QrCodesModule,
   ],
   controllers: [OfflineController],

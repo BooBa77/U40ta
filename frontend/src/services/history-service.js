@@ -2,11 +2,11 @@
  * Сервис для работы с историей изменений объектов
  * Поддерживает онлайн/офлайн режимы работы
  */
-import { offlineCache } from '@/services/offline-cache-service'
+import { offlineCache } from './offline-cache-service'
 
 export class HistoryService {
   constructor() {
-    this.baseUrl = '/api/object-changes'
+    this.baseUrl = '/api/object-history'
   }
 
   /**
@@ -17,9 +17,9 @@ export class HistoryService {
     return localStorage.getItem('u40ta_flight_mode') === 'true'
   }
 
-    /**
+  /**
    * Универсальный метод для запросов к API
-   * @param {string} endpoint - API endpoint (без /api/)
+   * @param {string} endpoint - API endpoint
    * @param {Object} options - Параметры запроса
    * @returns {Promise<any>} Ответ от сервера
    */
@@ -29,16 +29,14 @@ export class HistoryService {
       throw new Error('Токен авторизации не найден')
     }
 
-    // Базовые настройки для всех запросов
     const defaultOptions = {
-      method: 'GET', // по умолчанию GET
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     }
 
-    // Объединяем с переданными опциями
     const requestOptions = {
       ...defaultOptions,
       ...options,
@@ -48,7 +46,6 @@ export class HistoryService {
       }
     }
 
-    // Для методов с телом (POST, PUT) преобразуем объект в JSON
     if (requestOptions.body && typeof requestOptions.body !== 'string') {
       requestOptions.body = JSON.stringify(requestOptions.body)
     }
@@ -65,7 +62,7 @@ export class HistoryService {
   /**
    * Получает историю изменений объекта
    * @param {number} objectId - ID объекта
-   * @returns {Promise<Object[]>} Массив записей истории
+   * @returns {Promise<Object[]>} Массив записей истории (от новых к старым)
    */
   async getObjectHistory(objectId) {
     console.log(`[HistoryService] Получение истории объекта ${objectId}`)
@@ -84,14 +81,15 @@ export class HistoryService {
    */
   async getFromCache(objectId) {
     try {
-      const changes = await offlineCache.db.object_changes
-        .where('object_id')
-        .equals(objectId)
-        .reverse()
-        .sortBy('changed_at')
+      const history = await offlineCache.getObjectHistory(objectId)
       
-      console.log(`[HistoryService] Из кэша получено записей:`, changes.length)
-      return changes
+      // Сортируем от новых к старым
+      const sorted = history.sort((a, b) => 
+        new Date(b.changed_at) - new Date(a.changed_at)
+      )
+      
+      console.log(`[HistoryService] Из кэша получено записей:`, sorted.length)
+      return sorted
     } catch (error) {
       console.error('[HistoryService] Ошибка получения из кэша:', error)
       return []
@@ -103,30 +101,17 @@ export class HistoryService {
    */
   async getFromApi(objectId) {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('Токен авторизации не найден')
-      }
-
-      const response = await fetch(`${this.baseUrl}/${objectId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ошибка: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const data = await this.apiRequest(`/${objectId}`)
+      
       console.log(`[HistoryService] Получено записей с сервера:`, data.length)
       
       // Сохраняем в кэш для офлайн-использования
       await this.saveToCache(data)
       
-      return data
+      // Сортируем от новых к старым
+      return data.sort((a, b) => 
+        new Date(b.changed_at) - new Date(a.changed_at)
+      )
     } catch (error) {
       console.error('[HistoryService] Ошибка получения с сервера:', error)
       return []
@@ -143,11 +128,9 @@ export class HistoryService {
     console.log(`[HistoryService] Добавление записи для объекта ${objectId}:`, storyLine)
     
     if (this.isFlightMode()) {
-      // ОФЛАЙН-РЕЖИМ: создаём в IndexedDB с временным отрицательным ID
       return this.createInCache(objectId, storyLine)
     }
     
-    // ОНЛАЙН-РЕЖИМ: отправляем на сервер
     return this.createInApi(objectId, storyLine)
   }
 
@@ -156,23 +139,16 @@ export class HistoryService {
    */
   async createInCache(objectId, storyLine) {
     try {
-      // Генерируем временный отрицательный ID
-      const tempId = -(Date.now() * 1000 + Math.floor(Math.random() * 1000))
-      
       const newRecord = {
-        id: tempId,
+        id: null, // null = временная запись, не синхронизированная с сервером
         object_id: objectId,
         story_line: storyLine,
         changed_at: new Date().toISOString(),
         changed_by: null // будет заполнено при синхронизации
       }
       
-      if (offlineCache.db.object_offline_changes) {
-        await offlineCache.db.object_offline_changes.add(newRecord)
-        console.log(`[HistoryService] Запись создана в object_offline_changes с ID ${tempId}`)
-      } else {
-        console.warn('[HistoryService] Таблица object_offline_changes не существует')
-      }
+      await offlineCache.addObjectHistory(newRecord)
+      console.log(`[HistoryService] Временная запись создана в кэше`)
       
       return newRecord
     } catch (error) {
@@ -186,33 +162,20 @@ export class HistoryService {
    */
   async createInApi(objectId, storyLine) {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('Токен авторизации не найден')
-      }
-
-      const response = await fetch(this.baseUrl, {
+      const result = await this.apiRequest('', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+        body: {
           object_id: objectId,
           story_line: storyLine
-        })
+        }
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ошибка: ${response.status}`)
-      }
-
-      const result = await response.json()
       
       if (result.success) {
         console.log('[HistoryService] Запись успешно добавлена на сервер')
-        // Сохраняем в кэш
+        
+        // Сохраняем в кэш (сервер вернул запись с настоящим ID)
         await this.saveToCache([result.data])
+        
         return result.data
       } else {
         throw new Error(result.message || 'Неизвестная ошибка')
@@ -220,12 +183,21 @@ export class HistoryService {
       
     } catch (error) {
       console.error('[HistoryService] Ошибка добавления записи:', error)
+      
+      // Если сервер недоступен, но режим не офлайн? 
+      // Возможно, стоит автоматически переключиться в офлайн-режим
+      if (error.message.includes('Failed to fetch')) {
+        console.log('[HistoryService] Сервер недоступен, сохраняем в кэш как временную')
+        return this.createInCache(objectId, storyLine)
+      }
+      
       return null
     }
   }
 
   /**
    * Сохраняет записи в кэш IndexedDB
+   * @param {Array} records - Массив записей истории с сервера
    */
   async saveToCache(records) {
     try {
@@ -234,14 +206,114 @@ export class HistoryService {
         return
       }
       
-      if (offlineCache.db.object_changes) {
-        for (const record of records) {
-          await offlineCache.db.object_changes.put(record)
+      for (const record of records) {
+        if (!record.id) {
+          console.warn('[HistoryService] Запись без ID не будет сохранена:', record)
+          continue
         }
-        console.log(`[HistoryService] ${records.length} записей сохранено в object_changes`)
+        
+        // Проверяем, есть ли уже такая запись в кэше
+        const existing = await offlineCache.db.object_history
+          .where('id')
+          .equals(record.id)
+          .first()
+        
+        if (existing) {
+          // Обновляем существующую
+          await offlineCache.db.object_history.update(record.id, record)
+        } else {
+          // Добавляем новую
+          await offlineCache.db.object_history.add(record)
+        }
       }
+      
+      console.log(`[HistoryService] ${records.length} записей сохранено в object_history`)
     } catch (error) {
       console.error('[HistoryService] Ошибка сохранения в кэш:', error)
+    }
+  }
+
+  /**
+   * Синхронизирует временные записи с сервером
+   * @param {number} objectId - ID объекта (опционально, если нужна синхронизация только для одного объекта)
+   * @returns {Promise<Object>} Результат синхронизации
+   */
+  async syncPendingRecords(objectId) {
+    console.log('[HistoryService] Начинаем синхронизацию временных записей')
+    
+    try {
+      // Получаем все временные записи (id = null)
+      let query = offlineCache.db.object_history
+        .where('id')
+        .equals(null)
+      
+      if (objectId) {
+        query = query.and(record => record.object_id === objectId)
+      }
+      
+      const pendingRecords = await query.toArray()
+      
+      if (pendingRecords.length === 0) {
+        return { success: true, synced: 0 }
+      }
+      
+      console.log(`[HistoryService] Найдено временных записей: ${pendingRecords.length}`)
+      
+      const results = {
+        success: true,
+        synced: 0,
+        failed: []
+      }
+      
+      for (const record of pendingRecords) {
+        try {
+          const result = await this.apiRequest('', {
+            method: 'POST',
+            body: {
+              object_id: record.object_id,
+              story_line: record.story_line
+            }
+          })
+          
+          if (result.success) {
+            // Удаляем временную запись
+            await offlineCache.db.object_history
+              .where('changed_at')
+              .equals(record.changed_at)
+              .and(r => r.id === null && r.object_id === record.object_id)
+              .delete()
+            
+            // Сохраняем настоящую запись с ID от сервера
+            await offlineCache.db.object_history.add({
+              ...result.data,
+              changed_at: result.data.changed_at || record.changed_at
+            })
+            
+            results.synced++
+          } else {
+            results.failed.push({
+              record,
+              error: result.message || 'Неизвестная ошибка'
+            })
+          }
+        } catch (error) {
+          results.failed.push({
+            record,
+            error: error.message
+          })
+        }
+      }
+      
+      console.log('[HistoryService] Синхронизация завершена:', results)
+      return results
+      
+    } catch (error) {
+      console.error('[HistoryService] Ошибка синхронизации:', error)
+      return {
+        success: false,
+        synced: 0,
+        error: error.message
+      }
     }
   }
 
