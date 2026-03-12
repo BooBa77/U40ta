@@ -104,36 +104,39 @@
           <button 
             v-if="hasCamera"
             class="btn-action" 
-            @click="addQrCode" 
+            @click="handleQrScan" 
             :disabled="isSaving"
           >
             Добавить QR-код
           </button>
+
           <button 
             v-if="hasCamera"
             class="btn-action" 
-            @click="addPhoto" 
+            @click="handlePhotoCapture" 
             :disabled="isSaving"
           >
             Добавить фото
           </button>
         </div>
-        
-        <div class="photos-carousel" v-if="photos.length > 0">
+
+        <div v-if="photos && photos.length > 0" class="photos-carousel">
           <div 
             v-for="(photo, index) in photos" 
             :key="index" 
             class="photo-thumb"
-            @click="openViewer(index)"
           >
-            <img :src="photo.thumbnail" alt="Фото">
+            <img :src="photo.min" alt="Фото" />
             <button 
               class="photo-remove" 
-              @click.stop="removePhoto(index)"
+              @click="removePhoto(index)"
               :disabled="isSaving"
-            >×</button>
+            >
+              ×
+            </button>
           </div>
         </div>
+
       </div>
 
       <!-- 5. Комментарий -->
@@ -172,7 +175,8 @@ import { useObjectPhotos } from './composables/useObjectPhotos'
 import { historyService } from '@/services/history-service.js'
 import { useObjectQrManager } from './composables/useObjectQrManager'
 import { useCamera } from '@/composables/useCamera.js'
-import { useObjectPlaces } from './composables/useObjectPlaces'  // новый композабл
+import { useObjectPlaces } from './composables/useObjectPlaces'
+import { useObjectPhotoManager } from './composables/useObjectPhotoManager'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -238,6 +242,7 @@ const {
   addPhoto,
   removePhoto
 } = useObjectPhotos()
+const { takePhoto } = useObjectPhotoManager()
 
 // Загрузка существующего объекта
 const loadObject = async (id) => {
@@ -301,8 +306,19 @@ const handleCancel = () => {
   emit('cancel', { was_created: false })
 }
 
-const addQrCode = async () => {
+const handleQrScan = async () => {
   await scanQrCode()
+}
+
+const handlePhotoCapture = async () => {
+  try {
+    const blob = await takePhoto()
+    addPhoto(blob)
+  } catch (error) {
+    if (error.message !== 'Отменено пользователем') {
+      errorMessage.value = `Ошибка камеры: ${error.message}`
+    }
+  }
 }
 
 const handleSave = async () => {
