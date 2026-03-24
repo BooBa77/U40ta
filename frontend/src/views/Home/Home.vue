@@ -56,12 +56,11 @@
       <ObjectFormModal
         v-if="showObjectForm"
         :is-open="showObjectForm" 
-        :mode="objectFormMode"
+        :object-id="objectFormData?.id"
         :initial-data="objectFormData"
-        :qrCode="scannedQrCode"
         @cancel="closeObjectForm"
-        @saved="handleObjectSaved"
-      />
+        @save="handleObjectSaved"
+      />      
 
       <!-- Информационное модальное окно для сообщений -->
       <div v-if="showInfoModal" class="info-modal-overlay" @click="closeInfoModal">
@@ -325,16 +324,21 @@ const handleQrScan = async (qrCode) => {
  * Загрузка данных объекта по ID
  */
 const loadObjectData = async (objectId) => {
+  console.log('[Home] loadObjectData начат для objectId:', objectId)
+  
   try {
+    console.log('[Home] Вызов objectService.getObject...')
     const objectData = await objectService.getObject(objectId)
+    console.log('[Home] objectService.getObject вернул:', objectData)
     
     // Объект найден - открываем форму редактирования
     objectFormMode.value = 'edit'
     objectFormData.value = objectData
+    console.log('[Home] objectFormData.value установлен, открываем модалку')
     showObjectForm.value = true
     
   } catch (error) {
-    console.error('Home: ошибка загрузки данных объекта:', error)
+    console.error('[Home] ошибка загрузки данных объекта:', error)
     showInfoMessage('Ошибка загрузки', error.message || 'Ошибка загрузки данных объекта.')
     showObjectForm.value = false
   }

@@ -333,4 +333,4 @@ watch(() => props.isOpen, async (newVal) => {
 }, { immediate: true })
 </script>
 
-<style scoped src="./LocViewModal.css"></style>
+<style scoped src="./ObjectViewModal.css"></style>

@@ -15,7 +15,7 @@
       :disabled="isLoading"
     >
       <!-- Иконка самолёта с анимацией в режиме полёта -->
-      <span class="flight-icon" :class="{ swaying: isFlightMode && !isLoading }">✈️</span>
+      <span class="flight-icon" :class="{ swaying: isFlightMode && !isLoading }">🚁</span>
       
       <!-- Индикатор статуса (точка в углу) -->
       <span class="status-indicator" :class="{ active: isFlightMode }"></span>
@@ -301,12 +301,11 @@ async function toggleFlightMode() {
 
 /* Анимация покачивания в режиме полёта */
 .flight-icon.swaying {
-  animation: airplane-sway 2s ease-in-out infinite;
+  animation: helicopter-sway 2s ease-in-out infinite;
 }
 
 .flight-mode-button.active .flight-icon {
   font-size: 28px;
-  transform: rotate(45deg);
 }
 
 /* Индикатор статуса (точка в углу) - увеличен */
@@ -345,18 +344,18 @@ async function toggleFlightMode() {
 }
 
 /* Анимация покачивания самолёта */
-@keyframes airplane-sway {
+@keyframes helicopter-sway {
   0%, 100% {
-    transform: rotate(45deg) translateX(0) translateY(0);
+    transform: translateX(0) translateY(0);
   }
   25% {
-    transform: rotate(45deg) translateX(2px) translateY(-1px);
+    transform: translateX(-1px) translateY(-4px);
   }
   50% {
-    transform: rotate(45deg) translateX(0) translateY(-2px);
+    transform: translateX(0) translateY(-3px);
   }
   75% {
-    transform: rotate(45deg) translateX(-2px) translateY(-1px);
+    transform: translateX(1px) translateY(2px);
   }
 }
 

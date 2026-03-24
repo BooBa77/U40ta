@@ -49,14 +49,14 @@
         @cancel="handleObjectFormCancel"
       />
 
-      <!-- НОВАЯ МОДАЛКА: LocViewModal -->
-      <LocViewModal
-        :is-open="locViewIsOpen"
+      <!-- модалка ObjectViewModal -->
+      <ObjectViewModal
+        :is-open="objectViewIsOpen"
         :inv-number="selectedGroup.invNumber"
         :party-number="selectedGroup.partyNumber"
         :zavod="selectedGroup.zavod"
         :sklad="selectedGroup.sklad"
-        @close="handleLocViewClose"
+        @close="handleObjectViewClose"
       />
 
       <!-- Таблица -->
@@ -85,7 +85,7 @@ import { useRoute, useRouter } from 'vue-router'
 import StatementTable from './components/StatementTable.vue'
 import FilterModal from './components/FilterModal.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
-import LocViewModal from './components/LocViewModal.vue'
+import ObjectViewModal from './components/ObjectViewModal.vue'
 
 // Композиции
 import { useStatementData } from './composables/useStatementData'
@@ -128,8 +128,8 @@ const objectFormStatementId = ref(null) // id записи в ведомости
 const objectFormInitialData = ref({})
 const objectFormQrCode = ref(null)
 
-// === НОВОЕ СОСТОЯНИЕ ДЛЯ LOC VIEW ===
-const locViewIsOpen = ref(false)
+// === НОВОЕ СОСТОЯНИЕ ДЛЯ OBJECT VIEW ===
+const objectViewIsOpen = ref(false)
 const selectedGroup = ref({
   invNumber: '',
   partyNumber: null,
@@ -155,7 +155,7 @@ const statementTitle = computed(() => {
 
 // === ОБРАБОТЧИК КЛИКА ПО СТРОКЕ ТАБЛИЦЫ ===
 const handleRowClick = (groupParams) => {
-  console.log('[StatementPage] Клик по строке, открываем LocViewModal с параметрами:', groupParams)
+  console.log('[StatementPage] Клик по строке, открываем ObjectViewModal с параметрами:', groupParams)
   
   // Сохраняем параметры группы
   selectedGroup.value = {
@@ -166,15 +166,15 @@ const handleRowClick = (groupParams) => {
   }
   
   // Открываем модалку
-  locViewIsOpen.value = true
+  objectViewIsOpen.value = true
 }
 
 /**
- * Закрытие LocViewModal
+ * Закрытие ObjectViewModal
  */
-const handleLocViewClose = () => {
-  console.log('[StatementPage] Закрытие LocViewModal')
-  locViewIsOpen.value = false
+const handleObjectViewClose = () => {
+  console.log('[StatementPage] Закрытие ObjectViewModal')
+  objectViewIsOpen.value = false
   
   // Сбрасываем выбранную группу (с задержкой, чтобы не мешать анимации)
   setTimeout(() => {

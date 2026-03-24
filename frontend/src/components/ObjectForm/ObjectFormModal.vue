@@ -510,6 +510,8 @@ const handleSave = async () => {
 
 // Открытие модалки
 watch(() => props.isOpen, async (isOpen) => {
+  console.log('[ObjectFormModal] isOpen changed:', isOpen, 'objectId:', props.objectId)
+  
   if (isOpen) {
     resetForm()
     
@@ -517,11 +519,11 @@ watch(() => props.isOpen, async (isOpen) => {
     await loadPlaceCombinations()
     
     if (props.objectId) {
-      // Редактирование существующего
+      console.log('[ObjectFormModal] Редактирование существующего, objectId:', props.objectId)
       await loadObject(props.objectId)
       await loadPhotos(props.objectId)
     } else {
-      // Создание нового из строки ведомости
+      console.log('[ObjectFormModal] Создание нового из initialData:', props.initialData)
       initFromRowData(props.initialData)
       await processInitialQrCode(props.initialQrCode)
     }
