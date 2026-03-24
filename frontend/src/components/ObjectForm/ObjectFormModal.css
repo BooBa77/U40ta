@@ -231,6 +231,21 @@
   opacity: 0.7;
 }
 
+/* Перечёркивание для помеченных фото */
+.photo-thumb.photo-deleted::after {
+  content: '✕';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  color: #ef4444;
+  font-weight: bold;
+  text-shadow: 0 0 2px white;
+  pointer-events: none;
+}
+
+
 /* Индикатор загрузки фото */
 .photos-loading {
   color: #6b7280;

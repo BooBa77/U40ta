@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, OneToMany } from 'typeorm';
-import { QrCodesChange } from '../../qr-codes-history/entities/qr-codes-changes.entity';
+import { QrCodesChange } from '../../qr-codes-history/entities/qr-codes-history.entity';
 
 @Entity('qr_codes')
 @Index('qr_codes_qr_value_key', ['qr_value'], { unique: true })

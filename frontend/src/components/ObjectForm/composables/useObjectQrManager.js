@@ -3,7 +3,7 @@ import { useQrCamera } from '@/components/QrScanner/composables/useQrCamera'
 import { qrService } from '@/services/qr-service.js'
 
 export function useObjectQrManager(objectData, { onCancel } = {}) {
-  const pendingQrCodes = ref([])
+  const pendingQrCodes = ref(new Set())
   const isScanning = ref(false)
   
   // Обработка отсканированного кода
@@ -23,21 +23,18 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
           if (isFirst) {
             onCancel?.()
           }
-          // Для дополнительного кода просто ничего не делаем
           return false
         }
-        // Если согласился - код будет перезаписан при сохранении
       }
       
-      // Добавляем код в очередь
-      pendingQrCodes.value.push(qrCode)
+      // Добавляем код в Set (дубликаты игнорируются автоматически)
+      pendingQrCodes.value.add(qrCode)
       console.log('Код добавлен в очередь:', qrCode)
       return true
       
     } catch (error) {
       console.error('Ошибка проверки кода:', error)
-      // При ошибке проверки всё равно добавляем - сохраним как есть
-      pendingQrCodes.value.push(qrCode)
+      pendingQrCodes.value.add(qrCode)
       return true
     }
   }
@@ -105,15 +102,15 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
       }
     }
     
-    // Очищаем очередь после сохранения
-    pendingQrCodes.value = []
+    // Очищаем Set после сохранения
+    pendingQrCodes.value.clear()
     
     return results
   }
   
   // Сброс
   const reset = () => {
-    pendingQrCodes.value = []
+    pendingQrCodes.value.clear()
     isScanning.value = false
     const { stopCameraScan } = useQrCamera()
     stopCameraScan?.()

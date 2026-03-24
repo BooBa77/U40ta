@@ -125,18 +125,20 @@
             v-for="(photo, index) in photos" 
             :key="index" 
             class="photo-thumb"
+            :class="{ 'photo-deleted': photo.isDeleted }"
+            @click="handlePhotoClick(index)"
           >
             <img :src="photo.min" alt="Фото" />
             <button 
+              v-if="!photo.isDeleted"
               class="photo-remove" 
-              @click="removePhoto(index)"
+              @click.stop="handlePhotoDeleteClick(index)"
               :disabled="isSaving"
             >
               ×
             </button>
           </div>
-        </div>
-
+        </div>          
       </div>
 
       <!-- 5. Комментарий -->
@@ -164,10 +166,18 @@
       </button>
     </template>
   </BaseModal>
+  <PhotoViewerModal
+    :is-open="isPhotoViewerOpen"
+    :photos="availablePhotos"
+    :initial-index="photoViewerStartIndex"
+    :current-sn="objectData.sn"
+    @close="isPhotoViewerOpen = false"
+    @update:sn="(newSn) => objectData.sn = newSn"
+  />  
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { objectService } from '@/services/object-service.js'
 import { qrService } from '@/services/qr-service.js'
@@ -177,6 +187,8 @@ import { useObjectQrManager } from './composables/useObjectQrManager'
 import { useCamera } from '@/composables/useCamera.js'
 import { useObjectPlaces } from './composables/useObjectPlaces'
 import { useObjectPhotoManager } from './composables/useObjectPhotoManager'
+import { photoService } from '@/services/photo-service.js'
+import PhotoViewerModal from './components/PhotoViewerModal.vue'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -192,7 +204,9 @@ const isSaving = ref(false)
 const errorMessage = ref('')
 const comment = ref('')
 const { hasCamera } = useCamera()
-
+// Состояние просмотрщика
+const isPhotoViewerOpen = ref(false)
+const photoViewerStartIndex = ref(0)
 // Данные объекта
 const objectData = ref({
   id: null,
@@ -240,9 +254,43 @@ const {
   photos,
   loadPhotos,
   addPhoto,
-  removePhoto
+  toggleDeleteMark,
+  savePhotosChanges,
+  cleanup: resetPhotos
 } = useObjectPhotos()
 const { takePhoto } = useObjectPhotoManager()
+
+// Исходные данные для отслеживания изменений
+const originalData = ref({
+  sn: '',
+  places: ''
+})
+
+// Форматирование местоположения в строку
+const formatPlacesToString = (places) => {
+  const parts = [
+    places.place_ter,
+    places.place_pos,
+    places.place_cab,
+    places.place_user
+  ].filter(p => p && p.trim() !== '')
+  return parts.join(' / ')
+}
+
+// Захват текущих данных как "оригинал"
+const captureOriginalData = () => {
+  const placesForSave = getPlacesForSave()
+  console.log('[captureOriginalData] getPlacesForSave():', placesForSave)
+  
+  const placesString = formatPlacesToString(placesForSave)
+  console.log('[captureOriginalData] formatPlacesToString результат:', placesString)
+  
+  originalData.value = {
+    sn: objectData.value.sn || '',
+    places: placesString
+  }
+  console.log('[captureOriginalData] originalData:', originalData.value)
+}
 
 // Загрузка существующего объекта
 const loadObject = async (id) => {
@@ -257,9 +305,13 @@ const loadObject = async (id) => {
       party_number: object.party_number || '',
       sn: object.sn || ''
     }
-    
+    console.log('[loadObject] Полный объект с сервера:', JSON.stringify(object, null, 2))
+
     // Устанавливаем местоположение из объекта
     setPlacesFromObject(object)
+
+    // Захватываем исходные данные ПОСЛЕ установки всех значений
+    captureOriginalData()
     
   } catch (error) {
     errorMessage.value = `Ошибка загрузки: ${error.message}`
@@ -279,7 +331,8 @@ const initFromRowData = (data) => {
     sn: data.sn || ''
   }
   
-  // В данных ведомости нет местоположения, поэтому не устанавливаем
+  // Для нового объекта местоположение пустое, но всё равно захватываем
+  captureOriginalData()
 }
 
 // Сброс формы
@@ -298,6 +351,7 @@ const resetForm = () => {
   isSaving.value = false
   resetPlaces()  // сбрасываем местоположение
   resetQr()
+  resetPhotos()
 }
 
 // Обработчики
@@ -321,6 +375,53 @@ const handlePhotoCapture = async () => {
   }
 }
 
+// Обработчик клика по крестику - только пометка на удаление
+const handlePhotoDeleteClick = (index) => {
+  if (isSaving.value) return
+  toggleDeleteMark(index)  // ставим пометку на удаление
+}
+
+// Доступные фото (непомеченные на удаление)
+const availablePhotos = computed(() => 
+  photos.value.filter(p => !p.isDeleted)
+)
+
+// Обработчик клика по миниатюре
+const handlePhotoClick = (index) => {
+  if (isSaving.value) return
+  
+  const photo = photos.value[index]
+  
+  if (photo.isDeleted) {
+    toggleDeleteMark(index)
+  } else {
+    // Находим индекс в отфильтрованном списке по ссылке на объект
+    const availableIndex = availablePhotos.value.findIndex(p => p === photo)
+    photoViewerStartIndex.value = availableIndex >= 0 ? availableIndex : 0
+    isPhotoViewerOpen.value = true
+  }
+}
+
+// Формирование сообщения об изменении SN
+const getSnChangeMessage = () => {
+  const oldSn = originalData.value.sn
+  const newSn = objectData.value.sn || ''
+  
+  if (oldSn === newSn) return null
+  if (!oldSn && newSn) return `указан s/n ${newSn}`
+  if (oldSn && !newSn) return `очищен s/n`
+  return `изменён s/n на ${newSn}`
+}
+// Формирование сообщения об изменении местоположения
+const getPlacesChangeMessage = () => {
+  const oldPlaces = originalData.value.places
+  const newPlaces = formatPlacesToString(getPlacesForSave())
+  
+  if (oldPlaces === newPlaces) return null
+  if (!oldPlaces && newPlaces) return `установлено на ${newPlaces}`
+  if (oldPlaces && !newPlaces) return `ушло в запас`
+  return `теперь у: ${newPlaces}`
+}
 const handleSave = async () => {
   isSaving.value = true
   errorMessage.value = ''
@@ -338,24 +439,66 @@ const handleSave = async () => {
     objectData.value.id = savedObject.id
     
     // 2. Привязываем QR-коды
-    if (pendingQrCodes.value.length > 0) {
+    console.log('[ObjectFormModal] QR-коды перед сохранением:', pendingQrCodes.value)
+    console.log('[ObjectFormModal] Размер Set:', pendingQrCodes.value?.size)
+    if (pendingQrCodes.value && pendingQrCodes.value.size > 0) {
       await saveQrCodes(savedObject.id)
     }
     
-    // 3. Записи в историю
-    await historyService.addHistoryRecord(
-      savedObject.id, 
-      wasCreated ? 'Объект создан' : 'Объект изменён'
-    )
-    
+    // 3 Сохраняем фото
+
+    console.log('[handleSave] Перед savePhotosChanges, photos.value:', photos.value.length)
+    console.log('[handleSave] Детально о фото:', photos.value.map(p => ({
+        id: p.id,
+        isDeleted: p.isDeleted,
+        has_raw: !!p._raw,
+        has_raw_max: !!(p._raw?.max),
+        raw_max_exists: !!p._raw?.max
+    })))    
+
+    await savePhotosChanges(savedObject.id)
+
+    // 4. Записи в историю
+    const historyEntries = []
+
+    // 4a. Создание объекта (только для новых)
+    if (wasCreated) {
+      historyEntries.push('Объект создан')
+    }
+
+    // 4b. Изменение SN
+    const snMessage = getSnChangeMessage()
+    if (snMessage) historyEntries.push(snMessage)
+
+    // 4c. Изменение местоположения
+    const placesMessage = getPlacesChangeMessage()
+    if (placesMessage) historyEntries.push(placesMessage)
+
+    // 4d. Добавляем все записи по порядку
+    for (const entry of historyEntries) {
+      await historyService.addHistoryRecord(savedObject.id, entry)
+    }
+
+    // 4e. Комментарий (всегда отдельно и последним)
     if (comment.value.trim()) {
       await historyService.addHistoryRecord(savedObject.id, comment.value.trim())
     }
-    
-    // 4. Сообщаем родителю
+
+    // 4f. Обновляем checked_at, если были изменения или если это просто проверка
+    const hasAnyChanges = historyEntries.length > 0 || comment.value.trim()
+
+    if (hasAnyChanges) {
+      await objectService.updateCheckedAt(savedObject.id)
+    } else {
+      // Ничего не менялось, добавляем запись "проверено"
+      await historyService.addHistoryRecord(savedObject.id, 'проверено')
+      await objectService.updateCheckedAt(savedObject.id)
+    }
+
+    // 5. Сообщаем родителю
     emit('save', { was_created: wasCreated })
     
-    // 5. Закрываем модалку
+    // 6. Закрываем модалку
     resetForm()
     
   } catch (error) {

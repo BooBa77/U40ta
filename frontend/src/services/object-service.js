@@ -131,7 +131,7 @@ export class ObjectService {
     const hasId = objectData.id && objectData.id !== null
     
     if (hasId) {
-      const { id, ...updateData } = objectData
+      const { id, inv_number, buh_name, sklad, zavod, party_number, ...updateData } = objectData // исключаем нередактируемые поля
       return this.updateObject(id, updateData)
     } else {
       return this.createObject(objectData)
@@ -429,6 +429,73 @@ export class ObjectService {
       throw error
     }
   }
+
+  //============================================================================
+  // ОБНОВЛЕНИЕ ДАТЫ ПРОВЕРКИ
+  //============================================================================
+
+  /**
+   * Менеджер: обновляет дату проверки объекта
+   * @param {number} id - ID объекта
+   * @returns {Promise<Object>} Обновлённый объект
+   */
+  async updateCheckedAt(id) {
+    const objectId = Number(id)
+    const checkedAt = new Date().toISOString()
+    
+    console.log(`[ObjectService] Обновление checked_at для объекта ${objectId}`)
+    
+    if (this.isFlightMode()) {
+      return this.updateCheckedAtInCache(objectId, checkedAt)
+    }
+    
+    return this.updateCheckedAtInApi(objectId, checkedAt)
+  }
+
+  /**
+   * Исполнитель для офлайн: обновляет checked_at в IndexedDB
+   */
+  async updateCheckedAtInCache(id, checkedAt) {
+    try {
+      const existingObject = await offlineCache.getObject(id)
+      
+      if (!existingObject) {
+        throw new Error(`Объект с ID ${id} не найден в кэше`)
+      }
+      
+      const updatedObject = await offlineCache.updateObject(id, {
+        checked_at: checkedAt,
+        updated_at: checkedAt
+      })
+      
+      console.log(`[ObjectService] checked_at объекта ${id} обновлён в кэше`)
+      return updatedObject
+      
+    } catch (error) {
+      console.error('[ObjectService] Ошибка обновления checked_at в кэше:', error)
+      throw new Error('Не удалось обновить дату проверки в кэше')
+    }
+  }
+
+  /**
+   * Исполнитель для онлайн: обновляет checked_at через API
+   */
+  async updateCheckedAtInApi(id, checkedAt) {
+    try {
+      const data = await this.apiRequest(`/objects/${id}`, {
+        method: 'PATCH',
+        body: { checked_at: checkedAt }
+      })
+      
+      console.log(`[ObjectService] checked_at объекта ${id} обновлён через API`)
+      return data
+      
+    } catch (error) {
+      console.error('[ObjectService] Ошибка обновления checked_at через API:', error)
+      throw error
+    }
+  }  
+
 }
 
 // Экспортируем синглтон

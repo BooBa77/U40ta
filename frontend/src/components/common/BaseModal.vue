@@ -152,11 +152,16 @@ const emitClose = () => {
 }
 
 .modal-content {
+  overflow-y: auto;
+  flex-grow: 1;
+}
+/*
+.modal-content {
   padding: 24px;
   overflow-y: auto;
   flex-grow: 1;
 }
-
+*/
 .modal-footer {
   padding: 20px 24px;
   border-top: 1px solid #e9ecef;
@@ -213,12 +218,14 @@ const emitClose = () => {
     margin: 10px;
   }
   
+  /*
   .modal-header,
   .modal-content,
   .modal-footer {
     padding: 16px;
   }
-  
+  */
+
   .modal-title {
     font-size: 1.1rem;
   }

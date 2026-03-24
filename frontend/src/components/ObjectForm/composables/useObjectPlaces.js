@@ -89,21 +89,43 @@ export function useObjectPlaces() {
     user.value = ''
   }
 
-  // Установка значений из объекта
   const setPlacesFromObject = (object) => {
-    territory.value = object.place_ter || ''
-    position.value = object.place_pos || ''
-    cabinet.value = object.place_cab || ''
-    user.value = object.place_user || ''
+    console.log('[setPlacesFromObject] Весь объект:', object)
+    console.log('[setPlacesFromObject] Поля с place_:', {
+      place_ter: object.place_ter,
+      place_pos: object.place_pos,
+      place_cab: object.place_cab,
+      place_user: object.place_user
+    })
+    console.log('[setPlacesFromObject] Поля без place_:', {
+      ter: object.ter,
+      pos: object.pos,
+      cab: object.cab,
+      user: object.user
+    })
+
+    territory.value = object.place_ter || object.ter || ''
+    position.value = object.place_pos || object.pos || ''
+    cabinet.value = object.place_cab || object.cab || ''
+    user.value = object.place_user || object.user || ''
+
+    console.log('[setPlacesFromObject] После установки:', {
+      territory: territory.value,
+      position: position.value,
+      cabinet: cabinet.value,
+      user: user.value
+    })
   }
 
   // Получение объекта для сохранения
-  const getPlacesForSave = () => ({
-    place_ter: territory.value || null,
-    place_pos: position.value || null,
-    place_cab: cabinet.value || null,
-    place_user: user.value || null
-  })
+  const getPlacesForSave = () => {
+    return {
+      place_ter: territory.value,
+      place_pos: position.value,
+      place_cab: cabinet.value,
+      place_user: user.value
+    }
+  }
 
   // Обработчики изменений с логикой сброса
   const handleTerritoryChange = (newValue) => {

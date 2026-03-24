@@ -320,11 +320,11 @@ class OfflineCacheService {
    * @param {Object} photo - Данные фото с сервера
    */
   async savePhoto(photo) {
-    // Конвертируем Buffer в Blob для хранения в IndexedDB
     const photoForCache = {
       id: photo.id,
       object_id: photo.object_id,
       created_at: photo.created_at,
+      created_by: photo.created_by,
       photo_max_data: photo.photo_max_data instanceof Buffer 
         ? new Blob([photo.photo_max_data]) 
         : photo.photo_max_data,
@@ -337,50 +337,16 @@ class OfflineCacheService {
   }
 
   /**
-   * Сохраняет несколько фото в кэш
-   * @param {Array} photos - Массив фото с сервера
-   */
-  async savePhotos(photos) {
-    if (!photos || photos.length === 0) return
-    
-    const photosForCache = photos.map(photo => ({
-      id: photo.id,
-      object_id: photo.object_id,
-      created_at: photo.created_at,
-      photo_max_data: photo.photo_max_data instanceof Buffer 
-        ? new Blob([photo.photo_max_data]) 
-        : photo.photo_max_data,
-      photo_min_data: photo.photo_min_data instanceof Buffer 
-        ? new Blob([photo.photo_min_data]) 
-        : photo.photo_min_data
-    }))
-    
-    await this.db.photos.bulkPut(photosForCache)
-  }
-
-  /**
-   * Получает все фото объекта (без бинарных данных)
+   * Получает все фото объекта
    * @param {number} objectId - ID объекта
-   * @returns {Promise<Array>} Массив фото (без photo_max_data, photo_min_data)
+   * @returns {Promise<Array>} Массив фото с Blob
    */
   async getPhotosByObjectId(objectId) {
-    const photos = await this.db.photos
+    return await this.db.photos
       .where('object_id')
       .equals(objectId)
       .reverse()
       .sortBy('created_at')
-    
-    // Возвращаем без бинарных данных для экономии памяти
-    return photos.map(({ photo_max_data, photo_min_data, ...rest }) => rest)
-  }
-
-  /**
-   * Получает конкретное фото с бинарными данными
-   * @param {number} id - ID фото
-   * @returns {Promise<Object|null>} Полное фото с Blob
-   */
-  async getPhoto(id) {
-    return await this.db.photos.get(id)
   }
 
   /**
@@ -390,36 +356,6 @@ class OfflineCacheService {
   async deletePhoto(id) {
     await this.db.photos.delete(id)
   }
-
-  /**
-   * Удаляет все фото объекта из кэша
-   * @param {number} objectId - ID объекта
-   */
-  async deletePhotosByObjectId(objectId) {
-    await this.db.photos
-      .where('object_id')
-      .equals(objectId)
-      .delete()
-  }
-
-  /**
-   * Проверяет, есть ли фото объекта в кэше
-   * @param {number} objectId - ID объекта
-   * @returns {Promise<boolean>}
-   */
-  async hasPhotos(objectId) {
-    const count = await this.db.photos
-      .where('object_id')
-      .equals(objectId)
-      .count()
-    
-    return count > 0
-  }
-
-
-
-
-
 
 
   //============================================================================

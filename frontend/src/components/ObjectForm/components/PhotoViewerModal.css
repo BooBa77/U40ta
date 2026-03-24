@@ -1,0 +1,206 @@
+.photo-viewer {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Кнопка закрытия - фиксированная */
+.close-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+  transition: background 0.2s;
+}
+
+.close-btn:active {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* Контейнер фото */
+.photo-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.full-photo {
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Кнопки навигации - фиксированные */
+.nav-btn {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  font-size: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+  z-index: 10001;
+  transition: background 0.2s;
+}
+
+.nav-btn:active {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.prev-btn {
+  left: 20px;
+}
+
+.next-btn {
+  right: 20px;
+}
+
+/* Контейнер поля SN */
+.sn-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  width: 90%;
+  max-width: 400px;
+}
+
+.sn-wrapper {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sn-label {
+  display: block;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.sn-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.sn-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.sn-input:focus {
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.sn-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.sn-ok-btn {
+  padding: 10px 20px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.sn-ok-btn:active:not(:disabled) {
+  background: #2563eb;
+}
+
+.sn-ok-btn:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 480px) {
+  .nav-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 28px;
+  }
+  
+  .close-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    top: 15px;
+    right: 15px;
+  }
+  
+  .sn-container {
+    bottom: 15px;
+    width: 95%;
+  }
+  
+  .sn-wrapper {
+    padding: 10px 12px;
+  }
+  
+  .sn-input {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  
+  .sn-ok-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
+
+/* Поддержка свайпов (для мобильных) */
+@media (max-width: 768px) {
+  .photo-container {
+    touch-action: pan-y pinch-zoom;
+  }
+}

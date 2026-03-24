@@ -28,6 +28,13 @@ export class Photo {
   object_id: number;
 
   @Column({
+    name: 'created_by',
+    type: 'bigint',
+    nullable: true,
+  })
+  created_by: number;
+
+  @Column({
     name: 'created_at',
     type: 'timestamp with time zone',
     default: () => 'now()',

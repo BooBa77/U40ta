@@ -16,7 +16,7 @@ export class PhotosService {
   private readonly THUMBNAIL_SIZE = 150; // квадрат 150x150
   private readonly MAX_SIZE = 800; // полный размер
 
-  async create(objectId: number, file: Express.Multer.File): Promise<Photo> {
+  async create(objectId: number, file: Express.Multer.File, userId: number): Promise<Photo> {
     try {
       // 1. Обрабатываем оригинал: ресайз до квадрата (cover crop)
       const processedMaxBuffer = await sharp(file.buffer)
@@ -42,6 +42,7 @@ export class PhotosService {
         object_id: objectId,
         photo_max_data: processedMaxBuffer,
         photo_min_data: processedMinBuffer,
+        created_by: userId,
       });
 
       return await this.photosRepository.save(photo);

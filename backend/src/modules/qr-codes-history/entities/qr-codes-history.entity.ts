@@ -2,7 +2,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { QrCode } from '../../qr-codes/entities/qr-code.entity';
 
-@Entity('qr_codes_changes')
+@Entity('qr_codes_history')
 export class QrCodesChange {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
