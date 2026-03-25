@@ -69,12 +69,12 @@ export class StatementService {
       throw new NotFoundException(`Вложение с ID ${attachmentId} не найдено`);
     }
 
-    if (attachment.is_inventory) {
+    if (attachment.isInventory) {
       console.log(`StatementService: пропускаем инвентаризацию (ID: ${attachmentId})`);
       return [];
     }
 
-    if (attachment.in_process) {
+    if (attachment.inProcess) {
       console.log(`StatementService: ведомость уже в работе, возвращаем существующие записи`);
       
       const statements = await this.parserService.getExistingStatements(attachmentId);
@@ -85,11 +85,11 @@ export class StatementService {
     try {
       const statements = await this.parserService.parseStatement(attachmentId);
       
-      if (attachment.zavod && attachment.sklad && attachment.doc_type) {
+      if (attachment.zavod && attachment.sklad && attachment.docType) {
         await this.objectsService.updateHaveObjectsForStatement(
           attachment.zavod,
           attachment.sklad,
-          attachment.doc_type,
+          attachment.docType,
         );
       }
       

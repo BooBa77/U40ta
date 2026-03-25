@@ -6,6 +6,7 @@ import { TelegramUsersModule } from './modules/telegram-users/telegram-users.mod
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EmailModule } from './modules/email/email.module';
+import emailConfig from './modules/email/config/email.config';
 import { StatementsModule } from './modules/statements/statements.module';
 import { OfflineModule } from './modules/offline/offline.module';
 import { ObjectsModule } from './modules/objects/objects.module';
@@ -19,6 +20,8 @@ import { PhotosModule } from './modules/photos/photos.module';
     // isGlobal: true делает конфигурацию доступной во всех модулях приложения без дополнительного импорта
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [emailConfig],
+      envFilePath: '.env',
     }),
 
     // TypeOrmModule - модуль для работы с базой данных PostgreSQL

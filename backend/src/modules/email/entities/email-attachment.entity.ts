@@ -9,14 +9,14 @@ export class EmailAttachment {
   @Column('text')
   filename: string;
 
-  @Column('text', { nullable: true })
-  email_from: string | null;
+  @Column('text', { nullable: true, name: 'email_from' })
+  emailFrom: string | null;
 
-  @CreateDateColumn()
-  received_at: Date;
+  @CreateDateColumn({ name: 'received_at' })
+  receivedAt: Date;
 
-  @Column({ type: 'varchar', length: 10, nullable: true })
-  doc_type: string | null;
+  @Column({ type: 'varchar', length: 10, nullable: true, name: 'doc_type' })
+  docType: string | null;
 
   @Column({ type: 'integer', nullable: true })
   zavod: number;
@@ -24,11 +24,11 @@ export class EmailAttachment {
   @Column({ type: 'varchar', length: 4, nullable: true })
   sklad: string | null;
 
-  @Column({ type: 'boolean', default: false })
-  in_process: boolean;
+  @Column({ type: 'boolean', default: false, name: 'in_process' })
+  inProcess: boolean;
 
-  @Column({ type: 'boolean', default: false })
-  is_inventory: boolean;
+  @Column({ type: 'boolean', default: false, name: 'is_inventory' })
+  isInventory: boolean;
 
   @OneToMany(() => ProcessedStatement, (statement) => statement.emailAttachment)
   processedStatements: ProcessedStatement[];

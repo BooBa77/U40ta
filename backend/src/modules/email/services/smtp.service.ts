@@ -1,36 +1,39 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class SmtpService {
   private transporter;
 
-  constructor() {
+  constructor(private configService: ConfigService) {
     this.transporter = nodemailer.createTransport({
-      host: 'smtp.mail.ru',
-      port: 465,
-      secure: true,
+      host: this.configService.get('email.smtp.host')!,
+      port: this.configService.get('email.smtp.port')!,
+      secure: this.configService.get('email.smtp.secure'),
       auth: {
-        user: 'u40ta@mail.ru',
-        pass: 'YxTNPTFgz3VG8b1nzxPw'
-      }
-    });
+        user: this.configService.get('email.smtp.user')!,
+        pass: this.configService.get('email.smtp.password')!,
+      },
+    });      
   }
 
   async sendEmail(to: string, subject: string, text: string, attachments?: any[]) {
     try {
+      const from = this.configService.get<string>('email.smtp.from')!;
+      
       const result = await this.transporter.sendMail({
-        from: '"U40TA System" <u40ta@mail.ru>',
+        from,
         to,
         subject,
         text,
         attachments
       });
       
-      console.log('✅ Email отправлен:', result.messageId);
+      console.log('Email отправлен:', result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error('❌ Ошибка отправки email:', error);
+      console.error('Ошибка отправки email:', error);
       return { success: false, error: error.message };
     }
   }

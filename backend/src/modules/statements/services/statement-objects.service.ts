@@ -28,17 +28,17 @@ export class StatementObjectsService {
   async updateHaveObjectsForStatement(
     zavod: number,
     sklad: string,
-    doc_type: string,
+    docType: string,
   ): Promise<void> {
-    console.log(`StatementObjectsService: обновление флагов для ${zavod}/${sklad}/${doc_type}`);
+    console.log(`StatementObjectsService: обновление флагов для ${zavod}/${sklad}/${docType}`);
 
     // 1. Находим активную ведомость
     const activeAttachment = await this.emailAttachmentRepo.findOne({
       where: {
         zavod,
         sklad,
-        doc_type,
-        in_process: true,
+        docType,
+        inProcess: true,
       },
     });
 
@@ -119,7 +119,7 @@ export class StatementObjectsService {
           excess.emailAttachmentId = activeAttachment.id;
           excess.zavod = zavodNum;
           excess.sklad = sklad;
-          excess.doc_type = doc_type;
+          excess.doc_type = docType;
           excess.inv_number = inv_number;
           excess.party_number = party_number;
           excess.buh_name = `Объект отсутствует в ведомости`;

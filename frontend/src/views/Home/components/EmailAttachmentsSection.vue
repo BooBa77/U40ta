@@ -32,9 +32,9 @@
           <div class="grid-cell actions">
             <button class="action-btn" 
               title="Открыть ведомость"
-              @click="openStatement(file.id, file.is_inventory, file.in_process)">
+              @click="openStatement(file.id, file.isInventory, file.inProcess)">
               <img 
-                :src="file.in_process 
+                :src="file.inProcess 
                   ? '/images/open_processing_file.png' 
                   : '/images/email-file_to_db.png'" 
                 alt="Открыть ведомость"
@@ -43,10 +43,10 @@
           </div>
           
           <!-- Колонка 2: Контент (3 строки) -->
-          <div class="grid-cell content" @click="openStatement(file.id, file.is_inventory, file.in_process)">
-            <div class="date">{{ formatDate(file.received_at) }}</div>
-            <div class="doc-info">{{ file.is_inventory ? `Инвентаризация ${file.doc_type}` : file.doc_type + ' ' }}{{ file.sklad }}</div>
-            <div class="sender">{{ file.email_from }}</div>
+          <div class="grid-cell content" @click="openStatement(file.id, file.isInventory, file.inProcess)">
+            <div class="date">{{ formatDate(file.receivedAt) }}</div>
+            <div class="doc-info">{{ file.isInventory ? `Инвентаризация ${file.docType}` : file.docType + ' ' }}{{ file.sklad }}</div>
+            <div class="sender">{{ file.emailFrom }}</div>
           </div>
           
           <!-- Колонка 3: Кнопка "Удалить файл" -->
@@ -169,7 +169,7 @@ const checkEmail = async () => {
   isLoadingCheck.value = true;
   try {
     const token = localStorage.getItem('auth_token');
-    const response = await fetch('/api/email/check-now', {
+    const response = await fetch('/api/email/check', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });

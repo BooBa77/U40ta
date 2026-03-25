@@ -58,13 +58,13 @@ export class StatementParserService {
     }
     
     // 2. Пропускаем инвентаризацию
-    if (attachment.is_inventory) {
+    if (attachment.isInventory) {
       console.log(`StatementParserService: пропускаем инвентаризацию (ID: ${attachmentId})`);
       return [];
     }
     
     // 3. Если ведомость уже в работе - возвращаем существующие записи
-    if (attachment.in_process) {
+    if (attachment.inProcess) {
       console.log(`StatementParserService: ведомость уже в работе`);
       return await this.getExistingStatements(attachmentId);
     }
@@ -76,9 +76,9 @@ export class StatementParserService {
     }
     
     // 5. Проверяем обязательные поля
-    if (!attachment.sklad || !attachment.doc_type) {
+    if (!attachment.sklad || !attachment.docType) {
       throw new InternalServerErrorException(
-        `У вложения отсутствует склад (${attachment.sklad}) или тип документа (${attachment.doc_type})`,
+        `У вложения отсутствует склад (${attachment.sklad}) или тип документа (${attachment.docType})`,
       );
     }
     
@@ -95,7 +95,7 @@ export class StatementParserService {
             {
               where: { 
                 sklad: attachment.sklad || '',
-                doc_type: attachment.doc_type || '',
+                doc_type: attachment.docType || '',
               },
               select: ['emailAttachmentId'],
             },
@@ -107,16 +107,16 @@ export class StatementParserService {
           // 6.2. Удаляем старые записи этого склада/типа
           await transactionalEntityManager.delete(ProcessedStatement, {
             sklad: attachment.sklad,
-            doc_type: attachment.doc_type,
+            doc_type: attachment.docType,
           });
-          console.log(`StatementParserService: удалены старые записи склада ${attachment.sklad}, тип ${attachment.doc_type}`);
+          console.log(`StatementParserService: удалены старые записи склада ${attachment.sklad}, тип ${attachment.docType}`);
           
           // 6.3. Сбрасываем флаг у старой ведомости
           if (oldAttachmentId && oldAttachmentId !== attachmentId) {
             await transactionalEntityManager.update(
               EmailAttachment,
               { id: oldAttachmentId },
-              { in_process: false },
+              { inProcess: false },
             );
             console.log(`StatementParserService: сброшен флаг in_process у ведомости ID: ${oldAttachmentId}`);
           }
@@ -136,7 +136,7 @@ export class StatementParserService {
           await transactionalEntityManager.update(
             EmailAttachment,
             { id: attachmentId },
-            { in_process: true },
+            { inProcess: true },
           );
           console.log(`StatementParserService: установлен флаг in_process у ведомости ID: ${attachmentId}`);
           
@@ -229,7 +229,7 @@ export class StatementParserService {
         const statement = new ProcessedStatement();
         statement.emailAttachmentId = attachment.id;
         statement.sklad = sklad;
-        statement.doc_type = attachment.doc_type || 'ОСВ';
+        statement.doc_type = attachment.docType || 'ОСВ';
         statement.zavod = zavod; // всегда число
         statement.buh_name = buhName;
         statement.inv_number = invNumber;
