@@ -2,13 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { LogsService } from '../../logs/logs.service';
 
 @Injectable()
 export class EmailStorageService {
   private readonly logger = new Logger(EmailStorageService.name);
   private readonly attachmentsDir: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private logsService: LogsService,
+  ) {
     this.attachmentsDir = path.resolve(
       process.cwd(),
       this.configService.get('email.attachments.path', '../email-attachments')
@@ -29,6 +33,12 @@ export class EmailStorageService {
     
     await fs.promises.writeFile(filePath, content);
     this.logger.log(`Файл сохранён: ${uniqueFilename}`);
+    this.logsService.log('backend', null, {
+      action: 'file_saved',
+      filename: uniqueFilename,
+      originalName: filename,
+      size: content.length
+    });
     
     return { filePath, uniqueFilename };
   }
@@ -43,6 +53,10 @@ export class EmailStorageService {
       await fs.promises.access(filePath);
       await fs.promises.unlink(filePath);
       this.logger.log(`Файл удалён: ${filename}`);
+      this.logsService.log('backend', null, {
+        action: 'file_deleted',
+        filename: filename
+      });      
     } catch (error) {
       if (error.code === 'ENOENT') {
         this.logger.warn(`Файл не найден: ${filename}`);

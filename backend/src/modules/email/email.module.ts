@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { AppEventsModule } from '../app-events/app-events.module';
+import { LogsModule } from '../logs/logs.module';
 import { EmailController } from './email.controller';
 import { EmailAttachment } from './entities/email-attachment.entity';
 import { MolAccess } from '../users/entities/mol-access.entity';
@@ -19,6 +20,7 @@ import { EmailStorageService } from './services/email-storage.service';
     TypeOrmModule.forFeature([EmailAttachment, MolAccess]),
     AppEventsModule, // Модуль SSE
     JwtAuthModule,
+    LogsModule,
   ],
   controllers: [EmailController],
   providers: [ImapService, SmtpService, EmailProcessor, EmailFileAnalyzer, EmailAttachmentsService, EmailStorageService],

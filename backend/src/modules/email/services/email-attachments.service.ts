@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { LogsService } from '../../logs/logs.service';
 import { EmailAttachment } from '../entities/email-attachment.entity';
 import { MolAccess } from '../../users/entities/mol-access.entity';
 import { EmailStorageService } from './email-storage.service';
@@ -8,6 +9,7 @@ import { AppEventsService } from '../../app-events/app-events.service';
 
 @Injectable()
 export class EmailAttachmentsService {
+  private readonly logger = new Logger(EmailAttachmentsService.name);
   constructor(
     @InjectRepository(EmailAttachment)
     private readonly emailAttachmentRepository: Repository<EmailAttachment>,
@@ -15,6 +17,7 @@ export class EmailAttachmentsService {
     private readonly molAccessRepository: Repository<MolAccess>,
     private readonly emailStorageService: EmailStorageService,
     private readonly appEventsService: AppEventsService,
+    private readonly logsService: LogsService
   ) {}
 
   /**
@@ -58,8 +61,21 @@ export class EmailAttachmentsService {
     // 3. Удаляем физический файл
     try {
       await this.emailStorageService.deleteFile(attachment.filename);
+      this.logger.log(`Удаление вложения: ${attachment.filename}`);
+      this.logsService.log('backend', userId, {
+        action: 'attachment_delete_file',
+        filename: attachment.filename,
+        status: 'success'
+      });    
+      
     } catch (error) {
-      console.warn(`Ошибка при удалении файла ${attachment.filename}:`, error);
+      this.logger.warn(`Ошибка при удалении файла ${attachment.filename}:`, error);
+      this.logsService.log('backend', userId, {
+        action: 'attachment_delete_file_error',
+        attachmentId: id,
+        filename: attachment.filename,
+        error: error.message
+      });      
     }
 
     // 4. Удаляем запись из БД

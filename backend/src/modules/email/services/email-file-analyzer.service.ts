@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import * as path from 'path';
 import * as fs from 'fs';
+import { LogsService } from '../../logs/logs.service';
 
 @Injectable()
 export class EmailFileAnalyzer {
@@ -25,6 +26,8 @@ export class EmailFileAnalyzer {
     'МОЛ'
   ];
 
+  constructor(private readonly logsService: LogsService) {}
+
   /**
    * Анализирует Excel-файл и определяет его валидность, тип и склад
    * @param filePath - путь к файлу на диске
@@ -38,6 +41,11 @@ export class EmailFileAnalyzer {
     error?: string;
   }> {
     this.logger.log(`Анализируем Excel файл: ${filePath}`);
+    this.logsService.log('backend', null, {
+      action: 'excel_analysis',
+      filePath: filePath,
+      status: 'started'
+    });    
 
     // Этап 1: Проверка расширения файла
     const ext = path.extname(filePath).toLowerCase();
@@ -107,7 +115,6 @@ export class EmailFileAnalyzer {
       };
 
     } catch (error) {
-      this.logger.error(`Ошибка анализа Excel файла: ${error.message}`, error.stack);
       
       let errorMessage = 'Ошибка чтения файла';
       if (error.message.includes('not a valid zip file')) {
@@ -115,6 +122,14 @@ export class EmailFileAnalyzer {
       } else if (error.message.includes('file not found')) {
         errorMessage = 'Файл не найден';
       }
+
+      this.logger.error(`Ошибка анализа Excel файла: ${error.message}`, error.stack);
+      this.logsService.log('backend', null, {
+        action: 'excel_analysis',
+        result: 'error',
+        filePath,
+        error: errorMessage
+      });
 
       return {
         isValid: false,
@@ -177,6 +192,14 @@ export class EmailFileAnalyzer {
     }
 
     // Всё ок - файл валидный ОСВ
+    this.logsService.log('backend', null, {
+      action: 'excel_analysis',
+      result: 'success',
+      docType: 'ОСВ',
+      zavod,
+      sklad
+    });    
+    
     return {
       isValid: true,
       docType: 'ОСВ',
@@ -200,9 +223,12 @@ export class EmailFileAnalyzer {
     
     for (const row of data) {
       const rowMol = row['МОЛ'];
-      if (rowMol && typeof rowMol === 'string' && rowMol.trim() !== '') {
-        sklad = rowMol.trim();
-        break;
+      // Проверяем наличие значения (независимо от типа)
+      if (rowMol !== undefined && rowMol !== null && rowMol !== '') {
+        sklad = String(rowMol).trim();
+        if (sklad !== '') {
+          break;
+        }
       }
     }
 
@@ -214,6 +240,12 @@ export class EmailFileAnalyzer {
     }
 
     // Всё ок - файл валидный ОС
+    this.logsService.log('backend', null, {
+      action: 'excel_analysis',
+      result: 'success',
+      docType: 'ОС',
+      sklad
+    });    
     return {
       isValid: true,
       docType: 'ОС',

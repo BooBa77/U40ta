@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailAttachment } from '../entities/email-attachment.entity';
@@ -6,9 +6,11 @@ import { AppEventsService } from '../../app-events/app-events.service';
 import { SmtpService } from './smtp.service';
 import { EmailFileAnalyzer } from './email-file-analyzer.service';
 import { EmailStorageService } from './email-storage.service';
+import { LogsService } from '../../logs/logs.service';
 
 @Injectable()
 export class EmailProcessor {
+  private readonly logger = new Logger(EmailFileAnalyzer.name);
   constructor(
     @InjectRepository(EmailAttachment)
     private attachmentsRepo: Repository<EmailAttachment>,
@@ -16,6 +18,7 @@ export class EmailProcessor {
     private smtpService: SmtpService,
     private emailFileAnalyzer: EmailFileAnalyzer,
     private emailStorageService: EmailStorageService,
+    private logsService: LogsService,
   ) {}
 
   async analyzeAndSaveAttachment(
@@ -24,7 +27,7 @@ export class EmailProcessor {
     emailFrom: string,
     emailSubject?: string
   ): Promise<EmailAttachment | null> {
-    console.log(`Обрабатываем вложение: ${originalFilename}`);
+    this.logger.log(`Обрабатываем вложение: ${originalFilename}`);
     
     const isInventory = emailSubject?.toLowerCase().includes('инвентаризац') || false;
 
@@ -83,8 +86,16 @@ export class EmailProcessor {
     
     // SSE уведомление о новой ведомости
     this.appEventsService.notifyStatementLoaded();
-    console.log(`Файл принят: ${filename}`);
-    console.log('SSE: отправлено обновление списка файлов');
+    this.logger.log(`Файл принят: ${filename}`);
+    this.logsService.log('backend', null, {
+      action: 'email_attachment_accepted',
+      filename: filename,
+      emailFrom: emailFrom,
+      docType: analysis.docType,
+      zavod: analysis.zavod,
+      sklad: analysis.sklad,
+      isInventory: isInventory
+    });    
     
     // Отправляем положительный ответ
     const acceptText = `Ваш файл "${filename}" принят.\n\n` +
@@ -105,14 +116,20 @@ export class EmailProcessor {
     emailFrom: string,
     errorMessage?: string
   ): Promise<void> {
-    console.log(`Файл отклонён: ${filename}, причина: ${errorMessage}`);
+    this.logger.log(`Файл отклонён: ${filename}, причина: ${errorMessage}`);
+    this.logsService.log('backend', null, {
+      action: 'email_attachment_rejected',
+      filename: filename,
+      emailFrom: emailFrom,
+      reason: errorMessage
+    });    
     
     // Удаляем файл с диска
     try {
       await this.emailStorageService.deleteFile(filename);
-      console.log(`Файл удалён: ${filename}`);
+      this.logger.log(`Файл удалён: ${filename}`);
     } catch (deleteError) {
-      console.error('Ошибка удаления файла:', deleteError);
+      this.logger.log('Ошибка удаления файла:', deleteError);
     }
     
     // Отправляем отрицательный ответ
@@ -131,7 +148,14 @@ export class EmailProcessor {
     emailFrom: string,
     error: Error
   ): Promise<void> {
-    console.error(`Ошибка обработки файла ${filename}:`, error);
+    this.logger.log(`Ошибка обработки файла ${filename}:`, error);
+    this.logsService.log('backend', null, {
+      action: 'email_processing_error',
+      filename: filename,
+      emailFrom: emailFrom,
+      error: error.message,
+      stack: error.stack
+    });    
     
     // Отправляем сообщение об ошибке
     const errorText = `При обработке вашего файла "${filename}" возникла непредвиденная ошибка.\n\n` +
