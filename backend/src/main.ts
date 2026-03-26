@@ -2,6 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import * as express from 'express';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { LoggerInterceptor } from './common/interceptors/logger.interceptor';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { LogsService } from './modules/logs/logs.service';
 
 async function bootstrap() {
   // Создаем логгер с именем 'Bootstrap' для этого файла
@@ -37,6 +40,13 @@ async function bootstrap() {
     forbidNonWhitelisted: true, // Возвращает ошибку, если есть лишние поля
     transform: true,        // Автоматически преобразует типы (строки в числа и т.д.)
   }));
+
+  // Получаем экземпляр LogsService из приложения
+  const logsService = app.get(LogsService);
+  
+  // Регистрируем глобальные перехватчики
+  app.useGlobalInterceptors(new LoggerInterceptor(logsService));
+  app.useGlobalFilters(new AllExceptionsFilter(logsService));
 
   // Получаем порт из переменных окружения или используем дефолтный 3000
   // process.env.PORT - стандартный способ хранения настроек в Node.js

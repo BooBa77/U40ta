@@ -21,7 +21,7 @@ export class EmailAttachment {
   @Column({ type: 'integer', nullable: true })
   zavod: number;
 
-  @Column({ type: 'varchar', length: 4, nullable: true })
+  @Column({ type: 'varchar', length: 8, nullable: false })
   sklad: string | null;
 
   @Column({ type: 'boolean', default: false, name: 'in_process' })

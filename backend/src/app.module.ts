@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppEventsModule } from './modules/app-events/app-events.module'; // SSE
 import { TelegramUsersModule } from './modules/telegram-users/telegram-users.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { LogsModule } from './modules/logs/logs.module';
 import { EmailModule } from './modules/email/email.module';
 import emailConfig from './modules/email/config/email.config';
 import { StatementsModule } from './modules/statements/statements.module';
@@ -20,7 +22,7 @@ import { PhotosModule } from './modules/photos/photos.module';
     // isGlobal: true делает конфигурацию доступной во всех модулях приложения без дополнительного импорта
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [emailConfig],
+      load: [emailConfig],  
       envFilePath: '.env',
     }),
 
@@ -47,6 +49,13 @@ import { PhotosModule } from './modules/photos/photos.module';
       }),
       inject: [ConfigService], // Внедряем ConfigService в фабрику
     }),
+
+    // Модуль логгирования
+    ThrottlerModule.forRoot([{
+          ttl: 60000,  // время жизни окна в миллисекундах (1 минута)
+          limit: 50,   // максимальное количество запросов за окно
+        }]),
+    LogsModule,    
 
     // Импорты наших модулей приложения
     

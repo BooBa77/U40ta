@@ -1,10 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import * as path from 'path';
 import * as fs from 'fs';
 
 @Injectable()
 export class EmailFileAnalyzer {
+  private readonly logger = new Logger(EmailFileAnalyzer.name);
+
+  // Колонки для ОСВ (оборотно-сальдовая ведомость)
+  private readonly osvColumns = [
+    'Завод',
+    'Склад',
+    'КрТекстМатериала',
+    'Материал',
+    'Партия',
+    'Запас на конец периода'
+  ];
+
+  // Колонки для ОС (основные средства)
+  private readonly osColumns = [
+    'Основное средство',
+    'Название',
+    'Инвентарный номер',
+    'МОЛ'
+  ];
+
   /**
    * Анализирует Excel-файл и определяет его валидность, тип и склад
    * @param filePath - путь к файлу на диске
@@ -17,7 +37,7 @@ export class EmailFileAnalyzer {
     sklad?: string;
     error?: string;
   }> {
-    console.log(`Анализируем Excel файл: ${filePath}`);
+    this.logger.log(`Анализируем Excel файл: ${filePath}`);
 
     // Этап 1: Проверка расширения файла
     const ext = path.extname(filePath).toLowerCase();
@@ -64,69 +84,30 @@ export class EmailFileAnalyzer {
 
       // Берём первую строку для проверки колонок
       const firstRow = data[0];
+
+      // Этап 5: Определение типа документа
+      // Сначала проверяем на ОСВ (более популярный тип)
+      const hasOsvColumns = this.hasRequiredColumns(firstRow, this.osvColumns);
       
-      // Этап 5: Проверка обязательных колонок
-      const requiredColumns = [
-        'Завод',
-        'Склад', 
-        'КрТекстМатериала',
-        'Материал',
-        'Партия',
-        'Запас на конец периода'
-      ];
-
-      const missingColumns: string[] = [];
-      for (const column of requiredColumns) {
-        if (!(column in firstRow)) {
-          missingColumns.push(column);
-        }
+      if (hasOsvColumns) {
+        return await this.analyzeOsvDocument(data);
       }
 
-      if (missingColumns.length > 0) {
-        return {
-          isValid: false,
-          error: `Некорректная структура данных. Отсутствуют колонки: ${missingColumns.join(', ')}`
-        };
+      // Проверяем на ОС
+      const hasOsColumns = this.hasRequiredColumns(firstRow, this.osColumns);
+      
+      if (hasOsColumns) {
+        return await this.analyzeOsDocument(data);
       }
 
-      // Этап 6: Поиск первой строки с данными (где склад не пустой)
-      let zavod = 0;
-      let sklad = '';
-      for (const row of data) {
-        const rowZavod = row['Завод'];
-        const rowSklad = row['Склад'];
-        // Приводим zavod к числу
-        if (typeof rowZavod === 'number') {
-          zavod = rowZavod;
-        } else if (typeof rowZavod === 'string') {
-          const parsed = parseInt(rowZavod.trim(), 10);
-          zavod = isNaN(parsed) ? 0 : parsed;
-        } else {
-          zavod = Number(rowZavod) || 0;
-        }
-        if (rowSklad && typeof rowSklad === 'string' && rowSklad.trim() !== '') {
-          sklad = rowSklad.trim();
-          break;
-        }
-      }
-
-      if (!sklad) {
-        return {
-          isValid: false,
-          error: 'Не удалось определить склад (колонка "Склад" пустая во всех строках)'
-        };
-      }
-
-      // Всё ок - файл валидный ОСВ
+      // Если ни один тип не подошёл
       return {
-        isValid: true,
-        docType: 'ОСВ',
-        zavod: zavod,
-        sklad: sklad
+        isValid: false,
+        error: `Некорректная структура данных. Файл должен содержать колонки для ОСВ (${this.osvColumns.join(', ')}) или для ОС (${this.osColumns.join(', ')})`
       };
 
     } catch (error) {
-      console.error('Ошибка анализа Excel файла:', error);
+      this.logger.error(`Ошибка анализа Excel файла: ${error.message}`, error.stack);
       
       let errorMessage = 'Ошибка чтения файла';
       if (error.message.includes('not a valid zip file')) {
@@ -140,5 +121,104 @@ export class EmailFileAnalyzer {
         error: `${errorMessage}: ${error.message}`
       };
     }
+  }
+
+  /**
+   * Проверяет наличие всех требуемых колонок в строке
+   */
+  private hasRequiredColumns(row: any, requiredColumns: string[]): boolean {
+    for (const column of requiredColumns) {
+      if (!(column in row)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Анализирует документ типа ОСВ
+   */
+  private async analyzeOsvDocument(data: any[]): Promise<{
+    isValid: boolean;
+    docType?: string;
+    zavod?: number;
+    sklad?: string;
+    error?: string;
+  }> {
+    // Поиск первой строки с данными (где склад не пустой)
+    let zavod = 0;
+    let sklad = '';
+    
+    for (const row of data) {
+      const rowZavod = row['Завод'];
+      const rowSklad = row['Склад'];
+      
+      // Приводим zavod к числу
+      if (typeof rowZavod === 'number') {
+        zavod = rowZavod;
+      } else if (typeof rowZavod === 'string') {
+        const parsed = parseInt(rowZavod.trim(), 10);
+        zavod = isNaN(parsed) ? 0 : parsed;
+      } else {
+        zavod = Number(rowZavod) || 0;
+      }
+      
+      if (rowSklad && typeof rowSklad === 'string' && rowSklad.trim() !== '') {
+        sklad = rowSklad.trim();
+        break;
+      }
+    }
+
+    if (!sklad) {
+      return {
+        isValid: false,
+        error: 'Не удалось определить склад (колонка "Склад" пустая во всех строках)'
+      };
+    }
+
+    // Всё ок - файл валидный ОСВ
+    return {
+      isValid: true,
+      docType: 'ОСВ',
+      zavod: zavod,
+      sklad: sklad
+    };
+  }
+
+  /**
+   * Анализирует документ типа ОС (основные средства)
+   */
+  private async analyzeOsDocument(data: any[]): Promise<{
+    isValid: boolean;
+    docType?: string;
+    zavod?: number;
+    sklad?: string;
+    error?: string;
+  }> {
+    // Поиск первой строки с данными (где МОЛ не пустой)
+    let sklad = '';
+    
+    for (const row of data) {
+      const rowMol = row['МОЛ'];
+      if (rowMol && typeof rowMol === 'string' && rowMol.trim() !== '') {
+        sklad = rowMol.trim();
+        break;
+      }
+    }
+
+    if (!sklad) {
+      return {
+        isValid: false,
+        error: 'Не удалось определить склад (колонка "МОЛ" пустая во всех строках)'
+      };
+    }
+
+    // Всё ок - файл валидный ОС
+    return {
+      isValid: true,
+      docType: 'ОС',
+      zavod: 0,  // У ОС нет завода, ставим 0 для единообразия
+      sklad: sklad
+    };
   }
 }

@@ -20,37 +20,6 @@ export class EmailController {
     private readonly configService: ConfigService,
   ) {}
 
-
-  // 🆕 Диагностический эндпоинт
-  @Get('config-debug')
-  async debugConfig() {
-    // Получаем конфигурацию разными способами
-    const emailConfig = this.configService.get('email');
-    const directImapUser = process.env.EMAIL_IMAP_USER;
-    const directImapHost = process.env.EMAIL_IMAP_HOST;
-    
-    console.log('=== DEBUG: Проверка конфигурации ===');
-    console.log('1. configService.get("email"):', emailConfig);
-    console.log('2. process.env.EMAIL_IMAP_USER:', directImapUser);
-    console.log('3. process.env.EMAIL_IMAP_HOST:', directImapHost);
-    console.log('4. Все EMAIL_* переменные:', Object.keys(process.env).filter(k => k.startsWith('EMAIL')));
-    
-    return {
-      viaConfigService: emailConfig ? {
-        hasImap: !!emailConfig.imap,
-        imapUser: emailConfig.imap?.user ? '✅' : '❌',
-        imapHost: emailConfig.imap?.host || '❌',
-      } : '❌ Конфигурация email не найдена',
-      viaProcessEnv: {
-        EMAIL_IMAP_USER: directImapUser ? '✅' : '❌',
-        EMAIL_IMAP_HOST: directImapHost || '❌',
-        EMAIL_IMAP_PORT: process.env.EMAIL_IMAP_PORT || '❌',
-      },
-    };
-  }
-
-
-
   // Проверка почты - endpoint для инициирования проверки новых писем
   @Post('check')
   @HttpCode(HttpStatus.OK)
