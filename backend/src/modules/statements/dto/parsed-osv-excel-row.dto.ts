@@ -1,5 +1,5 @@
 // Типизация строк из Excel файла
-export interface ParsedExcelRowDto {
+export interface ParsedOSVExcelRowDto {
   'Завод': number;
   'Склад': string;
   'КрТекстМатериала': string;

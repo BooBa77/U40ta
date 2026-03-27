@@ -16,7 +16,7 @@ export class ProcessedStatement {
   @Column({ type: 'integer' })
   zavod: number; // например 4030
 
-  @Column({ type: 'varchar', length: 4 })
+  @Column({ type: 'varchar', length: 8 })
   sklad: string; // Код склада (например "s010")
 
   @Column({ type: 'varchar', length: 10 })

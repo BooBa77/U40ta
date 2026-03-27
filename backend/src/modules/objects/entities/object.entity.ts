@@ -8,7 +8,7 @@ export class InventoryObject {
   @Column({ type: 'int', nullable: false })
   zavod: number;
 
-  @Column({ type: 'varchar', length: 4, nullable: false })
+  @Column({ type: 'varchar', length: 8, nullable: false })
   sklad: string;
 
   @Column({ type: 'varchar', length: 255, nullable: false })
