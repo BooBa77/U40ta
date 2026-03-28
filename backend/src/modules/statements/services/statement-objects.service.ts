@@ -30,7 +30,7 @@ export class StatementObjectsService {
     sklad: string,
     docType: string,
   ): Promise<void> {
-    console.log(`StatementObjectsService: обновление флагов для ${zavod}/${sklad}/${docType}`);
+    //console.log(`StatementObjectsService: обновление флагов для ${zavod}/${sklad}/${docType}`);
 
     // 1. Находим активную ведомость
     const activeAttachment = await this.emailAttachmentRepo.findOne({
@@ -43,7 +43,7 @@ export class StatementObjectsService {
     });
 
     if (!activeAttachment) {
-      console.log(`StatementObjectsService: активная ведомость не найдена`);
+      //console.log(`StatementObjectsService: активная ведомость не найдена`);
       return;
     }
 
@@ -52,7 +52,7 @@ export class StatementObjectsService {
       emailAttachmentId: activeAttachment.id,
       is_excess: true,
     });
-    console.log(`StatementObjectsService: удалены старые записи is_excess`);
+    //console.log(`StatementObjectsService: удалены старые записи is_excess`);
 
     // 3. Получаем все объекты на этом складу
     const objects = await this.inventoryObjectRepo.find({
@@ -68,7 +68,7 @@ export class StatementObjectsService {
       objectCounts.set(key, (objectCounts.get(key) || 0) + 1);
     }
 
-    console.log(`StatementObjectsService: найдено уникальных объектов: ${objectCounts.size}`);
+    //console.log(`StatementObjectsService: найдено уникальных объектов: ${objectCounts.size}`);
 
     // 5. Получаем все записи ведомости (кроме is_excess)
     const statements = await this.processedStatementRepo.find({
@@ -78,7 +78,7 @@ export class StatementObjectsService {
       },
     });
 
-    console.log(`StatementObjectsService: записей в ведомости: ${statements.length}`);
+    //console.log(`StatementObjectsService: записей в ведомости: ${statements.length}`);
 
     // 6. Обновляем флаги have_object
     const updatedStatements: ProcessedStatement[] = [];
@@ -102,7 +102,7 @@ export class StatementObjectsService {
     // 7. Сохраняем обновленные записи
     if (updatedStatements.length > 0) {
       await this.processedStatementRepo.save(updatedStatements);
-      console.log(`StatementObjectsService: обновлено флагов have_object: ${updatedStatements.length}`);
+      //console.log(`StatementObjectsService: обновлено флагов have_object: ${updatedStatements.length}`);
     }
 
     // 8. Создаем записи is_excess для оставшихся объектов
@@ -134,10 +134,10 @@ export class StatementObjectsService {
     // 9. Сохраняем записи is_excess
     if (excessStatements.length > 0) {
       await this.processedStatementRepo.save(excessStatements);
-      console.log(`StatementObjectsService: создано записей is_excess: ${excessStatements.length}`);
+      //console.log(`StatementObjectsService: создано записей is_excess: ${excessStatements.length}`);
     }
 
-    console.log(`StatementObjectsService: обновление флагов завершено`);
+    //console.log(`StatementObjectsService: обновление флагов завершено`);
   }
 
   /**
@@ -165,7 +165,7 @@ export class StatementObjectsService {
     
     // Отправляем SSE уведомление об изменении ведомости
     this.appEventsService.notifyStatementUpdated(statementId);
-    console.log(`Отправлено SSE уведомление об изменении записи ведомости № ${statementId}`);  
+    //console.log(`Отправлено SSE уведомление об изменении записи ведомости № ${statementId}`);  
   }
  
 }

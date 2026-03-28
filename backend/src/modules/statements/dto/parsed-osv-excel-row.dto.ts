@@ -1,4 +1,4 @@
-// Типизация строк из Excel файла
+// Типизация строк из Excel файла ведомости ОСВ
 export interface ParsedOSVExcelRowDto {
   'Завод': number;
   'Склад': string;

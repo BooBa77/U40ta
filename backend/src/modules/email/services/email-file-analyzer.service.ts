@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -6,8 +6,6 @@ import { LogsService } from '../../logs/logs.service';
 
 @Injectable()
 export class EmailFileAnalyzer {
-  private readonly logger = new Logger(EmailFileAnalyzer.name);
-
   // Колонки для ОСВ (оборотно-сальдовая ведомость)
   private readonly osvColumns = [
     'Завод',
@@ -40,7 +38,7 @@ export class EmailFileAnalyzer {
     sklad?: string;
     error?: string;
   }> {
-    this.logger.log(`Анализируем Excel файл: ${filePath}`);
+    console.log(`Анализируем Excel файл: ${filePath}`);
     this.logsService.log('backend', null, {
       action: 'excel_analysis',
       filePath: filePath,
@@ -123,7 +121,7 @@ export class EmailFileAnalyzer {
         errorMessage = 'Файл не найден';
       }
 
-      this.logger.error(`Ошибка анализа Excel файла: ${error.message}`, error.stack);
+      console.error(`Ошибка анализа Excel файла: ${error.message}`, error.stack);
       this.logsService.log('backend', null, {
         action: 'excel_analysis',
         result: 'error',

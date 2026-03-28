@@ -30,7 +30,7 @@ export class StatementService {
     zavod?: number,
     sklad?: string
   ): Promise<ProcessedStatement[]> {
-    console.log(`[StatementService] Поиск записей ведомости: inv=${invNumber}, zavod=${zavod}, sklad=${sklad}`);
+    //console.log(`[StatementService] Поиск записей ведомости: inv=${invNumber}, zavod=${zavod}, sklad=${sklad}`);
 
     const queryBuilder = this.processedStatementRepo
       .createQueryBuilder('statement')
@@ -49,7 +49,7 @@ export class StatementService {
 
     const statements = await queryBuilder.getMany();
 
-    console.log(`[StatementService] Найдено записей ведомости: ${statements.length}`);
+    //console.log(`[StatementService] Найдено записей ведомости: ${statements.length}`);
     return statements;
   }
 
@@ -58,7 +58,7 @@ export class StatementService {
    * GET /api/statements/:attachmentId
    */
   async parseStatement(attachmentId: number): Promise<ProcessedStatementDto[]> {
-    console.log(`StatementService: запрос на ведомость ID: ${attachmentId}`);
+    ////console.log(`StatementService: запрос на ведомость ID: ${attachmentId}`);
 
     const attachment = await this.emailAttachmentRepo.findOne({
       where: { id: attachmentId },
@@ -70,12 +70,12 @@ export class StatementService {
     }
 
     if (attachment.isInventory) {
-      console.log(`StatementService: пропускаем инвентаризацию (ID: ${attachmentId})`);
+      ////console.log(`StatementService: пропускаем инвентаризацию (ID: ${attachmentId})`);
       return [];
     }
 
     if (attachment.inProcess) {
-      console.log(`StatementService: ведомость уже в работе, возвращаем существующие записи`);
+      //console.log(`StatementService: ведомость уже в работе, возвращаем существующие записи`);
       
       const statements = await this.parserService.getExistingStatements(attachmentId);
       
@@ -93,12 +93,12 @@ export class StatementService {
         );
       }
       
-      console.log(`StatementService: ведомость успешно обработана, записей: ${statements.length}`);
+      //console.log(`StatementService: ведомость успешно обработана, записей: ${statements.length}`);
 
       return statements;
       
     } catch (error) {
-      console.error('StatementService: ошибка обработки ведомости:', error);
+      //console.error('StatementService: ошибка обработки ведомости:', error);
       throw new InternalServerErrorException(
         `Ошибка обработки ведомости: ${error.message}`,
       );
@@ -110,7 +110,7 @@ export class StatementService {
    * POST /api/statements/ignore
    */
   async updateIgnoreStatus(dto: UpdateIgnoreDto): Promise<ProcessedStatementDto[]> {
-    console.log(`StatementService: обновление is_ignore для ${dto.invNumber}/${dto.partyNumber || '(без партии)'}`);
+    //console.log(`StatementService: обновление is_ignore для ${dto.invNumber}/${dto.partyNumber || '(без партии)'}`);
     
     const statements = await this.processedStatementRepo.find({
       where: {
@@ -122,18 +122,18 @@ export class StatementService {
     });
     
     if (statements.length === 0) {
-      console.warn(`StatementService: записи не найдены для обновления`);
+      //console.warn(`StatementService: записи не найдены для обновления`);
       return [];
     }
     
-    console.log(`StatementService: найдено записей для обновления: ${statements.length}`);
+    //console.log(`StatementService: найдено записей для обновления: ${statements.length}`);
     
     for (const statement of statements) {
       statement.is_ignore = dto.isIgnore;
     }
     
     await this.processedStatementRepo.save(statements);
-    console.log(`StatementService: обновлено записей: ${statements.length}`);
+    //console.log(`StatementService: обновлено записей: ${statements.length}`);
     
     if (statements.length > 0) {
       const first = statements[0];
@@ -142,7 +142,7 @@ export class StatementService {
           first.zavod,
           first.sklad,
           first.doc_type,
-        ).catch(err => console.error('StatementService: ошибка фонового обновления флагов:', err));
+        ).catch(err => //console.error('StatementService: ошибка фонового обновления флагов:', err));
       }
     }
     

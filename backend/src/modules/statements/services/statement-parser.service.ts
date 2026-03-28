@@ -10,7 +10,6 @@ import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { AppEventsService } from '../../app-events/app-events.service';
 import { ParsedOSVExcelRowDto } from '../dto/parsed-osv-excel-row.dto';
 import { ParsedOSExcelRowDto } from '../dto/parsed-os-excel-row.dto';
-//import { CreateProcessedStatementDto } from '../dto/create-processed-statement.dto';
 import { ProcessedStatementDto } from '../dto/statement-response.dto';
 
 @Injectable()
@@ -47,7 +46,7 @@ export class StatementParserService {
    * Создает записи в processed_statements
    */
   async parseStatement(attachmentId: number): Promise<ProcessedStatementDto[]> {
-    console.log(`StatementParserService: парсинг ведомости ID: ${attachmentId}`);
+    //console.log(`StatementParserService: парсинг ведомости ID: ${attachmentId}`);
     
     // 1. Находим вложение
     const attachment = await this.emailAttachmentRepo.findOne({
@@ -60,13 +59,13 @@ export class StatementParserService {
     
     // 2. Пропускаем инвентаризацию
     if (attachment.isInventory) {
-      console.log(`StatementParserService: пропускаем инвентаризацию (ID: ${attachmentId})`);
+      //console.log(`StatementParserService: пропускаем инвентаризацию (ID: ${attachmentId})`);
       return [];
     }
     
     // 3. Если ведомость уже в работе - возвращаем существующие записи
     if (attachment.inProcess) {
-      console.log(`StatementParserService: ведомость уже в работе`);
+      //console.log(`StatementParserService: ведомость уже в работе`);
       return await this.getExistingStatements(attachmentId);
     }
     
@@ -104,12 +103,12 @@ export class StatementParserService {
       }
     
       this.appEventsService.notifyStatementActiveChanged(attachmentId, attachment.zavod, attachment.sklad);
-      console.log('StatementParserService: отправлено SSE уведомление');
+      //console.log('StatementParserService: отправлено SSE уведомление');
       
       return ProcessedStatementDto.fromEntities(savedEntities);
       
     } catch (error) {
-      console.error('StatementParserService: ошибка обработки ведомости:', error);
+      //console.error('StatementParserService: ошибка обработки ведомости:', error);
       throw new InternalServerErrorException(
         `Ошибка обработки ведомости: ${error.message}`,
       );
@@ -134,14 +133,14 @@ export class StatementParserService {
       );
       
       const oldAttachmentId = oldStatement?.emailAttachmentId;
-      console.log(`StatementParserService: найдена старая ведомость ID: ${oldAttachmentId || 'нет'}`);
+      //console.log(`StatementParserService: найдена старая ведомость ID: ${oldAttachmentId || 'нет'}`);
       
       // Удаляем старые записи этого склада/типа
       await transactionalEntityManager.delete(ProcessedStatement, {
         sklad: attachment.sklad,
         doc_type: attachment.docType,
       });
-      console.log(`StatementParserService: удалены старые записи склада ${attachment.sklad}, тип ${attachment.docType}`);
+      //console.log(`StatementParserService: удалены старые записи склада ${attachment.sklad}, тип ${attachment.docType}`);
       
       // Сбрасываем флаг у старой ведомости
       if (oldAttachmentId && oldAttachmentId !== attachment.id) {
@@ -150,7 +149,7 @@ export class StatementParserService {
           { id: oldAttachmentId },
           { inProcess: false },
         );
-        console.log(`StatementParserService: сброшен флаг in_process у ведомости ID: ${oldAttachmentId}`);
+        //console.log(`StatementParserService: сброшен флаг in_process у ведомости ID: ${oldAttachmentId}`);
       }
     });
   }
@@ -168,7 +167,7 @@ export class StatementParserService {
         ProcessedStatement,
         newEntities,
       );
-      console.log(`StatementParserService: сохранено записей: ${createdEntities.length}`);
+      //console.log(`StatementParserService: сохранено записей: ${createdEntities.length}`);
       
       // Устанавливаем флаг у текущей ведомости
       await transactionalEntityManager.update(
@@ -176,14 +175,14 @@ export class StatementParserService {
         { id: attachment.id },
         { inProcess: true },
       );
-      console.log(`StatementParserService: установлен флаг in_process у ведомости ID: ${attachment.id}`);
+      //console.log(`StatementParserService: установлен флаг in_process у ведомости ID: ${attachment.id}`);
       
       return createdEntities;
     });
   }
 
   private parseOSVExcel(filePath: string): ParsedOSVExcelRowDto[] {
-    console.log(`StatementParserService: чтение Excel файла ОСВ: ${filePath}`);
+    //console.log(`StatementParserService: чтение Excel файла ОСВ: ${filePath}`);
     
     try {
       const workbook = XLSX.readFile(filePath);
@@ -191,17 +190,17 @@ export class StatementParserService {
       const worksheet = workbook.Sheets[firstSheetName];
       const data: ParsedOSVExcelRowDto[] = XLSX.utils.sheet_to_json(worksheet);
       
-      console.log(`StatementParserService: прочитано строк ОСВ: ${data.length}`);
+      //console.log(`StatementParserService: прочитано строк ОСВ: ${data.length}`);
       return data;
       
     } catch (error) {
-      console.error('StatementParserService: ошибка чтения Excel ОСВ:', error);
+      //console.error('StatementParserService: ошибка чтения Excel ОСВ:', error);
       throw new InternalServerErrorException(`Ошибка чтения Excel файла ОСВ: ${error.message}`);
     }
   }
 
   private parseOSExcel(filePath: string): ParsedOSExcelRowDto[] {
-    console.log(`StatementParserService: чтение Excel файла ОС: ${filePath}`);
+    //console.log(`StatementParserService: чтение Excel файла ОС: ${filePath}`);
     
     try {
       const workbook = XLSX.readFile(filePath);
@@ -209,7 +208,7 @@ export class StatementParserService {
       const worksheet = workbook.Sheets[firstSheetName];
       const data: any[] = XLSX.utils.sheet_to_json(worksheet);
       
-      console.log(`StatementParserService: прочитано строк ОС: ${data.length}`);
+      //console.log(`StatementParserService: прочитано строк ОС: ${data.length}`);
       
       const result: ParsedOSExcelRowDto[] = data.map(row => ({
         'Основное средство': row['Основное средство']?.toString(),
@@ -221,7 +220,7 @@ export class StatementParserService {
       return result;
       
     } catch (error) {
-      console.error('StatementParserService: ошибка чтения Excel ОС:', error);
+      //console.error('StatementParserService: ошибка чтения Excel ОС:', error);
       throw new InternalServerErrorException(`Ошибка чтения Excel файла ОС: ${error.message}`);
     }
   }
@@ -240,7 +239,7 @@ export class StatementParserService {
       const partyNumber = row['Партия']?.toString() || '';
 
       if (!invNumber || invNumber.trim() === '') {
-        console.log(`StatementParserService: пропущена сводная строка ОСВ: "${buhName.substring(0, 50)}..."`);
+        //console.log(`StatementParserService: пропущена сводная строка ОСВ: "${buhName.substring(0, 50)}..."`);
         continue;
       }
       
@@ -270,7 +269,7 @@ export class StatementParserService {
       }
     }
     
-    console.log(`StatementParserService: создано объектов ОСВ: ${statements.length}`);
+    //console.log(`StatementParserService: создано объектов ОСВ: ${statements.length}`);
     return statements;
   }
 
@@ -287,7 +286,7 @@ export class StatementParserService {
         
         // Пропускаем строки с пустыми обязательными полями
         if (!buhName || !invNumber || !sklad) {
-          console.log(`StatementParserService: пропущена строка ОС с пустыми полями: Название=${buhName}, Инвентарный номер=${invNumber}, МОЛ=${sklad}`);
+          //console.log(`StatementParserService: пропущена строка ОС с пустыми полями: Название=${buhName}, Инвентарный номер=${invNumber}, МОЛ=${sklad}`);
           continue;
         }
         
@@ -306,7 +305,7 @@ export class StatementParserService {
         statements.push(statement);
       }
       
-      console.log(`StatementParserService: создано объектов ОС: ${statements.length}`);
+      //console.log(`StatementParserService: создано объектов ОС: ${statements.length}`);
       return statements;
   }
 

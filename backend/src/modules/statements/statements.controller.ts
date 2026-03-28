@@ -5,6 +5,7 @@ import { StatementObjectsService } from './services/statement-objects.service';
 import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateIgnoreDto } from './dto/update-ignore.dto';
 import { UpdateHaveObjectDto } from './dto/update-have-object.dto';
+import { ProcessedStatementDto } from './dto/statement-response.dto';
 
 @Controller('statements')
 @UseGuards(JwtAuthGuard)
@@ -45,10 +46,12 @@ export class StatementsController {
         skladValue
       );
       
+      const statementDtos = ProcessedStatementDto.fromEntities(statements);
+      
       return {
         success: true,
-        statements,
-        count: statements.length
+        statements: statementDtos,
+        count: statementDtos.length
       };
     } catch (error) {
       console.error('[StatementsController] Ошибка поиска записей ведомости:', error);

@@ -202,6 +202,7 @@ export class ObjectService {
    * Исполнитель для онлайн: создаёт объект через API
    */
   async createInApi(objectData) {
+  console.log('[ObjectService] createInApi: полный объект для отправки:', JSON.stringify(objectData, null, 2))
     try {
       const { id, ...dataToSend } = objectData
       

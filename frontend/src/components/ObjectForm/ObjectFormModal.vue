@@ -301,7 +301,7 @@ const loadObject = async (id) => {
       inv_number: object.inv_number || '',
       buh_name: object.buh_name || '',
       sklad: object.sklad || '',
-      zavod: object.zavod || '',
+      zavod: object.zavod || 0,
       party_number: object.party_number || '',
       sn: object.sn || ''
     }
@@ -326,7 +326,7 @@ const initFromRowData = (data) => {
     inv_number: data.inv_number || '',
     buh_name: data.buh_name || '',
     sklad: data.sklad || '',
-    zavod: data.zavod || '',
+    zavod: data.zavod || 0,
     party_number: data.party_number || '',
     sn: data.sn || ''
   }
@@ -432,7 +432,37 @@ const handleSave = async () => {
       ...objectData.value,
       ...getPlacesForSave()
     }
+
     
+    // Логируем для анализа
+    console.log('=== ОТПРАВКА ОБЪЕКТА ===')
+    console.log('objectData.value:', JSON.stringify(objectData.value, null, 2))
+    console.log('getPlacesForSave():', getPlacesForSave())
+    console.log('objectToSave (ПОЛНЫЙ):', JSON.stringify(objectToSave, null, 2))
+    console.log('Поля objectToSave:', Object.keys(objectToSave))
+    console.log('id в objectToSave:', objectToSave.id)
+    console.log('zavod:', objectToSave.zavod, 'тип:', typeof objectToSave.zavod)
+    console.log('party_number:', objectToSave.party_number, 'тип:', typeof objectToSave.party_number)
+    
+    // Проверяем, есть ли лишние поля
+    const dtoFields = ['zavod', 'sklad', 'buh_name', 'inv_number', 'party_number', 'sn', 
+                       'place_ter', 'place_pos', 'place_cab', 'place_user']
+    const extraFields = Object.keys(objectToSave).filter(key => !dtoFields.includes(key))
+    if (extraFields.length > 0) {
+      console.warn('⚠️ ЛИШНИЕ ПОЛЯ, которых нет в DTO:', extraFields)
+    }    
+
+
+
+
+
+
+
+
+
+
+
+
     // 1. Сохраняем объект
     const savedObject = await objectService.saveObject(objectToSave)
     const wasCreated = !objectData.value.id && savedObject.id

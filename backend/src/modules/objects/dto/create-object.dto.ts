@@ -5,7 +5,7 @@ export class CreateObjectDto {
   zavod: number;
 
   @IsString()
-  @MaxLength(4)
+  @MaxLength(8)
   sklad: string;
 
   @IsString()
