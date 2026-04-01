@@ -134,7 +134,8 @@ export class ObjectService {
       const { id, inv_number, buh_name, sklad, zavod, party_number, ...updateData } = objectData // исключаем нередактируемые поля
       return this.updateObject(id, updateData)
     } else {
-      return this.createObject(objectData)
+      const { id, ...updateData } = objectData // для новых объектов id сгенерируется
+      return this.createObject(updateData)
     }
   }
   

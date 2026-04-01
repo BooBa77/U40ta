@@ -6,18 +6,16 @@ class OfflineCacheService {
     
     // Схема базы данных (snake_case для единообразия с бэкендом)
     this.db.version(1).stores({
-      // Объекты: места теперь в корне объекта
+      // Объекты
       objects: 'id, zavod, sklad, buh_name, inv_number, party_number, sn, place, ter, pos, cab, user',
-      // Обработанные ведомости
+      // Обрабатывамые ведомости
       processed_statements: 'id, zavod, sklad, doc_type, inv_number, party_number, buh_name, have_object, is_ignore, is_excess',
-      // История изменений объектов (переименовано из object_changes)
-      object_history: 'id, object_id, story_line, changed_at, changed_by',
-      // Текущие QR-коды
+      // QR-коды
       qr_codes: 'id, qr_value, object_id',
-      // История перемещений QR-кодов
-      qr_codes_history: '++id, old_object_id, new_object_id, changed_at',
       // Фотографии
-      photos: 'id, object_id'
+      photos: 'id, object_id',
+      // Логи
+      logs: '++id, source, time, content'
     })
   }
 
@@ -95,46 +93,6 @@ class OfflineCacheService {
   }
 
   //============================================================================
-  // РАБОТА С ИСТОРИЕЙ ОБЪЕКТОВ
-  //============================================================================
-
-  /**
-   * Добавляет запись в историю объекта
-   * @param {Object} historyEntry - Запись истории
-   * @returns {Promise<number>} ID созданной записи
-   */
-  async addObjectHistory(historyEntry) {
-    return await this.db.object_history.add({
-      ...historyEntry,
-      changed_at: historyEntry.changed_at || new Date().toISOString()
-    })
-  }
-
-  /**
-   * Получает историю объекта
-   * @param {number} objectId - ID объекта
-   * @returns {Promise<Array>}
-   */
-  async getObjectHistory(objectId) {
-    return await this.db.object_history
-      .where('object_id')
-      .equals(objectId)
-      .reverse()
-      .sortBy('changed_at')
-  }
-
-  /**
-   * Удаляет историю объекта
-   * @param {number} objectId - ID объекта
-   */
-  async deleteObjectHistory(objectId) {
-    await this.db.object_history
-      .where('object_id')
-      .equals(objectId)
-      .delete()
-  }
-
-  //============================================================================
   // РАБОТА С QR-КОДАМИ
   //============================================================================
 
@@ -171,15 +129,6 @@ class OfflineCacheService {
     const existing = await this.getQrCode(qrCode.qr_value)
     
     if (existing) {
-      // Если меняется object_id, записываем в историю
-      if (existing.object_id !== qrCode.object_id) {
-        await this.addQrCodeHistory({
-          old_object_id: existing.object_id,
-          new_object_id: qrCode.object_id,
-          changed_at: new Date().toISOString()
-        })
-      }
-      
       await this.db.qr_codes.update(existing.id, qrCode)
       return existing.id
     } else {
@@ -207,51 +156,11 @@ class OfflineCacheService {
   }
 
   //============================================================================
-  // РАБОТА С ИСТОРИЕЙ QR-КОДОВ
+  // РАБОТА С ВЕДОМОСТЯМИ
   //============================================================================
 
   /**
-   * Добавляет запись в историю QR-кодов
-   * @param {Object} historyEntry - Запись истории
-   * @returns {Promise<number>} ID созданной записи
-   */
-  async addQrCodeHistory(historyEntry) {
-    return await this.db.qr_codes_history.add({
-      ...historyEntry,
-      changed_at: historyEntry.changed_at || new Date().toISOString()
-    })
-  }
-
-  /**
-   * Получает историю перемещений QR-кода
-   * @param {number} objectId - ID объекта (опционально)
-   * @returns {Promise<Array>}
-   */
-  async getQrCodeHistory(objectId) {
-    if (objectId) {
-      // История для конкретного объекта
-      return await this.db.qr_codes_history
-        .where('old_object_id')
-        .equals(objectId)
-        .or('new_object_id')
-        .equals(objectId)
-        .reverse()
-        .sortBy('changed_at')
-    } else {
-      // Вся история
-      return await this.db.qr_codes_history
-        .orderBy('changed_at')
-        .reverse()
-        .toArray()
-    }
-  }
-
-  //============================================================================
-  // РАБОТА С ОБРАБОТАННЫМИ ВЕДОМОСТЯМИ
-  //============================================================================
-
-  /**
-   * Добавляет обработанную ведомость
+   * Добавляет ведомость
    * @param {Object} statement - Данные ведомости
    * @returns {Promise<number>} ID
    */
@@ -260,7 +169,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Получает все обработанные ведомости
+   * Получает все ведомости
    * @returns {Promise<Array>}
    */
   async getAllProcessedStatements() {
@@ -288,7 +197,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Проверяет, обработана ли ведомость
+   * Проверяет, в работе ли ведомость
    * @param {number} zavod - Номер завода
    * @param {string} sklad - Код склада
    * @param {string} docType - Тип документа
@@ -357,93 +266,33 @@ class OfflineCacheService {
     await this.db.photos.delete(id)
   }
 
+  //============================================================================
+  // РАБОТА С ЛОГАМИ
+  //============================================================================
+
+  /**
+   * Добавляет запись лога
+   * @param {Object} logData - Данные лога
+   * @param {string} logData.source - Источник события (например, 'object_update', 'qr_code_move')
+   * @param {any} logData.content - Содержимое лога (JSON, любые данные)
+   * @returns {Promise<number>} ID созданной записи
+   */
+  async addLog(logData) {
+    return await this.db.logs.add({
+      source: logData.source,
+      content: logData.content,
+      time: new Date().toISOString()
+    })
+  }
 
   //============================================================================
   // УПРАВЛЕНИЕ КЭШЕМ
   //============================================================================
 
   /**
-   * Кэширует все данные для офлайн-режима
-   * @param {Object} data - Объект с данными для кэширования
-   * @returns {Object} Статистика по закэшированным данным
-   */
-  async cacheAllData(data) {
-    const {
-      objects = [],
-      processed_statements = [],
-      object_history = [],
-      qr_codes = []
-    } = data
-    
-    console.log('[OfflineCache] Начинаем кэширование данных...')
-    
-    // Очищаем старые данные (параллельно для скорости)
-    await Promise.all([
-      this.db.objects.clear(),
-      this.db.processed_statements.clear(),
-      this.db.object_history.clear(),
-      this.db.qr_codes.clear(),
-      this.db.qr_codes_history.clear() // История тоже очищается при полном кэшировании
-    ])
-    
-    // Кэшируем новые данные (только непустые массивы)
-    const results = await Promise.all([
-      objects.length > 0 ? this.db.objects.bulkAdd(objects) : Promise.resolve(0),
-      processed_statements.length > 0 ? this.db.processed_statements.bulkAdd(processed_statements) : Promise.resolve(0),
-      object_history.length > 0 ? this.db.object_history.bulkAdd(object_history) : Promise.resolve(0),
-      qr_codes.length > 0 ? this.db.qr_codes.bulkAdd(qr_codes) : Promise.resolve(0)
-    ])
-    
-    const stats = {
-      objects: objects.length,
-      processed_statements: processed_statements.length,
-      object_history: object_history.length,
-      qr_codes: qr_codes.length
-    }
-    
-    console.log('[OfflineCache] Данные закэшированы:', stats)
-    return stats
-  }
-
-  /**
-   * Получает статистику по кэшированным данным
-   * @returns {Object} Количество записей в каждой таблице
-   */
-  async getCacheStats() {
-    const [
-      objectsCount,
-      statementsCount,
-      historyCount,
-      qrCodesCount,
-      qrHistoryCount
-    ] = await Promise.all([
-      this.db.objects.count(),
-      this.db.processed_statements.count(),
-      this.db.object_history.count(),
-      this.db.qr_codes.count(),
-      this.db.qr_codes_history.count()
-    ])
-    
-    return {
-      objects: objectsCount,
-      processed_statements: statementsCount,
-      object_history: historyCount,
-      qr_codes: qrCodesCount,
-      qr_codes_history: qrHistoryCount
-    }
-  }
-
-  /**
-   * Проверяет, есть ли закэшированные данные
-   * @returns {boolean} True если есть кэшированные объекты
-   */
-  async hasCachedData() {
-    const stats = await this.getCacheStats()
-    return stats.objects > 0
-  }
-
-  /**
-   * Полностью очищает кэш
+   * Полностью очищает весь кэш
+   * Вызывается при возвращении в онлайн после синхронизации
+   * Также может использоваться перед ручным кэшированием для гарантированной чистоты
    */
   async clearAllCache() {
     console.log('[OfflineCache] Очищаем весь кэш...')
@@ -451,12 +300,47 @@ class OfflineCacheService {
     await Promise.all([
       this.db.objects.clear(),
       this.db.processed_statements.clear(),
-      this.db.object_history.clear(),
       this.db.qr_codes.clear(),
-      this.db.qr_codes_history.clear()
+      this.db.photos.clear(),
+      this.db.logs.clear()
     ])
     
     console.log('[OfflineCache] Кэш очищен')
+  }
+
+  /**
+   * Кэширует данные для офлайн-режима
+   * Вообще таблицы предварительно очищены вызовом clearAllCache() после последнего сеанса оффлайн
+   * @param {Object} data - Объект с данными для кэширования
+   * @returns {Object} Статистика по закэшированным данным
+   */
+  async cacheAllData(data) {
+    const {
+      objects = [],
+      processed_statements = [],
+      qr_codes = []
+    } = data
+
+    // Но на всякий сбойный случай очищаем кэш перед загрузкой новых данных для гарантии актуальности
+    await this.clearAllCache()
+
+    console.log('[OfflineCache] Начинаем кэширование данных...')
+    
+    // Кэшируем новые данные (только непустые массивы)
+    const results = await Promise.all([
+      objects.length > 0 ? this.db.objects.bulkAdd(objects) : Promise.resolve(0),
+      processed_statements.length > 0 ? this.db.processed_statements.bulkAdd(processed_statements) : Promise.resolve(0),
+      qr_codes.length > 0 ? this.db.qr_codes.bulkAdd(qr_codes) : Promise.resolve(0)
+    ])
+    
+    const stats = {
+      objects: objects.length,
+      processed_statements: processed_statements.length,
+      qr_codes: qr_codes.length
+    }
+    
+    console.log('[OfflineCache] Данные закэшированы:', stats)
+    return stats
   }
 
   /**

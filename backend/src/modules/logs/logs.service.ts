@@ -14,7 +14,7 @@ export class LogsService {
 
   /**
    * Запись лога (fire-and-forget)
-   * @param source - источник: 'backend' или 'frontend'
+   * @param source - источник: 'backend', 'frontend' для системных или 'object-history', 'qr-code-history' для бизнесс-процессов
    * @param userId - id пользователя (может быть null)
    * @param content - любые данные в формате JSON
    */

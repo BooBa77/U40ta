@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useQrCamera } from '@/components/QrScanner/composables/useQrCamera'
 import { qrService } from '@/services/qr-service.js'
+import { logsService } from '@/services/logs-service.js'
 
 export function useObjectQrManager(objectData, { onCancel } = {}) {
   const pendingQrCodes = ref(new Set())
@@ -80,8 +81,6 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
   
   // Сохранение всех кодов при привязке к объекту
   const saveQrCodes = async (savedObjectId) => {
-    const results = []
-    
     for (const qrCode of pendingQrCodes.value) {
       try {
         // Проверяем актуальное состояние
@@ -90,11 +89,10 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
         if (existing) {
           // Код существует - обновляем владельца
           await qrService.updateQrCodeOwner(qrCode, savedObjectId)
-          results.push({ qrCode, status: 'updated' })
+          await logsService.addQrCodeHistory(qrCode, existing.object_id, savedObjectId)
         } else {
           // Код новый - создаём
           await qrService.createQrCode(qrCode, savedObjectId)
-          results.push({ qrCode, status: 'created' })
         }
       } catch (error) {
         console.error(`Ошибка сохранения кода ${qrCode}:`, error)
@@ -104,8 +102,8 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
     
     // Очищаем Set после сохранения
     pendingQrCodes.value.clear()
-    
-    return results
+
+    return
   }
   
   // Сброс

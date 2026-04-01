@@ -68,14 +68,14 @@ export class QrService {
     return await response.json()
   }
 
-  //============================================================================
+//============================================================================
   // ПОЛУЧЕНИЕ ОБЪЕКТА ПО QR-КОДУ
   //============================================================================
 
   /**
-   * Ищет ID объекта по QR-коду
+   * Ищет ID объекта и ID QR-кода по значению QR-кода
    * @param {string} qrValue - Значение QR-кода
-   * @returns {Promise<Object|null>} {qr_value, object_id} или null
+   * @returns {Promise<Object|null>} {object_id} или null
    */
   async findObjectIdByQrCode(qrValue) {
     if (!qrValue || typeof qrValue !== 'string') {
@@ -99,7 +99,14 @@ export class QrService {
       const qrRecord = await offlineCache.getQrCode(qrValue)
 
       console.log(`[QrService] Результат поиска в кэше:`, qrRecord ? 'найден' : 'не найден')
-      return qrRecord || null
+      
+      if (qrRecord) {
+        return {
+          object_id: qrRecord.object_id,
+        }
+      }
+      
+      return null
     } catch (error) {
       console.error('[QrService] Ошибка поиска в кэше:', error)
       throw new Error('Не удалось найти QR-код в кэше')
@@ -115,7 +122,6 @@ export class QrService {
       
       if (data.success && data.object_id) {
         return {
-          qr_value: data.qr_value,
           object_id: data.object_id,
         }
       }
@@ -126,7 +132,7 @@ export class QrService {
       throw error
     }
   }
-  
+
   //============================================================================
   // СОЗДАНИЕ QR-КОДА
   //============================================================================
@@ -287,7 +293,7 @@ export class QrService {
    * Получает историю перемещений QR-кода
    * @param {number} objectId - ID объекта (опционально)
    * @returns {Promise<Array>}
-   */
+   
   async getQrCodeHistory(objectId) {
     if (this.isFlightMode()) {
       try {
@@ -310,6 +316,7 @@ export class QrService {
       throw error
     }
   }
+  */    
 }
 
 // Экспортируем синглтон

@@ -12,7 +12,6 @@ import emailConfig from './modules/email/config/email.config';
 import { StatementsModule } from './modules/statements/statements.module';
 import { OfflineModule } from './modules/offline/offline.module';
 import { ObjectsModule } from './modules/objects/objects.module';
-import { ObjectHistoryModule } from './modules/object_history/object_history.module';
 import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
 import { PhotosModule } from './modules/photos/photos.module';
 
@@ -90,10 +89,6 @@ import { PhotosModule } from './modules/photos/photos.module';
     // ObjectsModule - модуль работы с объектами инвентарного учёта
     // Предоставляет CRUD операции для объектов склада с полями: инв.номер, серийный номер, место использования
     ObjectsModule,
-
-    // ObjectHistoryModule - модуль журналирования событий с объектами
-    // История перемещений, коментарии
-    ObjectHistoryModule,    
 
     // Модуль работы с QR-кодами
     // Обеспечивает связь отсканированных QR-значений с объектами системы

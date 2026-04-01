@@ -2,10 +2,9 @@ import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LogsService } from './logs.service';
-
-interface RequestWithUser extends Express.Request {
-  user?: { sub: number };
-}
+import { ObjectHistoryDto } from './dto/object-history.dto';
+import { QrCodeHistoryDto } from './dto/qr-code-history.dto';
+import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface'
 
 @Controller('logs')
 export class LogsController {
@@ -21,4 +20,40 @@ export class LogsController {
     this.logsService.log('frontend', req.user?.sub || null, body.content);
     return { success: true };
   }
+
+  @Post('object-history')
+  @UseGuards(JwtAuthGuard)
+  createObjectHistory(
+    @Req() req: RequestWithUser,
+    @Body() dto: ObjectHistoryDto,
+  ) {
+    this.logsService.log(
+      'object_history',
+      req.user!.sub,
+      {
+        object_id: dto.object_id,
+        event_type: dto.event_type,
+        story_line: dto.story_line,
+      },
+    );
+    return { success: true };
+  }
+  
+  @Post('qr-code-history')
+  @UseGuards(JwtAuthGuard)
+  createQrCodeHistory(
+    @Req() req: RequestWithUser,
+    @Body() dto: QrCodeHistoryDto,
+  ) {
+    this.logsService.log(
+      'qr_code_history',
+      req.user!.sub,
+      {
+        qr_code_value: dto.qr_code_value,
+        old_object_id: dto.old_object_id,
+        new_object_id: dto.new_object_id,
+      },
+    );
+    return { success: true };
+  }  
 }

@@ -5,14 +5,12 @@ import { QrCode } from './entities/qr-code.entity';
 import { CreateQrCodeDto } from './dto/create-qr-code.dto';
 import { UpdateQrOwnerDto } from './dto/update-qr-owner.dto';
 import { QrScanResult } from './interfaces/qr-scan-result.interface';
-import { QrCodesHistoryService } from '../qr-codes-history/qr-codes-history.service';
 
 @Injectable()
 export class QrCodesService {
   constructor(
     @InjectRepository(QrCode)
     private qrCodesRepository: Repository<QrCode>,
-    private qrCodesHistoryService: QrCodesHistoryService,
   ) {}
 
   // Поиск объекта по QR
@@ -49,14 +47,6 @@ export class QrCodesService {
     const qrCode = this.qrCodesRepository.create(createQrCodeDto);
     const savedQrCode = await this.qrCodesRepository.save(qrCode);
 
-    // Журналируем создание
-    await this.qrCodesHistoryService.logChange({
-      qr_code_id: savedQrCode.id,
-      old_object_id: 0,
-      new_object_id: savedQrCode.object_id,
-      changed_by: userId,  // ID из токена
-    });
-
     return savedQrCode;
   }
 
@@ -76,14 +66,6 @@ export class QrCodesService {
     
     qrCode.object_id = new_object_id;
     await this.qrCodesRepository.save(qrCode);
-    
-    // Журналируем изменение
-    await this.qrCodesHistoryService.logChange({
-      qr_code_id: qrCode.id,
-      old_object_id,
-      new_object_id,
-      changed_by: userId,  // ID из токена
-    });
     
     return {
       success: true

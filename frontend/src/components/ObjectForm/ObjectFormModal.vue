@@ -180,14 +180,12 @@
 import { ref, watch, computed } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { objectService } from '@/services/object-service.js'
-import { qrService } from '@/services/qr-service.js'
+import { logsService } from '@/services/logs-service.js'
 import { useObjectPhotos } from './composables/useObjectPhotos'
-import { historyService } from '@/services/history-service.js'
 import { useObjectQrManager } from './composables/useObjectQrManager'
 import { useCamera } from '@/composables/useCamera.js'
 import { useObjectPlaces } from './composables/useObjectPlaces'
 import { useObjectPhotoManager } from './composables/useObjectPhotoManager'
-import { photoService } from '@/services/photo-service.js'
 import PhotoViewerModal from './components/PhotoViewerModal.vue'
 
 const props = defineProps({
@@ -412,6 +410,7 @@ const getSnChangeMessage = () => {
   if (oldSn && !newSn) return `очищен s/n`
   return `изменён s/n на ${newSn}`
 }
+
 // Формирование сообщения об изменении местоположения
 const getPlacesChangeMessage = () => {
   const oldPlaces = originalData.value.places
@@ -422,6 +421,7 @@ const getPlacesChangeMessage = () => {
   if (oldPlaces && !newPlaces) return `ушло в запас`
   return `теперь у: ${newPlaces}`
 }
+
 const handleSave = async () => {
   isSaving.value = true
   errorMessage.value = ''
@@ -432,36 +432,6 @@ const handleSave = async () => {
       ...objectData.value,
       ...getPlacesForSave()
     }
-
-    
-    // Логируем для анализа
-    console.log('=== ОТПРАВКА ОБЪЕКТА ===')
-    console.log('objectData.value:', JSON.stringify(objectData.value, null, 2))
-    console.log('getPlacesForSave():', getPlacesForSave())
-    console.log('objectToSave (ПОЛНЫЙ):', JSON.stringify(objectToSave, null, 2))
-    console.log('Поля objectToSave:', Object.keys(objectToSave))
-    console.log('id в objectToSave:', objectToSave.id)
-    console.log('zavod:', objectToSave.zavod, 'тип:', typeof objectToSave.zavod)
-    console.log('party_number:', objectToSave.party_number, 'тип:', typeof objectToSave.party_number)
-    
-    // Проверяем, есть ли лишние поля
-    const dtoFields = ['zavod', 'sklad', 'buh_name', 'inv_number', 'party_number', 'sn', 
-                       'place_ter', 'place_pos', 'place_cab', 'place_user']
-    const extraFields = Object.keys(objectToSave).filter(key => !dtoFields.includes(key))
-    if (extraFields.length > 0) {
-      console.warn('⚠️ ЛИШНИЕ ПОЛЯ, которых нет в DTO:', extraFields)
-    }    
-
-
-
-
-
-
-
-
-
-
-
 
     // 1. Сохраняем объект
     const savedObject = await objectService.saveObject(objectToSave)
@@ -475,8 +445,7 @@ const handleSave = async () => {
       await saveQrCodes(savedObject.id)
     }
     
-    // 3 Сохраняем фото
-
+    // 3. Сохраняем фото
     console.log('[handleSave] Перед savePhotosChanges, photos.value:', photos.value.length)
     console.log('[handleSave] Детально о фото:', photos.value.map(p => ({
         id: p.id,
@@ -488,30 +457,43 @@ const handleSave = async () => {
 
     await savePhotosChanges(savedObject.id)
 
-    // 4. Записи в историю
-    const historyEntries = []
+    // 4. Записи в лог (logsService)
+    const historyEntries = []  // массив объектов с eventType и storyLine
 
     // 4a. Создание объекта (только для новых)
     if (wasCreated) {
-      historyEntries.push('Объект создан')
+      historyEntries.push({
+        eventType: 'created',
+        storyLine: 'Объект создан'
+      })
     }
 
     // 4b. Изменение SN
     const snMessage = getSnChangeMessage()
-    if (snMessage) historyEntries.push(snMessage)
+    if (snMessage) {
+      historyEntries.push({
+        eventType: 'sn_changed',
+        storyLine: snMessage
+      })
+    }
 
     // 4c. Изменение местоположения
     const placesMessage = getPlacesChangeMessage()
-    if (placesMessage) historyEntries.push(placesMessage)
+    if (placesMessage) {
+      historyEntries.push({
+        eventType: 'place_changed',
+        storyLine: placesMessage
+      })
+    }
 
     // 4d. Добавляем все записи по порядку
     for (const entry of historyEntries) {
-      await historyService.addHistoryRecord(savedObject.id, entry)
+      await logsService.addObjectHistory(savedObject.id, entry.eventType, entry.storyLine)
     }
 
     // 4e. Комментарий (всегда отдельно и последним)
     if (comment.value.trim()) {
-      await historyService.addHistoryRecord(savedObject.id, comment.value.trim())
+      await logsService.addObjectHistory(savedObject.id, 'comment', comment.value.trim())
     }
 
     // 4f. Обновляем checked_at, если были изменения или если это просто проверка
@@ -521,7 +503,7 @@ const handleSave = async () => {
       await objectService.updateCheckedAt(savedObject.id)
     } else {
       // Ничего не менялось, добавляем запись "проверено"
-      await historyService.addHistoryRecord(savedObject.id, 'проверено')
+      await logsService.addObjectHistory(savedObject.id, 'checked', 'проверено')
       await objectService.updateCheckedAt(savedObject.id)
     }
 

@@ -65,6 +65,7 @@ export class ObjectsService {
   async update(id: number, updateObjectDto: UpdateObjectDto): Promise<InventoryObject> {
     const object = await this.findOne(id);
     Object.assign(object, updateObjectDto);
+
     return this.objectRepository.save(object);
   }
 

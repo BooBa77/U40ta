@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InventoryObject } from '../../objects/entities/object.entity';
 import { ProcessedStatement } from '../../statements/entities/processed-statement.entity';
-import { ObjectHistory } from '../../object_history/entities/object_history.entity';
+//import { ObjectHistory } from '../../object_history/entities/object_history.entity';
 import { QrCode } from '../../qr-codes/entities/qr-code.entity';
 import { MolAccess } from '../../users/entities/mol-access.entity';
 
@@ -16,8 +16,8 @@ export class OfflineCacheService {
     @InjectRepository(ProcessedStatement)
     private statementsRepository: Repository<ProcessedStatement>,
     
-    @InjectRepository(ObjectHistory)
-    private objectHistoryRepository: Repository<ObjectHistory>,
+//    @InjectRepository(ObjectHistory)
+//    private objectHistoryRepository: Repository<ObjectHistory>,
     
     @InjectRepository(QrCode)
     private qrCodesRepository: Repository<QrCode>,
@@ -48,13 +48,15 @@ export class OfflineCacheService {
       
       console.log(`OfflineCacheService: загружено ВСЕХ объектов: ${objects.length}`);
       
+/*
       // 3. Получаем ВСЮ историю изменений
       const objectHistory = await this.objectHistoryRepository.find({
         order: { changed_at: 'DESC' },
       });
       
       console.log(`OfflineCacheService: загружено ВСЕЙ истории: ${objectHistory.length}`);
-      
+*/      
+
       // 4. Получаем ВСЕ QR-коды
       const qrCodes = await this.qrCodesRepository.find({
         order: { id: 'ASC' },
@@ -85,14 +87,14 @@ export class OfflineCacheService {
       return {
         objects: this.serializeObjects(objects),
         processed_statements: statements,
-        object_history: objectHistory,
+        //object_history: objectHistory,
         qr_codes: qrCodes,
         meta: {
           userId,
           fetchedAt: new Date().toISOString(),
           totalObjects: objects.length,
           totalStatements: statements.length,
-          totalObjecthistory: objectHistory.length,
+          //totalObjecthistory: objectHistory.length,
           totalQrCodes: qrCodes.length,
           accessibleSklads: userAccess.length,
         }
