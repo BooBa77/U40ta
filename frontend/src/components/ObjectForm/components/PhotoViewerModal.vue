@@ -7,10 +7,8 @@
     @close="handleClose"
   >
     <div class="photo-viewer">
-      <!-- Кнопка закрытия -->
       <button class="close-btn" @click="handleClose">×</button>
       
-      <!-- Основное фото -->
       <div class="photo-container" @click="handleNext">
         <img 
           v-if="currentPhotoUrl"
@@ -19,13 +17,16 @@
           class="full-photo"
           alt="Фото"
           @load="onImageLoaded"
+          @error="onImageError"
         />
         <div v-else-if="isLoadingFullPhoto" class="loading-placeholder">
           Загрузка...
         </div>
+        <div v-else class="loading-placeholder">
+          Нет фото
+        </div>
       </div>
       
-      <!-- Навигация -->
       <button 
         v-if="hasMultiplePhotos"
         class="nav-btn prev-btn" 
@@ -41,7 +42,6 @@
         ›
       </button>
       
-      <!-- Поле ввода SN вместо счетчика -->
       <div class="sn-container">
         <div class="sn-wrapper">
           <label class="sn-label">Серийный номер</label>
@@ -86,7 +86,6 @@ const props = defineProps({
     type: String,
     default: ''
   },
-  // Функция для получения полноразмерного URL (передаётся из родителя)
   getFullUrl: {
     type: Function,
     default: null
@@ -100,73 +99,101 @@ const localSn = ref(props.currentSn)
 const currentPhotoUrl = ref(null)
 const isLoadingFullPhoto = ref(false)
 
-// Хранилище для текущего ObjectURL (чтобы освобождать память)
 let currentObjectUrl = null
 
-// Освобождение текущего ObjectURL
 const revokeCurrentUrl = () => {
   if (currentObjectUrl) {
+    console.log('[PhotoViewer] revoke URL:', currentObjectUrl)
     URL.revokeObjectURL(currentObjectUrl)
     currentObjectUrl = null
   }
 }
 
-// Загрузка полноразмерного фото для текущего индекса
+const onImageError = (error) => {
+  console.error('[PhotoViewer] Ошибка загрузки изображения:', error)
+  console.log('[PhotoViewer] currentPhotoUrl:', currentPhotoUrl.value)
+}
+
+const onImageLoaded = () => {
+  console.log('[PhotoViewer] Изображение успешно загружено')
+}
+
 const loadCurrentPhoto = async () => {
-  // Очищаем предыдущий URL
+  console.log('[PhotoViewer] loadCurrentPhoto START')
+  console.log('[PhotoViewer] photos.length:', props.photos.length)
+  console.log('[PhotoViewer] currentIndex:', currentIndex.value)
+  
   revokeCurrentUrl()
   currentPhotoUrl.value = null
   
-  if (!props.photos.length) return
+  if (!props.photos.length) {
+    console.log('[PhotoViewer] Нет фото, выхожу')
+    return
+  }
   
   const photo = props.photos[currentIndex.value]
-  if (!photo) return
+  console.log('[PhotoViewer] photo object:', photo)
+  console.log('[PhotoViewer] photo keys:', Object.keys(photo))
+  
+  if (!photo) {
+    console.log('[PhotoViewer] photo не найден, выхожу')
+    return
+  }
   
   isLoadingFullPhoto.value = true
   
   try {
     let url = null
     
-    // Приоритет 1: новое фото с камеры (есть _raw.max)
+    // Проверка на _raw.max (новое фото с камеры)
     if (photo._raw?.max) {
+      console.log('[PhotoViewer] Ветка: новое фото с камеры, создаю ObjectURL')
       url = URL.createObjectURL(photo._raw.max)
+      console.log('[PhotoViewer] Создан ObjectURL:', url)
     }
-    // Приоритет 2: есть метод getUrl (фото с сервера через photo-service)
+    // Проверка на метод getUrl (фото с сервера)
     else if (typeof photo.getUrl === 'function') {
+      console.log('[PhotoViewer] Ветка: фото с сервера, вызываю getUrl()')
       url = await photo.getUrl()
+      console.log('[PhotoViewer] getUrl() вернул:', url)
     }
-    // Приоритет 3: есть поле max (старый формат, для совместимости)
+    // Проверка на поле max (старый формат)
     else if (photo.max) {
+      console.log('[PhotoViewer] Ветка: старый формат, photo.max:', photo.max)
       url = photo.max
+    }
+    else {
+      console.log('[PhotoViewer] Нет подходящего источника для фото')
+      console.log('[PhotoViewer] Доступные поля:', Object.keys(photo))
     }
     
     if (url) {
       currentPhotoUrl.value = url
       currentObjectUrl = url.startsWith('blob:') ? url : null
+      console.log('[PhotoViewer] currentPhotoUrl установлен:', currentPhotoUrl.value)
+    } else {
+      console.log('[PhotoViewer] url пустой, фото не будет отображаться')
     }
   } catch (error) {
-    console.error('Ошибка загрузки фото:', error)
+    console.error('[PhotoViewer] Ошибка в loadCurrentPhoto:', error)
   } finally {
     isLoadingFullPhoto.value = false
+    console.log('[PhotoViewer] loadCurrentPhoto END')
   }
-}
-
-// Обработчик загрузки изображения
-const onImageLoaded = () => {
-  // Можно добавить логику при загрузке
 }
 
 const hasMultiplePhotos = computed(() => props.photos.length > 1)
 
-// Навигация с циклическим переходом
 const handlePrev = () => {
   if (!hasMultiplePhotos.value) return
   currentIndex.value = (currentIndex.value - 1 + props.photos.length) % props.photos.length
+  console.log('[PhotoViewer] handlePrev, новый индекс:', currentIndex.value)
 }
 
 const handleNext = () => {
   if (!hasMultiplePhotos.value) return
   currentIndex.value = (currentIndex.value + 1) % props.photos.length
+  console.log('[PhotoViewer] handleNext, новый индекс:', currentIndex.value)
 }
 
 const saveAndClose = () => {
@@ -180,25 +207,28 @@ const handleClose = () => {
   emit('close')
 }
 
-// Следим за изменением индекса — перезагружаем фото
 watch(currentIndex, () => {
+  console.log('[PhotoViewer] watch currentIndex, загружаем фото')
   loadCurrentPhoto()
 })
 
-// Следим за открытием модалки и изменением photos
-watch(() => [props.isOpen, props.photos, props.initialIndex], async ([isOpen]) => {
+watch(() => [props.isOpen, props.photos, props.initialIndex], async ([isOpen, photos, initialIndex]) => {
+  console.log('[PhotoViewer] watch props изменился')
+  console.log('[PhotoViewer] isOpen:', isOpen)
+  console.log('[PhotoViewer] photos.length:', photos?.length)
+  console.log('[PhotoViewer] initialIndex:', initialIndex)
+  
   if (isOpen) {
-    currentIndex.value = props.initialIndex
+    currentIndex.value = initialIndex
     localSn.value = props.currentSn
     await loadCurrentPhoto()
   } else {
-    // При закрытии освобождаем память
     revokeCurrentUrl()
   }
-}, { immediate: true })
+}, { immediate: true, deep: true })
 
-// При уничтожении компонента освобождаем память
 onBeforeUnmount(() => {
+  console.log('[PhotoViewer] onBeforeUnmount, очищаю')
   revokeCurrentUrl()
 })
 </script>
