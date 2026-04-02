@@ -7,7 +7,7 @@ export function useObjectPhotos() {
   const isLoading = ref(false)
   const loadError = ref(null)
 
-  // Функция создания миниатюры
+  // Функция создания миниатюры (только для новых фото с камеры)
   const createThumbnail = (blob, size) => {
     return new Promise((resolve, reject) => {
       if (!blob || !(blob instanceof Blob) || blob.size === 0) {
@@ -44,7 +44,7 @@ export function useObjectPhotos() {
     })
   }
 
-  // Функция загрузки фотографий
+  // Функция загрузки фотографий с сервера
   const loadPhotos = async (objectId) => {
     if (!objectId) return
     
@@ -58,15 +58,37 @@ export function useObjectPhotos() {
       photos.value.forEach(p => {
         if (p.min?.startsWith('blob:')) URL.revokeObjectURL(p.min)
         if (p.max?.startsWith('blob:')) URL.revokeObjectURL(p.max)
+        // Также revoke через photoObject если есть
+        if (p._photoObject) {
+          p._photoObject.revoke()
+        }
       })
       
+      // Сохраняем фото с асинхронными геттерами
       photos.value = serverPhotos.map(photo => ({
         id: photo.id,
-        min: photo.thumbUrl,
-        max: photo.url,
-        _raw: null,
+        _photoObject: photo,           // сохраняем оригинал для вызова revoke и getUrl
+        min: null,                     // будет заполнено асинхронно
+        max: null,                     // будет заполнено по требованию
+        _loadingMin: false,            // флаг для предотвращения дублирования загрузки
         isDeleted: false
       }))
+      
+      // Асинхронно загружаем миниатюры (не блокируем рендер)
+      for (const p of photos.value) {
+        if (!p.min && !p._loadingMin) {
+          p._loadingMin = true
+          try {
+            p.min = await p._photoObject.getThumbUrl()
+          } catch (error) {
+            console.error(`Ошибка загрузки миниатюры для фото ${p.id}:`, error)
+            // Можно поставить плейсхолдер
+            p.min = null
+          } finally {
+            p._loadingMin = false
+          }
+        }
+      }
       
     } catch (error) {
       loadError.value = error.message
@@ -76,7 +98,25 @@ export function useObjectPhotos() {
     }
   }
   
-  // Добавление фотографии с камеры
+  /**
+   * Получить полноразмерное фото для просмотра
+   * @param {Object} photoItem - элемент из photos.value
+   * @returns {Promise<string|null>} URL фото
+   */
+  const getFullPhotoUrl = async (photoItem) => {
+    if (!photoItem || !photoItem._photoObject) return null
+    if (photoItem.max) return photoItem.max
+    
+    try {
+      photoItem.max = await photoItem._photoObject.getUrl()
+      return photoItem.max
+    } catch (error) {
+      console.error(`Ошибка загрузки полноразмерного фото ${photoItem.id}:`, error)
+      return null
+    }
+  }
+  
+  // Добавление фотографии с камеры (новое фото, ещё не на сервере)
   const addPhoto = async (photoBlob) => {
     if (isProcessing.value) return
     
@@ -91,6 +131,7 @@ export function useObjectPhotos() {
         id: null,
         min: minUrl,
         max: maxUrl,
+        _photoObject: null,           // для новых фото нет _photoObject
         _raw: {
           min: minBlob,
           max: photoBlob
@@ -110,7 +151,6 @@ export function useObjectPhotos() {
   const toggleDeleteMark = (index) => {
     if (index < 0 || index >= photos.value.length) return
     const photo = photos.value[index]
-    // Новые фото (id === null) тоже можно помечать на удаление
     photo.isDeleted = !photo.isDeleted
   }
 
@@ -121,7 +161,7 @@ export function useObjectPhotos() {
     const uploaded = []
     const deleted = []
     
-    // 1. Удаляем помеченные фото (включая новые, но новые просто не сохранятся)
+    // 1. Удаляем помеченные фото (только те, у которых есть id на сервере)
     const toDelete = photos.value.filter(p => p.id !== null && p.isDeleted === true)
     for (const photo of toDelete) {
       try {
@@ -133,7 +173,7 @@ export function useObjectPhotos() {
       }
     }
     
-    // 2. Загружаем новые фото (id === null && isDeleted === false)
+    // 2. Загружаем новые фото (id === null && isDeleted === false && _raw?.max)
     const toUpload = photos.value.filter(p => p.id === null && !p.isDeleted && p._raw?.max)
     for (const photo of toUpload) {
       try {
@@ -145,39 +185,65 @@ export function useObjectPhotos() {
       }
     }
     
-    // 3. Обновляем локальный массив: удаляем помеченные, заменяем новые на сохранённые
-    // Оставляем только фото, которые не помечены на удаление и имеют id
+    // 3. Обновляем локальный массив
+    // Оставляем только фото, которые не помечены на удаление и имеют id (или новые которые загружены)
     const remaining = photos.value.filter(p => !(p.id !== null && p.isDeleted === true))
     
     // Заменяем новые фото на сохранённые (с реальными id)
     let uploadIndex = 0
-    const updatedRemaining = remaining.map(p => {
+    const updatedRemaining = []
+    
+    for (const p of remaining) {
       if (p.id === null && !p.isDeleted && uploadIndex < uploaded.length) {
         const saved = uploaded[uploadIndex++]
         // Освобождаем временные URL
         if (p.min?.startsWith('blob:')) URL.revokeObjectURL(p.min)
         if (p.max?.startsWith('blob:')) URL.revokeObjectURL(p.max)
-        return {
+        
+        // Сохраняем как фото с сервера (с _photoObject)
+        // Для загруженного фото saved.getUrl и saved.getThumbUrl — это методы
+        updatedRemaining.push({
           id: saved.id,
-          min: saved.thumbUrl,
-          max: saved.url,
-          _raw: null,
+          _photoObject: saved,
+          min: null,        // будет загружено асинхронно при необходимости
+          max: null,
+          _loadingMin: false,
           isDeleted: false
-        }
+        })
+      } else {
+        updatedRemaining.push(p)
       }
-      return p
-    })
+    }
     
     photos.value = updatedRemaining
+    
+    // Асинхронно загружаем миниатюры для новых загруженных фото
+    for (const p of photos.value) {
+      if (p._photoObject && !p.min && !p._loadingMin) {
+        p._loadingMin = true
+        try {
+          p.min = await p._photoObject.getThumbUrl()
+        } catch (error) {
+          console.error(`Ошибка загрузки миниатюры для нового фото:`, error)
+        } finally {
+          p._loadingMin = false
+        }
+      }
+    }
     
     return { uploaded, deleted }
   }
 
-  // Очистка массива
+  // Очистка массива и освобождение памяти
   const cleanup = () => {
     photos.value.forEach(p => {
+      // Освобождаем blob URL для новых фото
       if (p.min?.startsWith('blob:')) URL.revokeObjectURL(p.min)
       if (p.max?.startsWith('blob:')) URL.revokeObjectURL(p.max)
+      // Вызываем revoke у photoObject (для фото с сервера)
+      if (p._photoObject && typeof p._photoObject.revoke === 'function') {
+        p._photoObject.revoke()
+      }
     })
     photos.value = []
     isProcessing.value = false
@@ -191,6 +257,7 @@ export function useObjectPhotos() {
     isLoading,
     loadError,
     loadPhotos,
+    getFullPhotoUrl,
     addPhoto,
     toggleDeleteMark,
     savePhotosChanges,

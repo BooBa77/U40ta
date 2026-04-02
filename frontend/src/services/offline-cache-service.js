@@ -229,17 +229,19 @@ class OfflineCacheService {
    * @param {Object} photo - Данные фото с сервера
    */
   async savePhoto(photo) {
+    const toArrayBuffer = async (data) => {
+      if (data instanceof Buffer) return data
+      if (data instanceof Blob) return await data.arrayBuffer()
+      return data
+    }
+
     const photoForCache = {
       id: photo.id,
       object_id: photo.object_id,
       created_at: photo.created_at,
       created_by: photo.created_by,
-      photo_max_data: photo.photo_max_data instanceof Buffer 
-        ? new Blob([photo.photo_max_data]) 
-        : photo.photo_max_data,
-      photo_min_data: photo.photo_min_data instanceof Buffer 
-        ? new Blob([photo.photo_min_data]) 
-        : photo.photo_min_data
+      photo_max_data: await toArrayBuffer(photo.photo_max_data),
+      photo_min_data: await toArrayBuffer(photo.photo_min_data)
     }
     
     await this.db.photos.put(photoForCache)
