@@ -208,6 +208,9 @@ export class PhotoService {
     try {
       const photos = await this.apiRequest(`/photos/object/${objectId}`)
       
+      // Сохраняем ссылку на this для использования внутри замыканий
+      const self = this
+      
       // photos — это уже массив, без обёртки
       const photosWithLoaders = photos.map(photo => {
         let currentUrl = null
@@ -225,7 +228,7 @@ export class PhotoService {
            */
           async getUrl() {
             if (currentUrl) return currentUrl
-            const { url, revoke } = await this.createObjectURL(photo.id, 'full')
+            const { url, revoke } = await self.createObjectURL(photo.id, 'full')
             currentUrl = url
             revokeFull = revoke
             return url
@@ -237,7 +240,7 @@ export class PhotoService {
            */
           async getThumbUrl() {
             if (currentThumbUrl) return currentThumbUrl
-            const { url, revoke } = await this.createObjectURL(photo.id, 'thumb')
+            const { url, revoke } = await self.createObjectURL(photo.id, 'thumb')
             currentThumbUrl = url
             revokeThumb = revoke
             return url
@@ -359,13 +362,35 @@ export class PhotoService {
       
       console.log(`[PhotoService] Фото загружено через API, ID: ${data.photoId}`)
       
+      // Сохраняем ссылку на this для замыкания
+      const self = this
+      const photoId = data.photoId
+      
       return {
-        id: data.photoId,
+        id: photoId,
         object_id: objectId,
-        // Возвращаем не прямые URL, а объект с методами для совместимости
-        getUrl: () => this.createObjectURL(data.photoId, 'full').then(({url}) => url),
-        getThumbUrl: () => this.createObjectURL(data.photoId, 'thumb').then(({url}) => url),
-        revoke: () => {}, // будет вызван при использовании
+        // Возвращаем объект с методами для совместимости
+        async getUrl() {
+          const { url, revoke } = await self.createObjectURL(photoId, 'full')
+          // Сохраняем revoke для последующей очистки
+          this._revokeFull = revoke
+          return url
+        },
+        async getThumbUrl() {
+          const { url, revoke } = await self.createObjectURL(photoId, 'thumb')
+          this._revokeThumb = revoke
+          return url
+        },
+        revoke() {
+          if (this._revokeFull) {
+            this._revokeFull()
+            this._revokeFull = null
+          }
+          if (this._revokeThumb) {
+            this._revokeThumb()
+            this._revokeThumb = null
+          }
+        },
         uploaded_at: new Date().toISOString()
       }
       
