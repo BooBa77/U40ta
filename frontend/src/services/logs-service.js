@@ -157,15 +157,7 @@ export class LogsService {
    */
   async addToCache(source, content) {
     try {
-      const pendingLog = {
-        id: null, // null = временная запись, не синхронизированная с сервером
-        source: source,
-        content: content,
-        created_at: new Date().toISOString(),
-        user_id: null // будет заполнено при синхронизации
-      }
-      
-      await offlineCache.addPendingLog(pendingLog)
+      await offlineCache.addPendingLog(source, content)
       console.log(`[LogsService] Временная запись сохранена в кэш`)
       return true
     } catch (error) {

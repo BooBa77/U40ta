@@ -1,23 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { InventoryObject } from '../../objects/entities/object.entity';
-import { ProcessedStatement } from '../../statements/entities/processed-statement.entity';
-//import { ObjectHistory } from '../../object_history/entities/object_history.entity';
-import { QrCode } from '../../qr-codes/entities/qr-code.entity';
-import { MolAccess } from '../../users/entities/mol-access.entity';
+import { Repository, In } from 'typeorm';
+import { EmailAttachment } from 'src/modules/email/entities/email-attachment.entity';
+import { InventoryObject } from 'src/modules/objects/entities/object.entity';
+import { ProcessedStatement } from 'src/modules/statements/entities/processed-statement.entity';
+import { QrCode } from 'src/modules/qr-codes/entities/qr-code.entity';
+import { MolAccess } from 'src/modules/users/entities/mol-access.entity';
 
 @Injectable()
 export class OfflineCacheService {
   constructor(
+    @InjectRepository(EmailAttachment)
+    private emailAttachmentsRepository: Repository<EmailAttachment>,
+
     @InjectRepository(InventoryObject)
     private objectsRepository: Repository<InventoryObject>,
     
     @InjectRepository(ProcessedStatement)
     private statementsRepository: Repository<ProcessedStatement>,
-    
-//    @InjectRepository(ObjectHistory)
-//    private objectHistoryRepository: Repository<ObjectHistory>,
     
     @InjectRepository(QrCode)
     private qrCodesRepository: Repository<QrCode>,
@@ -48,25 +48,20 @@ export class OfflineCacheService {
       
       console.log(`OfflineCacheService: загружено ВСЕХ объектов: ${objects.length}`);
       
-/*
-      // 3. Получаем ВСЮ историю изменений
-      const objectHistory = await this.objectHistoryRepository.find({
-        order: { changed_at: 'DESC' },
-      });
-      
-      console.log(`OfflineCacheService: загружено ВСЕЙ истории: ${objectHistory.length}`);
-*/      
-
-      // 4. Получаем ВСЕ QR-коды
+      // 3. Получаем ВСЕ QR-коды
       const qrCodes = await this.qrCodesRepository.find({
         order: { id: 'ASC' },
       });
       
       console.log(`OfflineCacheService: загружено ВСЕХ QR-кодов: ${qrCodes.length}`);
       
-      // 5. Получаем ведомости для доступных складов
+      // 5. Фотографии не кэшируем. Может как-нибудь потом и явно не все
+      const photos: any = [];
+
+      // 4. Получаем объекты ведомостей доступных складов
       let statements: ProcessedStatement[] = [];
-      
+      let emailAttachments: EmailAttachment[] = []; // Объявляем переменную здесь, вне блока if
+
       if (userAccess.length > 0) {
         const whereConditions = userAccess.map(access => ({
           zavod: access.zavod,
@@ -78,37 +73,71 @@ export class OfflineCacheService {
           order: { id: 'ASC' },
         });
         
-        console.log(`OfflineCacheService: найдено ВСЕХ доступных ведомостей: ${statements.length}`);
+        console.log(`OfflineCacheService: найдено ВСЕХ доступных объектов ведомостей: ${statements.length}`);
+
+        // Собираем уникальные emailAttachmentId
+        const emailAttachmentIds = [...new Set(
+          statements
+            .filter(s => s.emailAttachmentId)
+            .map(s => s.emailAttachmentId)
+        )];
+        
+        console.log(`OfflineCacheService: уникальных email_attachment_id: ${emailAttachmentIds.length}`);
+        
+        // Загружаем связанные email_attachments
+        if (emailAttachmentIds.length > 0) {
+          emailAttachments = await this.emailAttachmentsRepository.findBy({
+            id: In(emailAttachmentIds)
+          });          
+
+          // Фильтруем: оставляем только те, у которых inProcess === true
+          emailAttachments = emailAttachments.filter(att => att.inProcess === true);
+
+          console.log(`OfflineCacheService: загружено email_attachments: ${emailAttachments.length}`);
+        }
       } else {
         console.log('OfflineCacheService: у пользователя нет доступа к складам');
       }
-      
+
       // 6. Формируем ответ с правильной сериализацией
       return {
         objects: this.serializeObjects(objects),
-        processed_statements: statements,
-        //object_history: objectHistory,
+        processed_statements: this.serializeStatements(statements),
+        email_attachments: this.serializeEmailAttachments(emailAttachments), // Используем правильное имя переменной
         qr_codes: qrCodes,
+        photos: photos,
         meta: {
           userId,
           fetchedAt: new Date().toISOString(),
-          totalObjects: objects.length,
+          totalEmailAttachments: emailAttachments.length,
           totalStatements: statements.length,
-          //totalObjecthistory: objectHistory.length,
+          totalObjects: objects.length,
           totalQrCodes: qrCodes.length,
-          accessibleSklads: userAccess.length,
         }
       };
-      
     } catch (error) {
       console.error('OfflineCacheService: ошибка при получении данных:', error);
       throw new Error(`Не удалось получить данные для офлайн-режима: ${error.message}`);
     }
   }
-  
+
   /**
    *Сериализация объектов
    */
+  private serializeEmailAttachments (attachments: EmailAttachment[]): any[] {
+    return attachments.map(attachment => ({
+      id: attachment.id,
+      filename: attachment.filename,
+      email_from: attachment.emailFrom,
+      received_at: attachment.receivedAt,
+      doc_type: attachment.docType,
+      zavod: attachment.zavod,
+      sklad: attachment.sklad,
+      in_process: attachment.inProcess,
+      is_inventory: attachment.isInventory,
+    }));
+  }
+
   private serializeObjects(objects: InventoryObject[]): any[] {
     return objects.map(obj => ({
       id: obj.id,
@@ -124,6 +153,21 @@ export class OfflineCacheService {
       place_pos: obj.place_pos,
       place_cab: obj.place_cab,
       place_user: obj.place_user,
+    }));
+  }
+
+  private serializeStatements(statements: ProcessedStatement[]): any[] {
+    return statements.map(statement => ({
+      id: statement.id,
+      zavod: statement.zavod,
+      sklad: statement.sklad,
+      doc_type: statement.doc_type,
+      inv_number: statement.inv_number,
+      party_number: statement.party_number,
+      buh_name: statement.buh_name,
+      have_object: statement.have_object,
+      is_ignore: statement.is_ignore,
+      is_excess: statement.is_excess,
     }));
   }
 }

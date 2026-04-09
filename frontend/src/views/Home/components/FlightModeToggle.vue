@@ -33,6 +33,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+//import { enableFlightMode as enableFlightModeService, disableFlightMode as disableFlightModeService } from '@/services/offline-cache-service'
 import { offlineCache } from '@/services/offline-cache-service'
 
 const FLIGHT_MODE_KEY = 'u40ta_flight_mode'
@@ -58,183 +59,37 @@ const buttonLabel = computed(() => {
   return isFlightMode.value ? 'Выключить режим полёта' : 'Включить режим полёта'
 })
 
-async function enableFlightMode() {
-  isLoading.value = true
-  
-  try {
-    console.log('Включаем режим полёта...')
-    
-    const response = await fetch('/api/offline/data', {
-      headers: { 
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}` 
-      }
-    })
-    
-    if (!response.ok) {
-      throw new Error(`Ошибка ${response.status}: ${response.statusText}`)
-    }
-    
-    const result = await response.json()
-    
-    if (!result.success) {
-      throw new Error(result.message || 'Ошибка загрузки данных')
-    }
-    
-    console.log('Данные загружены, начинаем кэширование...')
-    
-    // ПРОБЛЕМА: result.data содержит {success, data, message}, а не сами данные
-    console.log('Структура result:', result)
-    console.log('result.data:', result.data)
-    
-    // Проверим несколько вариантов:
-    // Вариант 1: данные в result.data.data
-    if (result.data && result.data.data) {
-      console.log('Данные в result.data.data:', result.data.data)
-      const data = result.data.data
-      
-      console.log('Объектов:', data.objects?.length || 0)
-      console.log('Мест:', data.places?.length || 0)
-      console.log('Ведомостей:', data.processed_statements?.length || 0)
-      console.log('Истории изменений:', data.object_changes?.length || 0)
-      console.log('QR-кодов:', data.qr_codes?.length || 0)
-      
-      await offlineCache.cacheAllData(data)
-    }
-    // Вариант 2: данные в result.data
-    else if (result.data) {
-      console.log('Данные в result.data (прямой доступ):', result.data)
-      
-      // Проверим, есть ли поля в result.data
-      console.log('Ключи в result.data:', Object.keys(result.data))
-      
-      const data = result.data
-      console.log('Объектов:', data.objects?.length || 0)
-      console.log('Мест:', data.places?.length || 0)
-      console.log('Ведомостей:', data.processed_statements?.length || 0)
-      console.log('Истории изменений:', data.object_changes?.length || 0)
-      console.log('QR-кодов:', data.qr_codes?.length || 0)
-      
-      await offlineCache.cacheAllData(data)
-    }
-    // Вариант 3: данные в result (прямой доступ)
-    else {
-      console.log('Данные в result (корневой уровень):', result)
-      
-      const data = result
-      console.log('Объектов:', data.objects?.length || 0)
-      console.log('Мест:', data.places?.length || 0)
-      console.log('Ведомостей:', data.processed_statements?.length || 0)
-      console.log('Истории изменений:', data.object_changes?.length || 0)
-      console.log('QR-кодов:', data.qr_codes?.length || 0)
-      
-      await offlineCache.cacheAllData(data)
-    }
-    
-    console.log('Режим полёта успешно включен')
-    
-  } catch (error) {
-    console.error('Ошибка при включении режима полёта:', error)
-    isFlightMode.value = false
-    localStorage.setItem(FLIGHT_MODE_KEY, 'false')
-    throw error
-    
-  } finally {
-    isLoading.value = false
-  }
-}
-
-async function disableFlightMode() {
-  try {
-    console.log('Выключаем режим полёта...')
-    
-    const localChanges = []
-    console.log('Локальные изменения временно отключены')
-    
-    const checkResponse = await fetch('/api/offline/check-switch-to-online', {
-      method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        localChangesHistory: localChanges || [] 
-      })
-    })
-    
-    if (!checkResponse.ok) {
-      throw new Error(`Ошибка проверки: ${checkResponse.status}`)
-    }
-    
-    const checkResult = await checkResponse.json()
-    console.log('Результат проверки сервера:', checkResult)
-    
-    if (!checkResult.success) {
-      throw new Error(checkResult.message || 'Ошибка проверки перехода')
-    }
-    
-    if (checkResult.needsSync) {
-      console.log('Требуется синхронизация изменений')
-      const shouldSync = confirm(
-        `Обнаружено ${localChanges.length} локальных изменений.\n` +
-        'Требуется синхронизация с сервером.\n\n' +
-        'Продолжить без синхронизации? (Изменения будут потеряны)'
-      )
-      
-      if (!shouldSync) {
-        throw new Error('Пользователь отменил переход (требуется синхронизация)')
-      }
-    }
-    
-    if (checkResult.clearCache) {
-      console.log('Сервер разрешил очистку кэша, очищаем...')
-      await offlineCache.clearAllCache()
-    } else {
-      console.log('Сервер НЕ разрешил очистку кэша')
-      const shouldClear = confirm(
-        'Сервер не разрешил очистку кэша.\n' +
-        'Очистить кэш вручную?'
-      )
-      
-      if (shouldClear) {
-        await offlineCache.clearAllCache()
-      }
-    }
-    
-    console.log('Режим полёта выключен')
-    
-  } catch (error) {
-    console.error('Ошибка при выключении режима полёта:', error)
-    throw error
-  }
-}
-
 async function toggleFlightMode() {
   if (isLoading.value) return
   
+  isLoading.value = true
+  
   try {
+    let result
+    
     if (isFlightMode.value) {
-      await disableFlightMode()
-      isFlightMode.value = false
+      result = await offlineCache.disableFlightMode()
     } else {
-      await enableFlightMode()
-      isFlightMode.value = true
+      result = await offlineCache.enableFlightMode()
     }
     
+    if (!result.success) {
+      throw new Error(result.error || 'Не удалось переключить режим')
+    }
+    
+    isFlightMode.value = !isFlightMode.value
     localStorage.setItem(FLIGHT_MODE_KEY, JSON.stringify(isFlightMode.value))
     
     window.dispatchEvent(new CustomEvent('flight-mode-changed', {
       detail: { isFlightMode: isFlightMode.value }
     }))
     
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: FLIGHT_MODE_KEY,
-      newValue: JSON.stringify(isFlightMode.value),
-      oldValue: JSON.stringify(!isFlightMode.value)
-    }))
-    
   } catch (error) {
     console.error('Ошибка переключения режима полёта:', error)
-    isFlightMode.value = !isFlightMode.value
+    alert(error.message || 'Произошла ошибка при переключении режима')
+    
+  } finally {
+    isLoading.value = false
   }
 }
 </script>

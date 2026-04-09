@@ -34,17 +34,18 @@ export class OfflineController {
       return {
         success: false,
         data: {
+          email_attachments: [],
           objects: [],
           processed_statements: [],
-          object_changes: [],
           qr_codes: [],
-          meta: { // ← добавляем meta в случае ошибки
+          photos: [],
+          meta: {
             userId: 0,
             fetchedAt: new Date().toISOString(),
             totalObjects: 0,
-            totalStatements: 0,
-            totalObjectChanges: 0,
+            totalObjectsInStatements: 0,
             totalQrCodes: 0,
+            totalPhotos: 0,
             accessibleSklads: 0,
           }
         },

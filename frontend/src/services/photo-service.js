@@ -305,10 +305,7 @@ export class PhotoService {
       const minBlob = thumbBlob || fileBlob
       
       const photoForCache = {
-        id: Date.now(), // временный ID
         object_id: objectId,
-        created_at: new Date().toISOString(),
-        created_by: null,
         photo_max_data: await this.blobToArrayBuffer(fileBlob),
         photo_min_data: await this.blobToArrayBuffer(minBlob)
       }

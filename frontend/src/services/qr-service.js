@@ -134,6 +134,35 @@ export class QrService {
   }
 
   //============================================================================
+  // ПОЛУЧЕНИЕ QR-КОДОВ ОБЪЕКТА
+  //============================================================================
+
+  /**
+   * Получает все QR-коды для объекта
+   * @param {number} objectId - ID объекта
+   * @returns {Promise<Array>}
+   */
+  async getQrCodesByObject(objectId) {
+    if (this.isFlightMode()) {
+      try {
+        const qrCode = await offlineCache.getQrCodesByObjectId(objectId)
+        return qrCode ? [qrCode] : []
+      } catch (error) {
+        console.error('[QrService] Ошибка получения QR-кодов из кэша:', error)
+        return []
+      }
+    }
+
+    try {
+      const data = await this.apiRequest(`/qr-codes/object/${objectId}`)
+      return data.qr_codes || []
+    } catch (error) {
+      console.error('[QrService] Ошибка получения QR-кодов через API:', error)
+      throw error
+    }
+  }
+
+  //============================================================================
   // СОЗДАНИЕ QR-КОДА
   //============================================================================
 
@@ -259,64 +288,6 @@ export class QrService {
       throw error
     }
   }
-
-  //============================================================================
-  // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
-  //============================================================================
-
-  /**
-   * Получает все QR-коды для объекта
-   * @param {number} objectId - ID объекта
-   * @returns {Promise<Array>}
-   */
-  async getQrCodesByObject(objectId) {
-    if (this.isFlightMode()) {
-      try {
-        const qrCode = await offlineCache.getQrCodeByObjectId(objectId)
-        return qrCode ? [qrCode] : []
-      } catch (error) {
-        console.error('[QrService] Ошибка получения QR-кодов из кэша:', error)
-        return []
-      }
-    }
-
-    try {
-      const data = await this.apiRequest(`/qr-codes/object/${objectId}`)
-      return data.qr_codes || []
-    } catch (error) {
-      console.error('[QrService] Ошибка получения QR-кодов через API:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Получает историю перемещений QR-кода
-   * @param {number} objectId - ID объекта (опционально)
-   * @returns {Promise<Array>}
-   
-  async getQrCodeHistory(objectId) {
-    if (this.isFlightMode()) {
-      try {
-        return await offlineCache.getQrCodeHistory(objectId)
-      } catch (error) {
-        console.error('[QrService] Ошибка получения истории из кэша:', error)
-        return []
-      }
-    }
-
-    try {
-      const endpoint = objectId 
-        ? `/qr-codes/history/object/${objectId}`
-        : '/qr-codes/history'
-      
-      const data = await this.apiRequest(endpoint)
-      return data.history || []
-    } catch (error) {
-      console.error('[QrService] Ошибка получения истории через API:', error)
-      throw error
-    }
-  }
-  */    
 }
 
 // Экспортируем синглтон
