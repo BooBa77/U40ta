@@ -93,7 +93,7 @@ import { useStatementColumns } from './composables/useStatementColumns'
 import { useStatementProcessing } from './composables/useStatementProcessing'
 import { useSimpleFiltersManager } from './composables/useFiltersManager'
 import { useIgnoreManager } from './composables/useIgnoreManager'
-import { statementService } from './services/statement.service'
+import { statementService } from '@/services/statement.service'
 
 const route = useRoute()
 const router = useRouter()

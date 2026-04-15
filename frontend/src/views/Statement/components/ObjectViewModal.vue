@@ -79,7 +79,7 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import { objectService } from '@/services/object-service'
-import { statementService } from '@/views/Statement/services/statement.service'
+import { statementService } from '@/services/statement.service'
 import { useCamera } from '@/composables/useCamera.js'
 
 const props = defineProps({

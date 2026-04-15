@@ -4,8 +4,8 @@ export class UpdateQrOwnerDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  qr_value: string;
+  qrValue!: string;
 
   @IsInt()
-  new_object_id: number;
+  newObjectId!: number;
 }

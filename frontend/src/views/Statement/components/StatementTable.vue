@@ -219,7 +219,6 @@ const handleCheckboxChange = (row, checked) => {
   
   emit('ignore-change', {
     inv,
-    party,
     is_ignore: checked
   })
 }

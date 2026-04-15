@@ -54,8 +54,8 @@ export class ObjectsService {
   async create(createObjectDto: CreateObjectDto): Promise<InventoryObject> {
     const object = this.objectRepository.create({
       ...createObjectDto,
-      is_written_off: false,
-      checked_at: new Date(),
+      isWrittenOff: false,
+      checkedAt: new Date(),
     });
 
     return await this.objectRepository.save(object);

@@ -1,27 +1,30 @@
 import Dexie from 'dexie'
-import { offlineCache } from './offline-cache-service'
 
 class OfflineCacheService {
   constructor() {
     this.db = new Dexie('u40ta_offline_db')
     
-    // Схема базы данных (snake_case для единообразия с бэкендом)
+    // Схема базы данных (camelCase для единообразия с бэкендом)
     this.db.version(1).stores({
       // Файлы ведомостей (только массовая загрузка, без отдельных операций)
-      email_attachments: 'id, filename, email_from, received_at, doc_type, zavod, sklad, in_process, is_inventory',
+      email_attachments: 'id, filename, emailFrom, receivedAt, docType, zavod, sklad, inProcess, isInventory',
       // Объекты (есть массовая загрузка и отдельные операции add/update)
-      objects: 'id, zavod, sklad, buh_name, inv_number, party_number, sn, place, ter, pos, cab, user',
-      // Объекты обрабатывамых ведомостей (только массовая загрузка, без отдельных операций)
-      processed_statements: 'id, zavod, sklad, doc_type, inv_number, party_number, buh_name, have_object, is_ignore, is_excess',
+      objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser',
+      // Объекты обрабатываемых ведомостей (только массовая загрузка, без отдельных операций)
+      processed_statements: 'id, emailAttachmentId, zavod, sklad, docType, invNumber, partyNumber, buhName, haveObject, isIgnore, isExcess',
       // QR-коды (есть массовая загрузка и отдельные операции add/update)
-      qr_codes: 'id, qr_value, object_id',
+      qr_codes: 'id, qrValue, objectId',
       // Фотографии (кэширования из БД нет, только накопление во время оффлайн-сеанса)
-      photos: '++id, object_id',
+      photos: '++id, objectId',
       // Логи (кэширования из БД нет, только накопление во время оффлайн-сеанса)
       logs: '++id, source, time, content'
     })
   }
 
+
+  // ============================================================================
+  // ПЕРЕКЛЮЧЕНИЕ РЕЖИМА ПОЛЁТА
+  // ============================================================================
 
   /**
    * Включает режим полёта: загружает данные с бэкенда и сохраняет в кэш
@@ -108,7 +111,7 @@ class OfflineCacheService {
   /**
    * Кэширует все данные для офлайн-режима
    * Предварительно очищает кэш для гарантии актуальности
-   * @param {Object} data - Объект с данными от бэкенда
+   * @param {Object} data - Объект с данными от бэкенда в camelCase
    * @param {Array} data.processed_statements - Массив объектов ведомостей
    * @param {Array} data.objects - Массив объектов
    * @param {Array} data.qr_codes - Массив QR-кодов
@@ -136,10 +139,10 @@ class OfflineCacheService {
         email_attachments: 0
       }
       
-      // Сохраняем объекты (массово)
-      if (objects.length) {
-        await this.db.objects.bulkAdd(objects)
-        stats.objects = objects.length
+      // Сохраняем email_attachments (массово)
+      if (email_attachments.length) {
+        await this.db.email_attachments.bulkAdd(email_attachments)
+        stats.email_attachments = email_attachments.length
       }
       
       // Сохраняем ведомости (массово)
@@ -147,17 +150,17 @@ class OfflineCacheService {
         await this.db.processed_statements.bulkAdd(processed_statements)
         stats.processed_statements = processed_statements.length
       }
+
+      // Сохраняем объекты (массово)
+      if (objects.length) {
+        await this.db.objects.bulkAdd(objects)
+        stats.objects = objects.length
+      }
       
       // Сохраняем QR-коды (массово)
       if (qr_codes.length) {
         await this.db.qr_codes.bulkAdd(qr_codes)
         stats.qr_codes = qr_codes.length
-      }
-      
-      // Сохраняем email_attachments (массово)
-      if (email_attachments.length) {
-        await this.db.email_attachments.bulkAdd(email_attachments)
-        stats.email_attachments = email_attachments.length
       }
       
       console.log('[OfflineCache] Кэширование завершено:', stats)
@@ -189,124 +192,325 @@ class OfflineCacheService {
   }
 
 
-//============================================================================
-// РАБОТА С ФАЙЛАМИ ВЕДОМОСТЕЙ (email_attachments)
-//============================================================================
+  //============================================================================
+  // РАБОТА С ФАЙЛАМИ ВЕДОМОСТЕЙ (email_attachments)
+  //============================================================================
 
-/**
- * Получает все вложения email из кэша
- * @returns {Promise<Array>} Массив вложений
- */
-async getAllEmailAttachments() {
-  return await this.db.email_attachments.toArray()
-}
+  /**
+   * Получает все вложения email из кэша
+   * @returns {Promise<Array>} Массив вложений в camelCase
+   */
+  async getAllEmailAttachments() {
+    return await this.db.email_attachments.toArray()
+  }
 
-//============================================================================
-// РАБОТА С ОБЪЕКТАМИ ВЕДОМОСТЕЙ (processed_statements)
-//============================================================================
+  /**
+   * Получает одно вложение email по ID
+   * @param {number} id - ID вложения
+   * @returns {Promise<Object|null>}
+   */
+  async getEmailAttachment(id) {
+    return await this.db.email_attachments.get(id)
+  }
 
+  //============================================================================
+  // РАБОТА С ОБЪЕКТАМИ ВЕДОМОСТЕЙ (processed_statements)
+  //============================================================================
 
+  /**
+   * Получает все записи ведомости по ID вложения email
+   * @param {number} attachmentId - ID вложения email
+   * @returns {Promise<Array>} Массив записей ведомости
+   */
+  async getProcessedStatementsByAttachmentId(attachmentId) {
+    const targetId = Number(attachmentId)
+    
+    const allStatements = await this.db.processed_statements.toArray()
+    
+    const filtered = allStatements.filter(statement => {
+      return Number(statement.emailAttachmentId) === targetId
+    })
+    
+    console.log(`[OfflineCache] Получено записей для attachmentId ${attachmentId}: ${filtered.length}`)
+    return filtered
+  }
 
-//============================================================================
-// РАБОТА С ОБЪЕКТАМИ
-//============================================================================
+  /**
+   * Обновляет поле haveObject у записи ведомости по ID
+   * @param {number} statementId - ID записи ведомости
+   * @param {boolean} haveObject - Новое значение haveObject
+   * @returns {Promise<void>}
+   */
+  async updateProcessedStatementHaveObject(statementId, haveObject) {
+    const targetId = Number(statementId)
+    
+    const statement = await this.db.processed_statements
+      .where('id')
+      .equals(targetId)
+      .first()
+    
+    if (!statement) {
+      throw new Error(`Запись ведомости с ID ${statementId} не найдена`)
+    }
+    
+    statement.haveObject = haveObject
+    statement.updated_at = new Date().toISOString()
+    
+    await this.db.processed_statements.put(statement)
+    
+    console.log(`[OfflineCache] Обновлена запись ${statementId}: haveObject=${haveObject}`)
+  }
 
-/**
- * Получает объект по ID
- * @param {number} id - ID объекта
- * @returns {Promise<Object|null>}
- */
-async getObject(id) {
-  return await this.db.objects.get(id)
-}
-
-/**
- * Добавляет новый объект
- * @param {Object} object - Данные объекта (уже подготовленные, с временным отрицательным ID)
- * @returns {Promise<number>} ID созданного объекта
- */
-async addObject(object) {
-  return await this.db.objects.add(object)
-}
-
-/**
- * Обновляет существующий объект
- * @param {number} id - ID объекта
- * @param {Object} updates - Поля для обновления
- * @returns {Promise<Object>} Обновлённый объект
- */
-async updateObject(id, updates) {
-  await this.db.objects.update(id, updates)
-  return await this.getObject(id)
-}
-
-/**
- * Получает все объекты
- * @returns {Promise<Array>}
- */
-async getAllObjects() {
-  return await this.db.objects.toArray()
-}
-
-/**
- * Ищет объекты по инвентарному номеру
- * @param {string} inv - Инвентарный номер
- * @param {number} [zavod] - Номер завода (опционально)
- * @param {string} [sklad] - Код склада (опционально)
- * @returns {Promise<Array>}
- */
-async findObjectsByInv(inv, zavod, sklad) {
-  let collection = this.db.objects.where('inv_number').equals(inv)
-  let objects = await collection.toArray()
-  
-  // Фильтруем по дополнительным параметрам
-  if (zavod !== undefined || sklad !== undefined) {
-    objects = objects.filter(obj => {
-      if (zavod !== undefined && obj.zavod !== zavod) return false
-      if (sklad !== undefined && obj.sklad !== sklad) return false
+  /**
+   * Обновляет поле isIgnore для всех записей ведомости с указанным attachmentId и invNumber
+   * @param {number} attachmentId - ID вложения email
+   * @param {string} invNumber - Инвентарный номер
+   * @param {boolean} isIgnore - Новое значение isIgnore
+   * @returns {Promise<void>}
+   */
+  async updateProcessedStatementsIgnoreByInv(attachmentId, invNumber, isIgnore) {
+    const targetAttachmentId = Number(attachmentId)
+    
+    const allStatements = await this.db.processed_statements.toArray()
+    
+    const statementsToUpdate = allStatements.filter(statement => {
+      if (Number(statement.emailAttachmentId) !== targetAttachmentId) return false
+      if (statement.invNumber !== invNumber) return false
       return true
     })
+    
+    if (statementsToUpdate.length === 0) {
+      console.warn(`[OfflineCache] Не найдено записей для обновления: attachmentId=${attachmentId}, invNumber=${invNumber}`)
+      return
+    }
+    
+    for (const statement of statementsToUpdate) {
+      statement.isIgnore = isIgnore
+      statement.updated_at = new Date().toISOString()
+      await this.db.processed_statements.put(statement)
+    }
+    
+    console.log(`[OfflineCache] Обновлено ${statementsToUpdate.length} записей: isIgnore=${isIgnore}`)
   }
-  
-  return objects
-}
 
-//============================================================================
-// РАБОТА С ЛОГАМИ
-//============================================================================
-
-/**
- * Добавляет запись лога в кэш
- * Время создания проставляется автоматически
- * @param {string} source - Тип события (например, 'object_history', 'qr_code_history')
- * @param {any} content - Содержимое лога (объект, строка и т.д.)
- * @returns {Promise<void>}
- */
-async addPendingLog(source, content) {
-  const logEntry = {
-    source: source,
-    content: content,
-    time: new Date().toISOString()
+  /**
+   * Получает записи ведомости по инвентарному номеру
+   * @param {string} inv - Инвентарный номер
+   * @param {number} [zavod] - Номер завода
+   * @param {string} [sklad] - Код склада
+   * @returns {Promise<Array>} Массив записей ведомости
+   */
+  async getProcessedStatementsByInv(inv, zavod, sklad) {
+    let statements = await this.db.processed_statements.toArray()
+    
+    statements = statements.filter(statement => {
+      return statement.invNumber === inv
+    })
+    
+    if (zavod !== undefined && zavod !== null) {
+      const targetZavod = Number(zavod)
+      statements = statements.filter(statement => {
+        return Number(statement.zavod) === targetZavod
+      })
+    }
+    
+    if (sklad !== undefined && sklad !== null) {
+      statements = statements.filter(statement => {
+        return statement.sklad === sklad
+      })
+    }
+    
+    console.log(`[OfflineCache] Найдено записей по inv=${inv}: ${statements.length}`)
+    return statements
   }
-  
-  await this.db.logs.add(logEntry)
-}
 
+  //============================================================================
+  // РАБОТА С ОБЪЕКТАМИ
+  //============================================================================
 
+  /**
+   * Получает объект по ID
+   * @param {number} id - ID объекта
+   * @returns {Promise<Object|null>}
+   */
+  async getObject(id) {
+    return await this.db.objects.get(id)
+  }
 
+  /**
+   * Добавляет новый объект
+   * @param {Object} object - Данные объекта (уже подготовленные, с временным отрицательным ID)
+   * @returns {Promise<number>} ID созданного объекта
+   */
+  async addObject(object) {
+    return await this.db.objects.add(object)
+  }
 
+  /**
+   * Обновляет существующий объект
+   * @param {number} id - ID объекта
+   * @param {Object} updates - Поля для обновления
+   * @returns {Promise<Object>} Обновлённый объект
+   */
+  async updateObject(id, updates) {
+    await this.db.objects.update(id, updates)
+    return await this.getObject(id)
+  }
 
+  /**
+   * Получает все объекты
+   * @returns {Promise<Array>}
+   */
+  async getAllObjects() {
+    return await this.db.objects.toArray()
+  }
 
+  /**
+   * Ищет объекты по инвентарному номеру
+   * @param {string} inv - Инвентарный номер
+   * @param {number} [zavod] - Номер завода (опционально)
+   * @param {string} [sklad] - Код склада (опционально)
+   * @returns {Promise<Array>}
+   */
+  async findObjectsByInv(inv, zavod, sklad) {
+    let collection = this.db.objects.where('invNumber').equals(inv)
+    let objects = await collection.toArray()
+    
+    // Фильтруем по дополнительным параметрам
+    if (zavod !== undefined || sklad !== undefined) {
+      objects = objects.filter(obj => {
+        if (zavod !== undefined && obj.zavod !== zavod) return false
+        if (sklad !== undefined && obj.sklad !== sklad) return false
+        return true
+      })
+    }
+    
+    return objects
+  }
 
+  //============================================================================
+  // РАБОТА С QR-КОДАМИ
+  //============================================================================
 
+  /**
+   * Находит QR-код по его значению
+   * @param {string} qrValue - Значение QR-кода
+   * @returns {Promise<Object|null>} Запись QR-кода или null
+   */
+  async getQrCode(qrValue) {
+    return await this.db.qr_codes
+      .where('qrValue')
+      .equals(qrValue)
+      .first()
+  }
 
+  /**
+   * Находит все QR-коды, привязанные к объекту
+   * @param {number} objectId - ID объекта
+   * @returns {Promise<Array>} Массив записей QR-кодов
+   */
+  async getQrCodesByObjectId(objectId) {
+    return await this.db.qr_codes
+      .where('objectId')
+      .equals(objectId)
+      .toArray()
+  }
 
+  /**
+   * Сохраняет QR-код (добавляет новый или обновляет существующий)
+   * @param {Object} qrCode - Данные QR-кода в camelCase
+   * @param {string} qrCode.qrValue - Значение QR-кода
+   * @param {number} qrCode.objectId - ID объекта
+   * @returns {Promise<number>} ID сохранённой записи
+   */
+  async saveQrCode(qrCode) {
+    const existing = await this.getQrCode(qrCode.qrValue)
+    
+    if (existing) {
+      // Обновляем существующую запись
+      await this.db.qr_codes.update(existing.id, {
+        objectId: qrCode.objectId
+      })
+      return existing.id
+    } else {
+      // Добавляем новую запись
+      return await this.db.qr_codes.add({
+        qrValue: qrCode.qrValue,
+        objectId: qrCode.objectId
+      })
+    }
+  }
 
+  //============================================================================
+  // РАБОТА С ФОТОГРАФИЯМИ (предварительно из БД не кэшируются, только новые из текущего оффлайн-сеанса)
+  //============================================================================
 
+  /**
+   * Получает все фотографии объекта
+   * @param {number} objectId - ID объекта
+   * @returns {Promise<Array>} Массив фотографий объекта
+   */
+  async getPhotosByObjectId(objectId) {
+    return await this.db.photos
+      .where('objectId')
+      .equals(objectId)
+      .toArray()
+  }
 
+  /**
+   * Сохраняет фотографию в кэш
+   * @param {Object} photoData - Данные фотографии в camelCase
+   * @param {number} photoData.objectId - ID объекта
+   * @param {Blob|ArrayBuffer} photoData.photoMaxData - Полноразмерное фото
+   * @param {Blob|ArrayBuffer} photoData.photoMinData - Миниатюра фото
+   * @returns {Promise<void>}
+   */
+  async savePhoto(photoData) {
+    // Преобразуем Blob в ArrayBuffer если необходимо
+    const toArrayBuffer = async (data) => {
+      if (data instanceof Buffer) return data
+      if (data instanceof Blob) return await data.arrayBuffer()
+      return data
+    }
 
+    const photoForCache = {
+      objectId: photoData.objectId,
+      photoMaxData: await toArrayBuffer(photoData.photoMaxData),
+      photoMinData: await toArrayBuffer(photoData.photoMinData)
+    }
+    
+    await this.db.photos.add(photoForCache)
+  }
 
-  
+  /**
+   * Удаляет фотографию из кэша
+   * @param {number} photoId - ID фотографии
+   * @returns {Promise<void>}
+   */
+  async deletePhoto(photoId) {
+    await this.db.photos.delete(photoId)
+  }
+
+  //============================================================================
+  // РАБОТА С ЛОГАМИ
+  //============================================================================
+
+  /**
+   * Добавляет запись лога в кэш
+   * Время создания проставляется автоматически
+   * @param {string} source - Тип события (например, 'object_history', 'qr_code_history')
+   * @param {any} content - Содержимое лога (объект, строка и т.д.)
+   * @returns {Promise<void>}
+   */
+  async addPendingLog(source, content) {
+    const logEntry = {
+      source: source,
+      content: content,
+      time: new Date().toISOString()
+    }
+    
+    await this.db.logs.add(logEntry)
+  }
 }
 
 export const offlineCache = new OfflineCacheService()

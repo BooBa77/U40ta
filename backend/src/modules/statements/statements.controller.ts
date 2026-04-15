@@ -2,10 +2,8 @@ import { Controller, Get, Post, Body, Param, UseGuards, ParseIntPipe, HttpCode, 
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { StatementService } from './services/statement.service';
 import { StatementObjectsService } from './services/statement-objects.service';
-import { StatementResponseDto } from './dto/statement-response.dto';
 import { UpdateIgnoreDto } from './dto/update-ignore.dto';
 import { UpdateHaveObjectDto } from './dto/update-have-object.dto';
-import { ProcessedStatementDto } from './dto/statement-response.dto';
 
 @Controller('statements')
 @UseGuards(JwtAuthGuard)
@@ -18,7 +16,7 @@ export class StatementsController {
   /**
    * Поиск записей ведомости по инвентарному номеру по определённому складу без учёта party
    * GET /api/statements/by-inv?inv=...&zavod=...&sklad=...
-   * Только записи с have_object = false (те, по которым нужно создать объект)
+   * Только записи с haveObject = false (те, по которым нужно создать объект)
    */
   @Get('by-inv')
   async findByInv(
@@ -46,12 +44,10 @@ export class StatementsController {
         skladValue
       );
       
-      const statementDtos = ProcessedStatementDto.fromEntities(statements);
-      
       return {
         success: true,
-        statements: statementDtos,
-        count: statementDtos.length
+        statements: statements,
+        count: statements.length
       };
     } catch (error) {
       console.error('[StatementsController] Ошибка поиска записей ведомости:', error);
@@ -70,28 +66,26 @@ export class StatementsController {
   @Get(':attachmentId')
   async getStatement(
     @Param('attachmentId', ParseIntPipe) attachmentId: number
-  ): Promise<StatementResponseDto> {
+  ) {
     try {
       const statements = await this.statementService.parseStatement(attachmentId);
       
-      const response = new StatementResponseDto();
-      response.success = true;
-      response.attachmentId = attachmentId;
-      response.statements = statements;
-      response.count = statements.length;
-      response.message = `Загружено ${statements.length} строк`;
-      
-      return response;
+      return {
+        success: true,
+        attachmentId: attachmentId,
+        statements: statements,
+        count: statements.length,
+        message: `Загружено ${statements.length} строк`
+      };
       
     } catch (error) {
-      const response = new StatementResponseDto();
-      response.success = false;
-      response.attachmentId = attachmentId;
-      response.statements = [];
-      response.count = 0;
-      response.error = error.message;
-      
-      return response;
+      return {
+        success: false,
+        attachmentId: attachmentId,
+        statements: [],
+        count: 0,
+        error: error.message
+      };
     }
   }
 
@@ -100,43 +94,35 @@ export class StatementsController {
    * POST /api/statements/ignore
    */
   @Post('ignore')
-  async updateIgnoreStatus(
-    @Body() dto: UpdateIgnoreDto
-  ): Promise<StatementResponseDto> {
+  async updateIgnoreStatus(@Body() dto: UpdateIgnoreDto) {
     try {
       const updated = await this.statementService.updateIgnoreStatus(dto);
       
-      const response = new StatementResponseDto();
-      response.success = true;
-      response.attachmentId = dto.attachmentId;
-      response.statements = updated;
-      response.count = updated.length;
-      response.message = `Обновлено ${updated.length} записей`;
-      
-      return response;
+      return {
+        success: true,
+        attachmentId: dto.attachmentId,
+        statements: updated,
+        count: updated.length,
+        message: `Обновлено ${updated.length} записей`
+      };
     } catch (error) {
-      const response = new StatementResponseDto();
-      response.success = false;
-      response.attachmentId = dto.attachmentId;
-      response.statements = [];
-      response.count = 0;
-      response.error = error.message;
-      
-      return response;
+      return {
+        success: false,
+        attachmentId: dto.attachmentId,
+        statements: [],
+        count: 0,
+        error: error.message
+      };
     }
   }
 
   /**
-   * Обновление статуса have_object для конкретной строки ведомости
+   * Обновление статуса haveObject для конкретной строки ведомости
    * POST /api/statements/update-have-object
    */
   @Post('update-have-object')
   @HttpCode(204)
-  async updateHaveObject(
-    @Body() dto: UpdateHaveObjectDto
-  ): Promise<void> {
-    await this.statementObjectsService.updateSingleHaveObject(
-      dto.statementId
-    );
+  async updateHaveObject(@Body() dto: UpdateHaveObjectDto): Promise<void> {
+    await this.statementObjectsService.updateSingleHaveObject(dto.statementId);
   }
 }

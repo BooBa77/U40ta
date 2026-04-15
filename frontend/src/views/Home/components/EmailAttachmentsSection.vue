@@ -72,6 +72,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router'
+import { emailAttachmentService } from '@/services/email-attachment.service';
+import { useSSE } from '@/composables/useSSE';
 
 // Константа для ключа Flight Mode в localStorage
 const FLIGHT_MODE_KEY = 'u40ta_flight_mode';
@@ -80,78 +82,27 @@ const FLIGHT_MODE_KEY = 'u40ta_flight_mode';
 const isLoading = ref(true);
 const isLoadingCheck = ref(false);
 const files = ref([]);
-const eventSource = ref(null); // Для SSE соединения
 const router = useRouter();
 const isFlightMode = ref(false); // Состояние Flight Mode
+
+/**
+ * Проверяет, активен ли режим полёта
+ */
+const checkFlightMode = () => {
+  return localStorage.getItem(FLIGHT_MODE_KEY) === 'true';
+};
 
 // Загрузка файлов с API
 const loadFiles = async () => {
   isLoading.value = true;
   try {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch('/api/email/attachments', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.ok) {
-      files.value = await response.json();
-    }
+    files.value = await emailAttachmentService.getAllAttachments();
   } catch (error) {
     console.error('Ошибка загрузки файлов:', error);
+    files.value = [];
   } finally {
     isLoading.value = false;
   }
-};
-
-// Функция для подключения к SSE (для обновлений ведомостей)
-const connectToSSE = () => {
-  console.log('EmailAttachmentsSection: подключение к SSE для обновлений ведомостей');
-  
-  // Закрываем предыдущее соединение, если есть
-  if (eventSource.value) {
-    console.log('EmailAttachmentsSection: закрываем предыдущее SSE соединение');
-    eventSource.value.close();
-  }
-
-  // Создаём новое SSE соединение
-  const sseUrl = '/api/app-events/sse';
-  console.log('EmailAttachmentsSection: подключаемся к SSE:', sseUrl);
-  
-  eventSource.value = new EventSource(sseUrl);
-  
-  // Событие открытия соединения
-  eventSource.value.addEventListener('open', () => {
-    console.log('EmailAttachmentsSection: SSE соединение установлено');
-  });
-  
-  // Обработчик входящих сообщений
-  eventSource.value.addEventListener('message', (event) => {
-    console.log('EmailAttachmentsSection: получено сырое SSE-событие:', event.data);
-    
-    try {
-      const data = JSON.parse(event.data);
-      console.log('EmailAttachmentsSection: распарсено SSE-событие:', data);
-      
-      // Обрабатываем только события, связанные с ведомостями
-      if (data.type === 'statement-updated' || 
-          data.type === 'statement-deleted' ||
-          data.type === 'statement-active-changed' ||
-          data.type === 'statement-loaded') {
-        console.log('EmailAttachmentsSection: обновление списка ведомостей');
-        loadFiles();
-      }
-    } catch (error) {
-      console.error('EmailAttachmentsSection: ошибка парсинга SSE-события:', error, 'Сырые данные:', event.data);
-    }
-  });
-  
-  // Обработчик ошибок соединения
-  eventSource.value.addEventListener('error', (error) => {
-    console.error('EmailAttachmentsSection: SSE ошибка соединения:', error);
-    console.log('EmailAttachmentsSection: EventSource автоматически переподключится');
-  });
-  
-  console.log('EmailAttachmentsSection: EventSource объект создан');
 };
 
 // Форматирование даты для отображения
@@ -168,12 +119,7 @@ const checkEmail = async () => {
   
   isLoadingCheck.value = true;
   try {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch('/api/email/check', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const result = await response.json();
+    const result = await emailAttachmentService.checkEmail();
     console.log('EmailAttachmentsSection: результат проверки почты:', result);
     
     // Обновление списка файлов произойдёт по SSE событию от сервера
@@ -190,13 +136,7 @@ const deleteAttachment = async (attachmentId) => {
   if (!confirm('Удалить это вложение?')) return;
   
   try {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`/api/email/attachments/${attachmentId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    const result = await response.json();
+    const result = await emailAttachmentService.deleteAttachment(attachmentId);
     
     if (result.success) {
       // Локально удаляем файл из массива
@@ -221,10 +161,34 @@ const openStatement = async (attachmentId, isInventory, inProcess) => {
   router.push(`/statement/${attachmentId}`);
 };
 
+/**
+ * Обработчик SSE сообщений
+ */
+const handleSSEMessage = (data) => {
+  console.log('EmailAttachmentsSection: распарсено SSE-событие:', data);
+  
+  // Обрабатываем только события, связанные с ведомостями
+  if (data.type === 'statement-updated' || 
+      data.type === 'statement-deleted' ||
+      data.type === 'statement-active-changed' ||
+      data.type === 'statement-loaded') {
+    console.log('EmailAttachmentsSection: обновление списка ведомостей');
+    loadFiles();
+  }
+};
+
+// Подключаем SSE через композабл (автоподключение только если не в офлайн-режиме)
+useSSE(handleSSEMessage, { autoConnect: !checkFlightMode() });
+
 // Обработчик изменения состояния Flight Mode
 const handleFlightModeChange = (event) => {
   isFlightMode.value = event.detail.isFlightMode;
   console.log('EmailAttachmentsSection: Flight Mode изменён:', isFlightMode.value);
+  
+  // Обновляем данные при переходе в онлайн
+  if (!isFlightMode.value) {
+    loadFiles();
+  }
 };
 
 // Инициализация состояния Flight Mode из localStorage
@@ -238,7 +202,6 @@ const initFlightMode = () => {
 // При монтировании компонента
 onMounted(() => {
   loadFiles();
-  connectToSSE();
   initFlightMode();
   
   // Подписываемся на события изменения Flight Mode
@@ -248,6 +211,10 @@ onMounted(() => {
   window.addEventListener('storage', (event) => {
     if (event.key === FLIGHT_MODE_KEY) {
       isFlightMode.value = JSON.parse(event.newValue || 'false');
+      // Обновляем данные при переходе в онлайн
+      if (!isFlightMode.value) {
+        loadFiles();
+      }
     }
   });
   
@@ -256,12 +223,6 @@ onMounted(() => {
 
 // При размонтировании компонента
 onUnmounted(() => {
-  // Закрываем SSE соединение
-  if (eventSource.value) {
-    eventSource.value.close();
-    console.log('EmailAttachmentsSection: SSE соединение закрыто');
-  }
-  
   // Отписываемся от событий Flight Mode
   window.removeEventListener('flight-mode-changed', handleFlightModeChange);
 });

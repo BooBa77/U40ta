@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { StatementParserService } from './statement-parser.service';
 import { StatementObjectsService } from './statement-objects.service';
-import { ProcessedStatementDto } from '../dto/statement-response.dto';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { UpdateIgnoreDto } from '../dto/update-ignore.dto';
 
@@ -23,7 +22,7 @@ export class StatementService {
 
   /**
    * Поиск записей ведомости по инвентарному номеру, партии и складу
-   * Возвращает только записи с have_object = false (объект ещё не создан)
+   * Возвращает только записи с haveObject = false (объект ещё не создан)
    */
   async findByInv(
     invNumber: string,
@@ -32,8 +31,8 @@ export class StatementService {
   ): Promise<ProcessedStatement[]> {
     const queryBuilder = this.processedStatementRepo
       .createQueryBuilder('statement')
-      .where('statement.have_object = :haveObject', { haveObject: false })
-      .andWhere('statement.inv_number = :invNumber', { invNumber });
+      .where('statement.haveObject = :haveObject', { haveObject: false })
+      .andWhere('statement.invNumber = :invNumber', { invNumber });
 
     if (zavod !== undefined && !isNaN(zavod)) {
       queryBuilder.andWhere('statement.zavod = :zavod', { zavod });
@@ -43,19 +42,16 @@ export class StatementService {
       queryBuilder.andWhere('statement.sklad = :sklad', { sklad });
     }
 
-    const statements = await queryBuilder.getMany();
-
-    return statements;
+    return await queryBuilder.getMany();
   }
 
   /**
    * Основной метод: открывает/обрабатывает ведомость
    * GET /api/statements/:attachmentId
    */
-  async parseStatement(attachmentId: number): Promise<ProcessedStatementDto[]> {
+  async parseStatement(attachmentId: number): Promise<ProcessedStatement[]> {
     const attachment = await this.emailAttachmentRepo.findOne({
       where: { id: attachmentId },
-      relations: [],
     });
 
     if (!attachment) {
@@ -67,8 +63,7 @@ export class StatementService {
     }
 
     if (attachment.inProcess) {
-      const statements = await this.parserService.getExistingStatements(attachmentId);
-      return statements;
+      return await this.parserService.getExistingStatements(attachmentId);
     }
 
     try {
@@ -96,13 +91,13 @@ export class StatementService {
    * Обновляет статус игнорирования для группы строк
    * POST /api/statements/ignore
    */
-  async updateIgnoreStatus(dto: UpdateIgnoreDto): Promise<ProcessedStatementDto[]> {
+  async updateIgnoreStatus(dto: UpdateIgnoreDto): Promise<ProcessedStatement[]> {
     const statements = await this.processedStatementRepo.find({
       where: {
         emailAttachmentId: dto.attachmentId,
-        inv_number: dto.invNumber,
-        party_number: dto.partyNumber || '',
-        is_excess: false,
+        invNumber: dto.invNumber,
+        partyNumber: dto.partyNumber || '',
+        isExcess: false,
       },
     });
     
@@ -111,22 +106,22 @@ export class StatementService {
     }
     
     for (const statement of statements) {
-      statement.is_ignore = dto.isIgnore;
+      statement.isIgnore = dto.isIgnore;
     }
     
     await this.processedStatementRepo.save(statements);
     
     if (statements.length > 0) {
       const first = statements[0];
-      if (first.zavod && first.sklad && first.doc_type) {
+      if (first.zavod && first.sklad && first.docType) {
         this.objectsService.updateHaveObjectsForStatement(
           first.zavod,
           first.sklad,
-          first.doc_type,
+          first.docType,
         ).catch(err => console.error('StatementService: ошибка фонового обновления флагов:', err));
       }
     }
     
-    return ProcessedStatementDto.fromEntities(statements);
+    return statements;
   }
 }

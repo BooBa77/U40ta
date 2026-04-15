@@ -22,7 +22,7 @@ export class StatementObjectsService {
   ) {}
 
   /**
-   * Обновляет флаги have_object и создает записи is_excess при перезагрузке
+   * Обновляет флаги haveObject и создает записи isExcess при перезагрузке
    * активной ведомости указанного склада
    */
   async updateHaveObjectsForStatement(
@@ -47,53 +47,53 @@ export class StatementObjectsService {
       return;
     }
 
-    // 2. Удаляем старые записи с is_excess = true для этой ведомости
+    // 2. Удаляем старые записи с isExcess = true для этой ведомости
     await this.processedStatementRepo.delete({
       emailAttachmentId: activeAttachment.id,
-      is_excess: true,
+      isExcess: true,
     });
-    //console.log(`StatementObjectsService: удалены старые записи is_excess`);
+    //console.log(`StatementObjectsService: удалены старые записи isExcess`);
 
     // 3. Получаем все объекты на этом складу
     const objects = await this.inventoryObjectRepo.find({
       where: { zavod, sklad },
-      select: ['zavod', 'inv_number', 'party_number'],
+      select: ['zavod', 'invNumber', 'partyNumber'],
     });
 
-    // 4. Группируем объекты по ключу (zavod|inv_number|party_number) с подсчетом количества
+    // 4. Группируем объекты по ключу (zavod|invNumber|partyNumber) с подсчетом количества
     const objectCounts = new Map<string, number>();
     
     for (const obj of objects) {
-      const key = `${obj.zavod}|${obj.inv_number}|${obj.party_number}`;
+      const key = `${obj.zavod}|${obj.invNumber}|${obj.partyNumber}`;
       objectCounts.set(key, (objectCounts.get(key) || 0) + 1);
     }
 
     //console.log(`StatementObjectsService: найдено уникальных объектов: ${objectCounts.size}`);
 
-    // 5. Получаем все записи ведомости (кроме is_excess)
+    // 5. Получаем все записи ведомости (кроме isExcess)
     const statements = await this.processedStatementRepo.find({
       where: {
         emailAttachmentId: activeAttachment.id,
-        is_excess: false,
+        isExcess: false,
       },
     });
 
     //console.log(`StatementObjectsService: записей в ведомости: ${statements.length}`);
 
-    // 6. Обновляем флаги have_object
+    // 6. Обновляем флаги haveObject
     const updatedStatements: ProcessedStatement[] = [];
     
     for (const statement of statements) {
-      const key = `${statement.zavod}|${statement.inv_number}|${statement.party_number}`;
+      const key = `${statement.zavod}|${statement.invNumber}|${statement.partyNumber}`;
       const count = objectCounts.get(key);
 
       if (count && count > 0) {
         // Объект найден
-        statement.have_object = true;
+        statement.haveObject = true;
         objectCounts.set(key, count - 1);
       } else {
         // Объект не найден
-        statement.have_object = false;
+        statement.haveObject = false;
       }
       
       updatedStatements.push(statement);
@@ -102,15 +102,14 @@ export class StatementObjectsService {
     // 7. Сохраняем обновленные записи
     if (updatedStatements.length > 0) {
       await this.processedStatementRepo.save(updatedStatements);
-      //console.log(`StatementObjectsService: обновлено флагов have_object: ${updatedStatements.length}`);
     }
 
-    // 8. Создаем записи is_excess для оставшихся объектов
+    // 8. Создаем записи isExcess для оставшихся объектов
     const excessStatements: ProcessedStatement[] = [];
     
     for (const [key, count] of objectCounts.entries()) {
       if (count > 0) {
-        const [zavodStr, inv_number, party_number] = key.split('|');
+        const [zavodStr, invNumber, partyNumber] = key.split('|');
         const zavodNum = parseInt(zavodStr, 10);
 
         // Создаем N записей по количеству оставшихся объектов
@@ -119,29 +118,26 @@ export class StatementObjectsService {
           excess.emailAttachmentId = activeAttachment.id;
           excess.zavod = zavodNum;
           excess.sklad = sklad;
-          excess.doc_type = docType;
-          excess.inv_number = inv_number;
-          excess.party_number = party_number;
-          excess.buh_name = `Объект отсутствует в ведомости`;
-          excess.have_object = true; // объект есть в системе
-          excess.is_excess = true;   // но его нет в ведомости
+          excess.docType = docType;
+          excess.invNumber = invNumber;
+          excess.partyNumber = partyNumber;
+          excess.buhName = `Объект отсутствует в ведомости`;
+          excess.haveObject = true; // объект есть в системе
+          excess.isExcess = true;   // но его нет в ведомости
           
           excessStatements.push(excess);
         }
       }
     }
 
-    // 9. Сохраняем записи is_excess
+    // 9. Сохраняем записи isExcess
     if (excessStatements.length > 0) {
       await this.processedStatementRepo.save(excessStatements);
-      //console.log(`StatementObjectsService: создано записей is_excess: ${excessStatements.length}`);
     }
-
-    //console.log(`StatementObjectsService: обновление флагов завершено`);
   }
 
   /**
-   * Задаёт have_object для одной записи при создании объекта
+   * Задаёт haveObject для одной записи при создании объекта
    */
   async updateSingleHaveObject(statementId: number): Promise<void> {
     const statement = await this.processedStatementRepo.findOne({
@@ -155,17 +151,16 @@ export class StatementObjectsService {
       where: {
         zavod: statement.zavod,
         sklad: statement.sklad,
-        inv_number: statement.inv_number,
-        party_number: statement.party_number || '',
+        invNumber: statement.invNumber,
+        partyNumber: statement.partyNumber || '',
       }
     });
 
-    statement.have_object = !!object;
+    statement.haveObject = !!object;
     await this.processedStatementRepo.save(statement);
     
     // Отправляем SSE уведомление об изменении ведомости
     this.appEventsService.notifyStatementUpdated(statementId);
-    //console.log(`Отправлено SSE уведомление об изменении записи ведомости № ${statementId}`);  
   }
  
 }

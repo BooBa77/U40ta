@@ -4,8 +4,8 @@ export class CreateQrCodeDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  qr_value: string;
+  qrValue!: string;
 
   @IsInt()
-  object_id: number;
+  objectId!: number;
 }

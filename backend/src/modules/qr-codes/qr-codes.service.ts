@@ -16,28 +16,28 @@ export class QrCodesService {
   // Поиск объекта по QR
   async findObjectByQr(qrValue: string): Promise<QrScanResult> {
     const qrCode = await this.qrCodesRepository.findOne({
-      where: { qr_value: qrValue },
+      where: { qrValue: qrValue },
     });
 
     if (!qrCode) {
       return {
         success: false,
-        qr_value: qrValue,
+        qrValue: qrValue,
         error: 'QR-код не найден',
       };
     }
 
     return {
       success: true,
-      qr_value: qrValue,
-      object_id: qrCode.object_id,
+      qrValue: qrValue,
+      objectId: qrCode.objectId ?? undefined,
     };
   }
 
   // Создать QR
   async create(createQrCodeDto: CreateQrCodeDto, userId: number): Promise<QrCode> {
     const existing = await this.qrCodesRepository.findOne({
-      where: { qr_value: createQrCodeDto.qr_value },
+      where: { qrValue: createQrCodeDto.qrValue },
     });
 
     if (existing) {
@@ -52,19 +52,19 @@ export class QrCodesService {
 
   // Переназначение QR
   async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto, userId: number): Promise<{ success: boolean }> {
-    const { qr_value, new_object_id } = updateQrOwnerDto;
+    const { qrValue, newObjectId } = updateQrOwnerDto;
     
     const qrCode = await this.qrCodesRepository.findOne({
-      where: { qr_value }
+      where: { qrValue }
     });
 
     if (!qrCode) {
-      throw new NotFoundException(`QR-код ${qr_value} не найден`);
+      throw new NotFoundException(`QR-код ${qrValue} не найден`);
     }
 
-    const old_object_id = qrCode.object_id;
+    const oldObjectId = qrCode.objectId;
     
-    qrCode.object_id = new_object_id;
+    qrCode.objectId = newObjectId;
     await this.qrCodesRepository.save(qrCode);
     
     return {

@@ -1,6 +1,6 @@
 export interface QrScanResult {
   success: boolean;
-  qr_value: string;
-  object_id?: number;
+  qrValue: string;
+  objectId?: number;
   error?: string;
 }

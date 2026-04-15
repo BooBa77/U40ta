@@ -4,22 +4,27 @@
  * @returns {Object} Состояния и методы для работы с данными ведомости
  */
 import { ref, onUnmounted } from 'vue'
-import { statementService } from '../services/statement.service'
+import { statementService } from '@/services/statement.service'
 import { useRouter } from 'vue-router'
 
 export function useStatementData(attachmentId) {
   // Состояния
   const loading = ref(true)
   const error = ref(null)
-  const statements = ref([]) // УЖЕ отсортированные данные
+  const statements = ref([])
   const router = useRouter()
-  const eventSource = ref(null) // Для SSE
+  const eventSource = ref(null)
+  let reconnectTimeout = null
 
+  /**
+   * Проверяет, активен ли режим полёта
+   */
+  const isFlightMode = () => {
+    return localStorage.getItem('u40ta_flight_mode') === 'true'
+  }
 
   /**
    * Определяет группу строки для сортировки и окраски
-   * @param {Object} row - строка ведомости
-   * @returns {number} номер группы (1-4)
    */
   const getRowGroup = (row) => {
     const haveObject = row.have_object ?? row.haveObject
@@ -31,13 +36,12 @@ export function useStatementData(attachmentId) {
     if (isExcess === true) return 2
     return 3
   }
+
   /**
    * Сортирует statements по группам и наименованию
-   * @param {Array} statements - массив строк ведомости
-   * @returns {Array} отсортированный массив
    */
-  const sortStatements = (statements) => {
-    return [...statements].sort((a, b) => {
+  const sortStatements = (statementsArray) => {
+    return [...statementsArray].sort((a, b) => {
       const groupA = getRowGroup(a)
       const groupB = getRowGroup(b)
       
@@ -64,6 +68,7 @@ export function useStatementData(attachmentId) {
       return partyA.localeCompare(partyB)
     })
   }
+
   /**
    * Загружает данные ведомости
    */
@@ -73,7 +78,7 @@ export function useStatementData(attachmentId) {
 
     try {
       const data = await statementService.fetchStatement(attachmentId)
-      statements.value = sortStatements(data) // ← сразу сортируем
+      statements.value = sortStatements(data)
     } catch (err) {
       error.value = err.message || 'Ошибка загрузки ведомости'
       console.error('[useStatementData] Ошибка:', err)
@@ -90,65 +95,104 @@ export function useStatementData(attachmentId) {
   }
 
   /**
-   * Обработка SSE
+   * Закрывает SSE соединение
+   */
+  const disconnectSSE = () => {
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout)
+      reconnectTimeout = null
+    }
+    
+    if (eventSource.value) {
+      eventSource.value.close()
+      eventSource.value = null
+      console.log('[useStatementData] SSE соединение закрыто')
+    }
+  }
+
+  /**
+   * Подключается к SSE (только в онлайн-режиме)
    */
   const connectToSSE = () => {
+    // Закрываем существующее соединение
+    disconnectSSE()
+
+    // Не подключаемся в офлайн-режиме
+    if (isFlightMode()) {
+      console.log('[useStatementData] Офлайн-режим, SSE не подключается')
+      return
+    }
+
+    console.log('[useStatementData] Подключение к SSE для ведомости', attachmentId)
+    
     const sseUrl = '/api/app-events/sse'
     eventSource.value = new EventSource(sseUrl)
+    
+    eventSource.value.addEventListener('open', () => {
+      console.log('[useStatementData] SSE соединение установлено')
+    })
     
     eventSource.value.addEventListener('message', (event) => {
       try {
         const data = JSON.parse(event.data)
         
-        // Проверяем что в SSE сообщении
         switch (data.type) {
           case 'statement-updated':
-            // Проверяем ТОЛЬКО для обновлений
             if (data.data?.attachmentId !== Number(attachmentId)) return
-            console.log(`SSE: Ведомость ${attachmentId} обновлена, перезагружаем`)
+            console.log(`[useStatementData] SSE: ведомость ${attachmentId} обновлена, перезагружаем`)
             reload()
             break
             
           case 'statement-active-changed':
-            // Проверяем ТОЛЬКО для смены активности
-            if (data.data?.attachmentId === Number(attachmentId)) return  // Это наша ведомость, игнорируем
-            if (data.data?.zavod !== Number(zavod) && data.data?.sklad !== String(sklad)) return //  Это наша ведомость другого склада, игнорируем
-            console.log(`SSE: Ведомость ${attachmentId} стала активной у другого пользователя. Наша ведомость - ${data.data?.attachmentId}`)
+            if (data.data?.attachmentId === Number(attachmentId)) return
+            console.log(`[useStatementData] SSE: ведомость стала активной у другого пользователя`)
             router.push('/')
             break
             
           case 'statement-deleted':
-            // Проверяем ТОЛЬКО для удаления
             if (data.data?.attachmentId !== Number(attachmentId)) return
-            console.log(`SSE: Ведомость ${attachmentId} удалена`)
+            console.log(`[useStatementData] SSE: ведомость ${attachmentId} удалена`)
             router.push('/')
             break
         }
-      } catch (error) {
-        console.error('Ошибка обработки SSE события:', error)
+      } catch (parseError) {
+        console.error('[useStatementData] Ошибка парсинга SSE события:', parseError)
       }
     })
     
-    eventSource.value.addEventListener('error', (error) => {
-      console.error('SSE соединение разорвано:', error)
-      // EventSource автоматически переподключится
+    eventSource.value.addEventListener('error', () => {
+      console.log('[useStatementData] SSE соединение разорвано')
+      disconnectSSE()
+      
+      // Пытаемся переподключиться через 10 секунд, если не в офлайн-режиме
+      if (!isFlightMode()) {
+        reconnectTimeout = setTimeout(() => {
+          connectToSSE()
+        }, 10000)
+      }
     })
   }
+
   /**
-   * Закрывает SSE соединение
+   * Обработчик изменения режима полёта
    */
-  const disconnectSSE = () => {
-    if (eventSource.value) {
-      eventSource.value.close()
-      eventSource.value = null
+  const handleFlightModeChange = (event) => {
+    if (event.detail.isFlightMode) {
+      // При переходе в офлайн - закрываем SSE
+      disconnectSSE()
+    } else {
+      // При переходе в онлайн - подключаем SSE
+      connectToSSE()
     }
   }
+
+  // Подписываемся на события изменения режима полёта
+  window.addEventListener('flight-mode-changed', handleFlightModeChange)
 
   // Автоматическая загрузка при инициализации
   loadData()
 
   // Подключаем SSE после загрузки данных
-  // Используем setTimeout чтобы не блокировать первоначальную загрузку
   setTimeout(() => {
     connectToSSE()
   }, 100)
@@ -156,15 +200,13 @@ export function useStatementData(attachmentId) {
   // Закрываем соединение при размонтировании компонента
   onUnmounted(() => {
     disconnectSSE()
+    window.removeEventListener('flight-mode-changed', handleFlightModeChange)
   })
 
   return {
-    // Состояния
     loading,
     error,
-    statements, // отсортированные данные
-    
-    // Методы
+    statements,
     reload,
     getRowGroup
   }

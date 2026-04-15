@@ -10,7 +10,6 @@ import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { AppEventsService } from '../../app-events/app-events.service';
 import { ParsedOSVExcelRowDto } from '../dto/parsed-osv-excel-row.dto';
 import { ParsedOSExcelRowDto } from '../dto/parsed-os-excel-row.dto';
-import { ProcessedStatementDto } from '../dto/statement-response.dto';
 
 @Injectable()
 export class StatementParserService {
@@ -31,22 +30,20 @@ export class StatementParserService {
    * Публичный метод: возвращает существующие записи ведомости
    * Используется когда ведомость уже в работе (in_process = true)
    */
-  async getExistingStatements(attachmentId: number): Promise<ProcessedStatementDto[]> {
+  async getExistingStatements(attachmentId: number): Promise<ProcessedStatement[]> {
     const entities = await this.processedStatementRepo.find({
       where: { emailAttachmentId: attachmentId },
       order: { id: 'ASC' },
     });
     
-    // Преобразуем Entity в DTO
-    return ProcessedStatementDto.fromEntities(entities);
+    return entities;
   }
 
   /**
    * Публичный метод: основной парсинг ведомости
    * Создает записи в processed_statements
    */
-  async parseStatement(attachmentId: number): Promise<ProcessedStatementDto[]> {
-    //console.log(`StatementParserService: парсинг ведомости ID: ${attachmentId}`);
+  async parseStatement(attachmentId: number): Promise<ProcessedStatement[]> {
     
     // 1. Находим вложение
     const attachment = await this.emailAttachmentRepo.findOne({
@@ -59,13 +56,11 @@ export class StatementParserService {
     
     // 2. Пропускаем инвентаризацию
     if (attachment.isInventory) {
-      //console.log(`StatementParserService: пропускаем инвентаризацию (ID: ${attachmentId})`);
       return [];
     }
     
     // 3. Если ведомость уже в работе - возвращаем существующие записи
     if (attachment.inProcess) {
-      //console.log(`StatementParserService: ведомость уже в работе`);
       return await this.getExistingStatements(attachmentId);
     }
     
@@ -103,12 +98,10 @@ export class StatementParserService {
       }
     
       this.appEventsService.notifyStatementActiveChanged(attachmentId, attachment.zavod, attachment.sklad);
-      //console.log('StatementParserService: отправлено SSE уведомление');
       
-      return ProcessedStatementDto.fromEntities(savedEntities);
+      return savedEntities;
       
     } catch (error) {
-      //console.error('StatementParserService: ошибка обработки ведомости:', error);
       throw new InternalServerErrorException(
         `Ошибка обработки ведомости: ${error.message}`,
       );
@@ -126,7 +119,7 @@ export class StatementParserService {
         {
           where: { 
             sklad: attachment.sklad || '',
-            doc_type: attachment.docType || '',
+            docType: attachment.docType || '',
           },
           select: ['emailAttachmentId'],
         },
@@ -138,7 +131,7 @@ export class StatementParserService {
       // Удаляем старые записи этого склада/типа
       await transactionalEntityManager.delete(ProcessedStatement, {
         sklad: attachment.sklad,
-        doc_type: attachment.docType,
+        docType: attachment.docType,
       });
       //console.log(`StatementParserService: удалены старые записи склада ${attachment.sklad}, тип ${attachment.docType}`);
       
@@ -256,14 +249,14 @@ export class StatementParserService {
         const statement = new ProcessedStatement();
         statement.emailAttachmentId = attachment.id;
         statement.sklad = sklad;
-        statement.doc_type = attachment.docType || 'ОСВ';
+        statement.docType = attachment.docType || 'ОСВ';
         statement.zavod = zavod;
-        statement.buh_name = buhName;
-        statement.inv_number = invNumber;
-        statement.party_number = partyNumber;
-        statement.have_object = false;
-        statement.is_ignore = false;
-        statement.is_excess = false;
+        statement.buhName = buhName;
+        statement.invNumber = invNumber;
+        statement.partyNumber = partyNumber;
+        statement.haveObject = false;
+        statement.isIgnore = false;
+        statement.isExcess = false;
         
         statements.push(statement);
       }
@@ -293,14 +286,14 @@ export class StatementParserService {
         const statement = new ProcessedStatement();
         statement.emailAttachmentId = attachment.id;
         statement.sklad = sklad;
-        statement.doc_type = attachment.docType || 'ОС';
+        statement.docType = attachment.docType || 'ОС';
         statement.zavod = 0;
-        statement.buh_name = buhName;
-        statement.inv_number = invNumber;
-        statement.party_number = '-';
-        statement.have_object = false;
-        statement.is_ignore = false;
-        statement.is_excess = false;
+        statement.buhName = buhName;
+        statement.invNumber = invNumber;
+        statement.partyNumber = '-';
+        statement.haveObject = false;
+        statement.isIgnore = false;
+        statement.isExcess = false;
         
         statements.push(statement);
       }

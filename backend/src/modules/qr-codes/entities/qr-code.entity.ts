@@ -1,24 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { InventoryObject } from '../../objects/entities/object.entity';
 
 @Entity('qr_codes')
-@Index('qr_codes_qr_value_key', ['qr_value'], { unique: true })
 export class QrCode {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-  @Column({
-    name: 'qr_value',
-    type: 'varchar',
-    length: 255,
-    nullable: false,
-  })
-  qr_value: string;
+  @Column({ name: 'qr_value', type: 'text', unique: true, nullable: false })
+  qrValue!: string;
 
-  @Column({
-    name: 'object_id',
-    type: 'bigint',
-    nullable: false,
-  })
-  object_id: number;
+  @ManyToOne(() => InventoryObject, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'object_id' })
+  object!: InventoryObject | null;
 
+  @Column({ name: 'object_id', type: 'integer', nullable: true })
+  objectId!: number | null;
 }

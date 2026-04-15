@@ -99,6 +99,7 @@ import { qrService } from '@/services/qr-service.js'
 import { objectService } from '@/services/object-service.js'
 import { useCamera } from '@/composables/useCamera.js'
 import { useCurrentUser } from '@/composables/useCurrentUser'
+import { useSSE } from '@/composables/useSSE'
 
 const router = useRouter()
 const route = useRoute()
@@ -123,8 +124,12 @@ let infoModalTimeout = null
 // Оффлайн режим
 const isFlightMode = ref(false)
 
-// SSE соединение для отслеживания изменений прав доступа
-const eventSource = ref(null)
+/**
+ * Проверяет, активен ли режим полёта
+ */
+const checkFlightMode = () => {
+  return localStorage.getItem('u40ta_flight_mode') === 'true'
+}
 
 /**
  * Показать информационное модальное окно
@@ -140,7 +145,7 @@ const showInfoMessage = (title, message, autoClose = true) => {
   infoModalMessage.value = message
   showInfoModal.value = true
   
-  // Автоматическое закрытие через 3 секунды
+  // Автоматическое закрытие через 10 секунд
   if (autoClose) {
     infoModalTimeout = setTimeout(() => {
       closeInfoModal()
@@ -209,47 +214,6 @@ const checkAccessToStatements = async () => {
 }
 
 /**
- * Подключение к SSE потоку для отслеживания изменений прав доступа
- * Home слушает только события, связанные с изменением доступа пользователя
- */
-const connectToSSE = () => {
-  if (eventSource.value) {
-    eventSource.value.close()
-  }
-  
-  eventSource.value = new EventSource('/api/app-events/sse')
-  
-  // Обработчик входящих сообщений
-  eventSource.value.addEventListener('message', (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      console.log('Home: получено SSE событие:', data.type)
-      
-      // Обработка события изменения прав доступа
-      if (data.type === 'access-changed') {
-        handleAccessChangedEvent(data)
-      }
-      
-      // Можно добавить обработку других событий, специфичных для Home
-      // Например, обновление данных пользователя
-      if (data.type === 'user-data-updated') {
-        handleUserDataUpdatedEvent(data)
-      }
-      
-    } catch (error) {
-      console.error('Home: ошибка обработки SSE события:', error)
-    }
-  })
-  
-  // Обработчик ошибок соединения
-  eventSource.value.addEventListener('error', (error) => {
-    console.error('Home: SSE ошибка соединения:', error)
-  })
-  
-  console.log('Home: SSE соединение установлено для отслеживания изменений прав доступа')
-}
-
-/**
  * Обработка события изменения прав доступа
  * Проверяет, относится ли событие к текущему пользователю
  */
@@ -286,6 +250,26 @@ const handleUserDataUpdatedEvent = (eventData) => {
     fetchUserAbr() // Перезагружаем аббревиатуру
   }
 }
+
+/**
+ * Обработчик SSE сообщений
+ */
+const handleSSEMessage = (data) => {
+  console.log('Home: получено SSE событие:', data.type)
+  
+  // Обработка события изменения прав доступа
+  if (data.type === 'access-changed') {
+    handleAccessChangedEvent(data)
+  }
+  
+  // Обработка события обновления данных пользователя
+  if (data.type === 'user-data-updated') {
+    handleUserDataUpdatedEvent(data)
+  }
+}
+
+// Подключаем SSE через композабл (автоподключение только если не в офлайн-режиме)
+useSSE(handleSSEMessage, { autoConnect: !checkFlightMode() })
 
 /**
  * Обработка результата сканирования QR-кода
@@ -394,6 +378,10 @@ const navigateToJournal = () => {
 const handleFlightModeChange = (event) => {
   isFlightMode.value = event.detail.isFlightMode
   console.log('Home: состояние оффлайн режима изменено:', isFlightMode.value)
+  
+  // Обновляем данные
+  fetchUserAbr()
+  checkAccessToStatements()
 }
 
 /**
@@ -407,8 +395,8 @@ onMounted(() => {
     // Проверка доступа к ведомостям
     checkAccessToStatements()
     
-    // Подключение к SSE для отслеживания изменений прав
-    connectToSSE()
+    // Инициализация состояния Flight Mode
+    isFlightMode.value = checkFlightMode()
     
     // Подписка на события изменения оффлайн режима
     window.addEventListener('flight-mode-changed', handleFlightModeChange)
@@ -438,12 +426,6 @@ onMounted(() => {
  * Очистка ресурсов при размонтировании компонента
  */
 onUnmounted(() => {
-  // Закрытие SSE соединения
-  if (eventSource.value) {
-    eventSource.value.close()
-    console.log('Home: SSE соединение закрыто')
-  }
-  
   // Очистка таймера модального окна
   if (infoModalTimeout) {
     clearTimeout(infoModalTimeout)

@@ -1,8 +1,8 @@
 import { ref } from 'vue'
 import { objectService } from '@/components/ObjectForm/services/ObjectService'
 import { qrService } from '@/components/QrScanner/services/qr.service'
-import { statementService } from '../services/statement.service'
-import { offlineCache } from '../../../services/OfflineCacheService'
+import { statementService } from '@/services/statement.service'
+import { offlineCache } from '@/services/OfflineCacheService'
 
 export function useObjectFormManager(onSuccessCallback) {
   const showObjectForm = ref(false)
