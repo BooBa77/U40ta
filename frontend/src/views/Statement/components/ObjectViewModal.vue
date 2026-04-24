@@ -80,7 +80,7 @@ import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import { objectService } from '@/services/object-service'
 import { statementService } from '@/services/statement.service'
-import { useCamera } from '@/composables/useCamera.js'
+import { useCamera } from '@/composables/useCamera'
 
 const props = defineProps({
   isOpen: {
@@ -106,7 +106,7 @@ const emit = defineEmits(['close'])
 // ============ СОСТОЯНИЯ ============
 const isLoading = ref(false)
 const error = ref('')
-const statementRows = ref([]) // Записи из ведомости (с have_object = false)
+const statementRows = ref([]) // Записи из ведомости (с haveObject = false)
 const objectRows = ref([])    // Существующие объекты
 const { hasCamera } = useCamera() // Состояние камеры
 
@@ -129,7 +129,7 @@ const modalTitle = computed(() => {
 const combinedItems = computed(() => {
   const items = []
   
-  // Добавляем записи из ведомости с флагом have_object = false
+  // Добавляем записи из ведомости с флагом haveObject = false
   statementRows.value.forEach(row => {
     items.push({
       ...row,
@@ -196,20 +196,20 @@ const loadData = async () => {
 
 /**
  * Определяет отображаемое местоположение по приоритету:
- * place_user -> place_cab -> place_pos -> place_ter -> "-"
+ * placeUser -> placeCab -> placePos -> placeTer -> "-"
  */
 const getLocationDisplay = (item) => {
-  if (item.place_user && item.place_user.length >= 3) {
-    return item.place_user
+  if (item.placeUser && item.placeUser.length >= 3) {
+    return item.placeUser
   }
-  if (item.place_cab && item.place_cab.length >= 3) {
-    return item.place_cab
+  if (item.placeCab && item.placeCab.length >= 3) {
+    return item.placCab
   }
-  if (item.place_pos && item.place_pos.length >= 3) {
-    return item.place_pos
+  if (item.placePos && item.placePos.length >= 3) {
+    return item.placePos
   }
-  if (item.place_ter && item.place_ter.length >= 3) {
-    return item.place_ter
+  if (item.placeTer && item.placeTer.length >= 3) {
+    return item.placeTer
   }
   return '-'
 }
@@ -269,13 +269,13 @@ const handleObjectFormSave = async (result) => {
   }, 300)
   
   // Если объект изменился - обновляем данные
-  if (result.object_changed) {
+  if (result.objectChanged) {
     console.log('[LocViewModal] Объект изменён, перезагружаем данные')
     
     // Если это была запись ведомости - обновляем статус в statement
     if (objectFormStatementId.value) {
       try {
-        console.log('[LocViewModal] Устанавливаем have_object=true для записи:', {
+        console.log('[LocViewModal] Устанавливаем haveObject=true для записи:', {
           attachmentId: props.attachmentId, 
           statementId: objectFormStatementId.value
         })

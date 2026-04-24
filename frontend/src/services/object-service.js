@@ -12,10 +12,6 @@ export class ObjectService {
     this.baseUrl = '/api'
   }
 
-  //============================================================================
-  // БАЗОВЫЕ МЕТОДЫ
-  //============================================================================
-
   /**
    * Проверяет, активен ли режим полёта
    * @returns {boolean} true если режим полёта включен
@@ -92,16 +88,27 @@ export class ObjectService {
    */
   async getFromCache(id) {
     try {
-      const object = await offlineCache.getObject(id)
+      const dbObject = await offlineCache.getObject(id)
       
-      if (!object) {
+      if (!dbObject) {
         throw new Error(`Объект с ID ${id} не найден в кэше`)
       }
       
-      return object
-    } catch (error) {
-      console.error('[ObjectService] Ошибка получения из кэша:', error)
-      throw new Error('Не удалось загрузить объект из кэша')
+      // Маппим snake_case → camelCase для JS
+      return {
+        ...dbObject,
+        invNumber: dbObject.inv_number,
+        buhName: dbObject.buh_name,
+        partyNumber: dbObject.party_number,
+        placeTer: dbObject.place_ter,
+        placePos: dbObject.place_pos,
+        placeCab: dbObject.place_cab,
+        placeUser: dbObject.place_user,
+        isWrittenOff: dbObject.is_written_off,
+        checkedAt: dbObject.checked_at,
+        createdAt: dbObject.created_at,
+        updatedAt: dbObject.updated_at
+      }
     }
   }
 
@@ -119,23 +126,41 @@ export class ObjectService {
   }
 
   //============================================================================
-  // УНИВЕРСАЛЬНОЕ СОХРАНЕНИЕ
+  // УНИВЕРСАЛЬНОЕ СОХРАНЕНИЕ (С РАСШИРЕННЫМ DTO)
   //============================================================================
 
   /**
-   * Управляющий метод: создаёт или обновляет объект в зависимости от наличия ID
-   * @param {Object} objectData - Данные объекта (может содержать id)
+   * Управляющий метод: создаёт или обновляет объект с фото и QR-кодами
+   * @param {Object} payload - Расширенный DTO
+   * @param {Object} payload.objectData - Данные объекта (может содержать id)
+   * @param {Array<string>} [payload.qrCodes] - Массив значений QR-кодов
+   * @param {Array<{max: string, min: string}>} [payload.photosToAdd] - Новые фото в base64
+   * @param {Array<number>} [payload.photosToDelete] - ID фото для удаления
    * @returns {Promise<Object>} Сохранённый объект
    */
-  async saveObject(objectData) {
+  async saveObject(payload) {
+    console.log('DEBUG saveObject: payload', payload)
+    const { objectData, qrCodes = [], photosToAdd = [], photosToDelete = [] } = payload
     const hasId = objectData.id && objectData.id !== null
+    console.log('DEBUG saveObject: hasId', hasId)
     
     if (hasId) {
-      const { id, inv_number, buh_name, sklad, zavod, party_number, ...updateData } = objectData // исключаем нередактируемые поля
-      return this.updateObject(id, updateData)
+      const { id, invNumber, buhName, sklad, zavod, partyNumber, ...updateData } = objectData
+      console.log('DEBUG saveObject: updateData', updateData)
+      return this.updateObject(id, {
+        ...updateData,
+        qrCodes,
+        photosToAdd,
+        photosToDelete
+      })
     } else {
-      const { id, ...updateData } = objectData // для новых объектов id сгенерируется
-      return this.createObject(updateData)
+      const { id, ...createData } = objectData
+      return this.createObject({
+        ...createData,
+        qrCodes,
+        photosToAdd,
+        photosToDelete
+      })
     }
   }
   
@@ -144,8 +169,11 @@ export class ObjectService {
   //============================================================================
 
   /**
-   * Менеджер: создаёт новый объект
+   * Менеджер: создаёт новый объект с фото и QR-кодами
    * @param {Object} objectData - Данные объекта
+   * @param {Array<string>} [objectData.qrCodes] - QR-коды
+   * @param {Array<{max: string, min: string}>} [objectData.photosToAdd] - Новые фото
+   * @param {Array<number>} [objectData.photosToDelete] - Фото для удаления (для новых объектов всегда пусто)
    * @returns {Promise<Object>} Созданный объект с ID
    */
   async createObject(objectData) {
@@ -162,37 +190,65 @@ export class ObjectService {
    * Исполнитель для офлайн: создаёт объект в IndexedDB
    */
   async createInCache(objectData) {
+    const { qrCodes = [], photosToAdd = [], ...restData } = objectData
+    
     try {
       // Генерируем временный отрицательный ID
       const tempId = -(Date.now() * 1000 + Math.floor(Math.random() * 1000))
       
-      // Маппинг полей: из API формата в формат кэша
       const newObject = {
         id: tempId,
-        inv_number: objectData.inv_number || '',
-        buh_name: objectData.buh_name || '',
-        sklad: objectData.sklad || '',
-        zavod: objectData.zavod || '',
-        party_number: objectData.party_number || null,
-        sn: objectData.sn || '',
-        // Местоположение теперь в корне объекта
-        ter: objectData.ter || objectData.place_ter || null,
-        pos: objectData.pos || objectData.place_pos || null,
-        cab: objectData.cab || objectData.place_cab || null,
-        user: objectData.user || objectData.place_user || null,
-        // Для обратной совместимости оставляем place как строку
-        place: objectData.place || null,
-        // Метаданные
+        inv_number: restData.invNumber || '',
+        buh_name: restData.buhName || '',
+        sklad: restData.sklad || '',
+        zavod: restData.zavod || '',
+        party_number: restData.partyNumber || null,
+        sn: restData.sn || '',
+        place_ter: restData.ter || restData.placeTer || null,
+        place_pos: restData.pos || restData.placePos || null,
+        place_cab: restData.cab || restData.placeCab || null,
+        place_user: restData.user || restData.placeUser || null,
+        place: restData.place || null,
         is_written_off: false,
-        checked_at: objectData.checked_at || null,
+        checked_at: restData.checkedAt || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
       
-      const id = await offlineCache.addObject(newObject)
-      console.log(`[ObjectService] Объект создан в кэше с ID ${id}`)
+      // Транзакционное сохранение
+      let savedId = tempId
       
-      return { ...newObject, id }
+      await offlineCache.db.transaction('rw', 
+        [offlineCache.db.objects, offlineCache.db.qr_codes, offlineCache.db.photos], 
+        async () => {
+          // 1. Сохраняем объект
+          savedId = await offlineCache.addObject(newObject)
+          
+          // 2. Сохраняем QR-коды
+          for (const qrValue of qrCodes) {
+            await offlineCache.saveQrCode({
+              qrValue: qrValue,
+              objectId: savedId
+            })
+          }
+          
+          // 3. Сохраняем фото (photosToAdd содержат base64, нужно преобразовать в Blob и ArrayBuffer)
+          for (const photoData of photosToAdd) {
+            const maxBlob = await this.base64ToBlob(photoData.max)
+            const minBlob = await this.base64ToBlob(photoData.min)
+            
+            await offlineCache.savePhoto({
+              objectId: savedId,
+              photoMaxData: await this.blobToArrayBuffer(maxBlob),
+              photoMinData: await this.blobToArrayBuffer(minBlob)
+            })
+          }
+        }
+      )
+      
+      console.log(`[ObjectService] Объект создан в кэше с ID ${savedId}`)
+      return { ...newObject, id: savedId }
+      
     } catch (error) {
       console.error('[ObjectService] Ошибка создания в кэше:', error)
       throw new Error('Не удалось создать объект в кэше')
@@ -203,7 +259,8 @@ export class ObjectService {
    * Исполнитель для онлайн: создаёт объект через API
    */
   async createInApi(objectData) {
-  console.log('[ObjectService] createInApi: полный объект для отправки:', JSON.stringify(objectData, null, 2))
+    console.log('[ObjectService] createInApi: полный объект для отправки:', JSON.stringify(objectData, null, 2))
+    
     try {
       const { id, ...dataToSend } = objectData
       
@@ -227,7 +284,7 @@ export class ObjectService {
   /**
    * Менеджер: обновляет существующий объект
    * @param {number} id - ID объекта
-   * @param {Object} updateData - Данные для обновления
+   * @param {Object} updateData - Данные для обновления (могут содержать qrCodes, photosToAdd, photosToDelete)
    * @returns {Promise<Object>} Обновлённый объект
    */
   async updateObject(id, updateData) {
@@ -241,38 +298,73 @@ export class ObjectService {
   }
 
   /**
-   * Исполнитель для офлайн: обновляет объект в IndexedDB
+   * Исполнитель для офлайн: обновляет объект в IndexedDB (PATCH-семантика)
    */
   async updateInCache(id, updateData) {
+    const { qrCodes = [], photosToAdd = [], photosToDelete = [], ...objectUpdates } = updateData
+    
     try {
-      // Получаем существующий объект
-      const existingObject = await offlineCache.getObject(id)
+      let updatedObject = null
       
-      if (!existingObject) {
-        throw new Error(`Объект с ID ${id} не найден в кэше`)
-      }
+      await offlineCache.db.transaction('rw', 
+        [offlineCache.db.objects, offlineCache.db.qr_codes, offlineCache.db.photos], 
+        async () => {
+          // 1. Получаем существующий объект
+          const existingObject = await offlineCache.getObject(id)
+          
+          if (!existingObject) {
+            throw new Error(`Объект с ID ${id} не найден в кэше`)
+          }
+          
+          // 2. Обновляем только переданные поля (PATCH-семантика)
+          const patchedObject = {
+            ...existingObject,
+            ...objectUpdates,
+            place_ter: objectUpdates.placeTer ?? existingObject.place_ter,
+            place_pos: objectUpdates.placePos ?? existingObject.place_pos,
+            place_cab: objectUpdates.placeCab ?? existingObject.place_cab,
+            place_user: objectUpdates.placeUser ?? existingObject.place_user,
+            updated_at: new Date().toISOString()
+          }
+          
+          // Удаляем временные поля, если они есть
+          delete patchedObject.placeTer
+          delete patchedObject.placePos
+          delete patchedObject.placeCab
+          delete patchedObject.placeUser
+          
+          updatedObject = await offlineCache.updateObject(id, patchedObject)
+          
+          // 3. Обрабатываем QR-коды (каждый qrCode сохраняем/обновляем)
+          for (const qrValue of qrCodes) {
+            await offlineCache.saveQrCode({
+              qrValue: qrValue,
+              objectId: id
+            })
+          }
+          
+          // 4. Удаляем фото
+          for (const photoId of photosToDelete) {
+            await offlineCache.deletePhoto(photoId)
+          }
+          
+          // 5. Добавляем новые фото
+          for (const photoData of photosToAdd) {
+            const maxBlob = await this.base64ToBlob(photoData.max)
+            const minBlob = await this.base64ToBlob(photoData.min)
+            
+            await offlineCache.savePhoto({
+              objectId: id,
+              photoMaxData: await this.blobToArrayBuffer(maxBlob),
+              photoMinData: await this.blobToArrayBuffer(minBlob)
+            })
+          }
+        }
+      )
       
-      // Подготавливаем данные для обновления с маппингом полей местоположения
-      const preparedData = {
-        ...updateData,
-        // Маппим поля местоположения, если они пришли в старом формате
-        ter: updateData.ter || updateData.place_ter,
-        pos: updateData.pos || updateData.place_pos,
-        cab: updateData.cab || updateData.place_cab,
-        user: updateData.user || updateData.place_user,
-        updated_at: new Date().toISOString()
-      }
-      
-      // Удаляем старые поля, если они есть
-      delete preparedData.place_ter
-      delete preparedData.place_pos
-      delete preparedData.place_cab
-      delete preparedData.place_user
-      
-      const updatedObject = await offlineCache.updateObject(id, preparedData)
       console.log(`[ObjectService] Объект ${id} обновлён в кэше`)
-      
       return updatedObject
+      
     } catch (error) {
       console.error('[ObjectService] Ошибка обновления в кэше:', error)
       throw new Error('Не удалось обновить объект в кэше')
@@ -283,12 +375,14 @@ export class ObjectService {
    * Исполнитель для онлайн: обновляет объект через API
    */
   async updateInApi(id, updateData) {
+    console.log('DEBUG updateInApi: отправляем на сервер', JSON.stringify(updateData, null, 2))
     try {
       const data = await this.apiRequest(`/objects/${id}`, {
         method: 'PATCH',
         body: updateData
       })
       
+      console.log('DEBUG updateInApi response data:', data)
       console.log(`[ObjectService] Объект ${id} обновлён через API`)
       return data
     } catch (error) {
@@ -298,7 +392,40 @@ export class ObjectService {
   }
 
   //============================================================================
-  // ПОИСК ОБЪЕКТОВ ПО ИНВЕНТАРНОМУ НОМЕРУ
+  // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С BLOB/BASE64
+  //============================================================================
+
+  /**
+   * Конвертирует base64 строку в Blob
+   * @param {string} base64 - base64 строка (без префикса data:image/jpeg;base64,)
+   * @returns {Promise<Blob>}
+   */
+  async base64ToBlob(base64) {
+    const byteCharacters = atob(base64)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    return new Blob([byteArray], { type: 'image/jpeg' })
+  }
+
+  /**
+   * Конвертирует Blob в ArrayBuffer
+   * @param {Blob} blob
+   * @returns {Promise<ArrayBuffer>}
+   */
+  async blobToArrayBuffer(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsArrayBuffer(blob)
+    })
+  }
+
+  //============================================================================
+  // ОСТАЛЬНЫЕ МЕТОДЫ (БЕЗ ИЗМЕНЕНИЙ)
   //============================================================================
 
   /**
@@ -329,23 +456,29 @@ export class ObjectService {
     return this.getByInvFromApi(params)
   }
 
-  /**
-   * Исполнитель для офлайн: ищет объекты в IndexedDB по инвентарному номеру
-   */
   async getByInvFromCache(inv, zavod, sklad) {
     try {
-      const objects = await offlineCache.findObjectsByInv(inv, zavod, sklad)
-      console.log(`[ObjectService] Из кэша найдено объектов: ${objects.length}`)
-      return objects
-    } catch (error) {
-      console.error('[ObjectService] Ошибка поиска в кэше:', error)
-      return []
+      const dbObjects = await offlineCache.findObjectsByInv(inv, zavod, sklad)
+      console.log(`[ObjectService] Из кэша найдено объектов: ${dbObjects.length}`)
+      
+      // Маппим в camelCase для JS
+      return dbObjects.map(obj => ({
+        ...obj,
+        invNumber: obj.inv_number,
+        buhName: obj.buh_name,
+        partyNumber: obj.party_number,
+        placeTer: obj.place_ter,
+        placePos: obj.place_pos,
+        placeCab: obj.place_cab,
+        placeUser: obj.place_user,
+        isWrittenOff: obj.is_written_off,
+        checkedAt: obj.checked_at,
+        createdAt: obj.created_at,
+        updatedAt: obj.updated_at
+      }))
     }
-  }
+  }  
 
-  /**
-   * Исполнитель для онлайн: ищет объекты через API по инвентарному номеру
-   */
   async getByInvFromApi(params) {
     try {
       const data = await this.apiRequest(`/objects/by-inv?${params.toString()}`)
@@ -361,14 +494,6 @@ export class ObjectService {
     }
   }
 
-  //============================================================================
-  // ПОЛУЧЕНИЕ МЕСТОПОЛОЖЕНИЙ
-  //============================================================================
-
-  /**
-   * Менеджер: получает все уникальные комбинации местоположений
-   * @returns {Promise<Array<{ter: string, pos: string|null, cab: string|null, user: string|null}>>}
-   */
   async getPlaceCombinations() {
     if (this.isFlightMode()) {
       console.log('[ObjectService] Офлайн-режим: получение местоположений из кэша')
@@ -379,9 +504,6 @@ export class ObjectService {
     return this.getPlacesFromApi()
   }
 
-  /**
-   * Исполнитель для офлайн: получает уникальные комбинации местоположений из IndexedDB
-   */
   async getPlacesFromCache() {
     try {
       const objects = await offlineCache.getAllObjects()
@@ -389,7 +511,6 @@ export class ObjectService {
       const combinationsMap = new Map()
       
       objects.forEach(obj => {
-        // Пропускаем объекты без территории
         if (!obj.ter || obj.ter.trim() === '') return
         
         const key = `${obj.ter}|${obj.pos || ''}|${obj.cab || ''}|${obj.user || ''}`
@@ -414,9 +535,6 @@ export class ObjectService {
     }
   }
 
-  /**
-   * Исполнитель для онлайн: получает комбинации местоположений через API
-   */
   async getPlacesFromApi() {
     try {
       const data = await this.apiRequest('/objects/place-combinations')
@@ -432,20 +550,11 @@ export class ObjectService {
     }
   }
 
-  //============================================================================
-  // ОБНОВЛЕНИЕ ДАТЫ ПРОВЕРКИ
-  //============================================================================
-
-  /**
-   * Менеджер: обновляет дату проверки объекта
-   * @param {number} id - ID объекта
-   * @returns {Promise<Object>} Обновлённый объект
-   */
   async updateCheckedAt(id) {
     const objectId = Number(id)
     const checkedAt = new Date().toISOString()
     
-    console.log(`[ObjectService] Обновление checked_at для объекта ${objectId}`)
+    console.log(`[ObjectService] Обновление checkedAt для объекта ${objectId}`)
     
     if (this.isFlightMode()) {
       return this.updateCheckedAtInCache(objectId, checkedAt)
@@ -454,9 +563,6 @@ export class ObjectService {
     return this.updateCheckedAtInApi(objectId, checkedAt)
   }
 
-  /**
-   * Исполнитель для офлайн: обновляет checked_at в IndexedDB
-   */
   async updateCheckedAtInCache(id, checkedAt) {
     try {
       const existingObject = await offlineCache.getObject(id)
@@ -479,25 +585,21 @@ export class ObjectService {
     }
   }
 
-  /**
-   * Исполнитель для онлайн: обновляет checked_at через API
-   */
   async updateCheckedAtInApi(id, checkedAt) {
     try {
       const data = await this.apiRequest(`/objects/${id}`, {
         method: 'PATCH',
-        body: { checked_at: checkedAt }
+        body: { checkedAt: checkedAt }
       })
       
-      console.log(`[ObjectService] checked_at объекта ${id} обновлён через API`)
+      console.log(`[ObjectService] checkedAt объекта ${id} обновлён через API`)
       return data
       
     } catch (error) {
-      console.error('[ObjectService] Ошибка обновления checked_at через API:', error)
+      console.error('[ObjectService] Ошибка обновления checkedAt через API:', error)
       throw error
     }
-  }  
-
+  }
 }
 
 // Экспортируем синглтон

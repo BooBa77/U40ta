@@ -15,7 +15,7 @@ class OfflineCacheService {
       // QR-коды (есть массовая загрузка и отдельные операции add/update)
       qr_codes: 'id, qrValue, objectId',
       // Фотографии (кэширования из БД нет, только накопление во время оффлайн-сеанса)
-      photos: '++id, objectId',
+      photos: '++id, objectId' ,
       // Логи (кэширования из БД нет, только накопление во время оффлайн-сеанса)
       logs: '++id, source, time, content'
     })
@@ -468,7 +468,6 @@ class OfflineCacheService {
   async savePhoto(photoData) {
     // Преобразуем Blob в ArrayBuffer если необходимо
     const toArrayBuffer = async (data) => {
-      if (data instanceof Buffer) return data
       if (data instanceof Blob) return await data.arrayBuffer()
       return data
     }
@@ -476,7 +475,8 @@ class OfflineCacheService {
     const photoForCache = {
       objectId: photoData.objectId,
       photoMaxData: await toArrayBuffer(photoData.photoMaxData),
-      photoMinData: await toArrayBuffer(photoData.photoMinData)
+      photoMinData: await toArrayBuffer(photoData.photoMinData),
+      createdAt: new Date().toISOString()
     }
     
     await this.db.photos.add(photoForCache)

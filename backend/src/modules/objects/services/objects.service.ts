@@ -1,15 +1,20 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager  } from 'typeorm';
 import { InventoryObject } from '../entities/object.entity';
 import { CreateObjectDto } from '../dto/create-object.dto';
 import { UpdateObjectDto } from '../dto/update-object.dto';
+import { PhotosService } from '../../photos/photos.service';
+import { QrCodesService } from '../../qr-codes/qr-codes.service';
 
 @Injectable()
 export class ObjectsService {
   constructor(
     @InjectRepository(InventoryObject)
     private readonly objectRepository: Repository<InventoryObject>,
+    private readonly entityManager: EntityManager,
+    private readonly photosService: PhotosService,
+    private readonly qrCodesService: QrCodesService,
   ) {}
 
   async findOne(id: number): Promise<InventoryObject> {
@@ -20,9 +25,7 @@ export class ObjectsService {
     return object;
   }
 
-  /**
-   * Находит объекты по инвентарному номеру в определённом складе
-   */
+  // Поиск объектов по инвентарному номеру в определённом складе
   async findByInv(
     invNumber: string, 
     zavod?: number,
@@ -48,25 +51,6 @@ export class ObjectsService {
     
     console.log(`[ObjectsService] Найдено объектов: ${objects.length}`);
     return objects;
-  }
-
-  // Создание объекта через репозиторий
-  async create(createObjectDto: CreateObjectDto): Promise<InventoryObject> {
-    const object = this.objectRepository.create({
-      ...createObjectDto,
-      isWrittenOff: false,
-      checkedAt: new Date(),
-    });
-
-    return await this.objectRepository.save(object);
-  }
-  
-  // Редактирование объекта
-  async update(id: number, updateObjectDto: UpdateObjectDto): Promise<InventoryObject> {
-    const object = await this.findOne(id);
-    Object.assign(object, updateObjectDto);
-
-    return this.objectRepository.save(object);
   }
 
   /**
@@ -96,4 +80,87 @@ export class ObjectsService {
     console.log(`[ObjectsService] Загружено комбинаций: ${result.length}`);
     return result;
   }  
+  
+  /**
+   * Создание объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции
+   */
+  async create(dto: CreateObjectDto, userId: number): Promise<InventoryObject> {
+    return this.entityManager.transaction(async (manager) => {
+      // 1. Создаём объект
+
+      const object = manager.create(InventoryObject, {
+        ...dto,  // ← ВСЕ ПОЛЯ СРАЗУ!
+        isWrittenOff: false,
+        checkedAt: new Date(),
+      });
+
+      const savedObject = await manager.save(object);
+
+      // 2. Привязываем QR-коды
+      if (dto.qrCodes?.length) {
+        for (const qrValue of dto.qrCodes) {
+          await this.qrCodesService.save(qrValue, savedObject.id, manager);
+        }
+      }
+
+      // 3. Сохраняем фото
+      if (dto.photosToAdd?.length) {
+        for (const photoDto of dto.photosToAdd) {
+          const maxBuffer = Buffer.from(photoDto.max, 'base64');
+          const minBuffer = Buffer.from(photoDto.min, 'base64');
+          await this.photosService.createFromBuffers(savedObject.id, maxBuffer, minBuffer, userId, manager);
+        }
+      }
+
+      return savedObject;
+    });
+  }
+
+  /**
+   * Обновление объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции
+   */
+  async update(id: number, dto: UpdateObjectDto, userId: number): Promise<InventoryObject> {
+    return this.entityManager.transaction(async (manager) => {
+      // 1. Находим объект
+      const object = await manager.findOne(InventoryObject, { where: { id } });
+      if (!object) {
+        throw new NotFoundException(`Object with ID ${id} not found`);
+      }
+
+      // 2. Обновляем поля, переданные через DTO
+      Object.assign(object, dto);
+
+      // checkedAt нужно преобразовать в Date
+      if (dto.checkedAt) {
+        object.checkedAt = new Date(dto.checkedAt);
+      }
+
+      const savedObject = await manager.save(object);
+
+      // 3. Обрабатываем QR-коды (полная замена набора)
+      if (dto.qrCodes?.length) {
+        for (const qrValue of dto.qrCodes) {
+          await this.qrCodesService.save(qrValue, savedObject.id, manager);
+        }
+      }      
+
+      // 4. Удаляем помеченные фото
+      if (dto.photosToDelete?.length) {
+        for (const photoId of dto.photosToDelete) {
+          await this.photosService.remove(photoId, manager);
+        }
+      }
+
+      // 5. Добавляем новые фото
+      if (dto.photosToAdd?.length) {
+        for (const photoDto of dto.photosToAdd) {
+          const maxBuffer = Buffer.from(photoDto.max, 'base64');
+          const minBuffer = Buffer.from(photoDto.min, 'base64');
+          await this.photosService.createFromBuffers(savedObject.id, maxBuffer, minBuffer, userId, manager);
+        }
+      }
+
+      return savedObject;
+    });
+  }
 }

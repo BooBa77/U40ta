@@ -1,8 +1,16 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query, Req, UnauthorizedException } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { ObjectsService } from './services/objects.service';
 import { CreateObjectDto } from './dto/create-object.dto';
 import { UpdateObjectDto } from './dto/update-object.dto';
+
+// Интерфейс для типизации пользователя в запросе
+interface RequestWithUser extends ExpressRequest {
+  user?: {
+    sub: number;
+  };
+}
 
 @Controller('objects')
 @UseGuards(JwtAuthGuard)
@@ -85,31 +93,28 @@ export class ObjectsController {
     return this.objectsService.findOne(+id);
   }
 
-  @Patch(':id')
-  async update(
-    @Param('id') id: string, 
-    @Body() updateObjectDto: UpdateObjectDto
-  ) {
-    try {
-      return this.objectsService.update(+id, updateObjectDto);
-    } catch (error) {
-      return {
-          success: false,
-          error: error.message
-      };
-    }
-  }
-
   /**
-   * Создание нового объекта учёта
+   * Создание нового объекта со связанными данными
    * POST /api/objects
+   * 
+   * Принимает полный пакет данных из формы редактирования:
+   * - Поля самого объекта
+   * - qrCodes: массив значений QR для привязки
+   * - photosToAdd: массив фото в base64 (max и min)
+   * 
+   * Все операции выполняются в одной транзакции.
    */
   @Post()
   async create(
-    @Body() createObjectDto: CreateObjectDto
-  ) {
+    @Body() createObjectDto: CreateObjectDto,
+    @Req() request: RequestWithUser, // получаем request с пользователем
+  ){
     try {
-      const newObject = await this.objectsService.create(createObjectDto);
+      const userId = request.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Пользователь не авторизован');
+      }      
+      const newObject = await this.objectsService.create(createObjectDto, userId);
       return {
         success: true,
         object: newObject,
@@ -123,4 +128,41 @@ export class ObjectsController {
     }
   }
 
+  /**
+   * Обновление существующего объекта со связанными данными
+   * PATCH /api/objects/:id
+   * 
+   * Принимает частичный пакет данных — только те поля, которые изменились:
+   * - Поля объекта (sn, местоположение)
+   * - qrCodes: новый полный набор QR (сервер сам определит что добавить/удалить)
+   * - photosToDelete: массив ID фото на удаление
+   * - photosToAdd: массив новых фото в base64
+   * - checked_at: дата проверки
+   * 
+   * Все операции выполняются в одной транзакции.
+   */  
+  @Patch(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() updateObjectDto: UpdateObjectDto,
+    @Req() request: RequestWithUser, // получаем request с пользователем    
+  ) {
+    try {
+      const userId = request.user?.sub;
+      if (!userId) {
+        throw new UnauthorizedException('Пользователь не авторизован');
+      }            
+      const updatedObject = await this.objectsService.update(+id, updateObjectDto, userId);
+      return {
+        success: true,
+        object: updatedObject,
+        message: 'Объект успешно обновлён'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }

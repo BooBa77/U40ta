@@ -6,15 +6,14 @@
 import { ref, onUnmounted } from 'vue'
 import { statementService } from '@/services/statement.service'
 import { useRouter } from 'vue-router'
+import { useSSE } from '@/composables/useSSE'
 
 export function useStatementData(attachmentId) {
   // Состояния
   const loading = ref(true)
   const error = ref(null)
-  const statements = ref([])
+  const statements = ref([]) // УЖЕ отсортированные данные
   const router = useRouter()
-  const eventSource = ref(null)
-  let reconnectTimeout = null
 
   /**
    * Проверяет, активен ли режим полёта
@@ -25,6 +24,8 @@ export function useStatementData(attachmentId) {
 
   /**
    * Определяет группу строки для сортировки и окраски
+   * @param {Object} row - строка ведомости
+   * @returns {number} номер группы (1-4)
    */
   const getRowGroup = (row) => {
     const haveObject = row.have_object ?? row.haveObject
@@ -39,9 +40,11 @@ export function useStatementData(attachmentId) {
 
   /**
    * Сортирует statements по группам и наименованию
+   * @param {Array} statements - массив строк ведомости
+   * @returns {Array} отсортированный массив
    */
-  const sortStatements = (statementsArray) => {
-    return [...statementsArray].sort((a, b) => {
+  const sortStatements = (statements) => {
+    return [...statements].sort((a, b) => {
       const groupA = getRowGroup(a)
       const groupB = getRowGroup(b)
       
@@ -95,118 +98,51 @@ export function useStatementData(attachmentId) {
   }
 
   /**
-   * Закрывает SSE соединение
+   * Обработчик SSE сообщений
    */
-  const disconnectSSE = () => {
-    if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout)
-      reconnectTimeout = null
-    }
-    
-    if (eventSource.value) {
-      eventSource.value.close()
-      eventSource.value = null
-      console.log('[useStatementData] SSE соединение закрыто')
-    }
-  }
-
-  /**
-   * Подключается к SSE (только в онлайн-режиме)
-   */
-  const connectToSSE = () => {
-    // Закрываем существующее соединение
-    disconnectSSE()
-
-    // Не подключаемся в офлайн-режиме
-    if (isFlightMode()) {
-      console.log('[useStatementData] Офлайн-режим, SSE не подключается')
-      return
-    }
-
-    console.log('[useStatementData] Подключение к SSE для ведомости', attachmentId)
-    
-    const sseUrl = '/api/app-events/sse'
-    eventSource.value = new EventSource(sseUrl)
-    
-    eventSource.value.addEventListener('open', () => {
-      console.log('[useStatementData] SSE соединение установлено')
-    })
-    
-    eventSource.value.addEventListener('message', (event) => {
-      try {
-        const data = JSON.parse(event.data)
+  const handleSSEMessage = (data) => {
+    switch (data.type) {
+      case 'statement-updated':
+        // Проверяем ТОЛЬКО для обновлений
+        if (data.data?.attachmentId !== Number(attachmentId)) return
+        console.log(`SSE: Ведомость ${attachmentId} обновлена, перезагружаем`)
+        reload()
+        break
         
-        switch (data.type) {
-          case 'statement-updated':
-            if (data.data?.attachmentId !== Number(attachmentId)) return
-            console.log(`[useStatementData] SSE: ведомость ${attachmentId} обновлена, перезагружаем`)
-            reload()
-            break
-            
-          case 'statement-active-changed':
-            if (data.data?.attachmentId === Number(attachmentId)) return
-            console.log(`[useStatementData] SSE: ведомость стала активной у другого пользователя`)
-            router.push('/')
-            break
-            
-          case 'statement-deleted':
-            if (data.data?.attachmentId !== Number(attachmentId)) return
-            console.log(`[useStatementData] SSE: ведомость ${attachmentId} удалена`)
-            router.push('/')
-            break
-        }
-      } catch (parseError) {
-        console.error('[useStatementData] Ошибка парсинга SSE события:', parseError)
-      }
-    })
-    
-    eventSource.value.addEventListener('error', () => {
-      console.log('[useStatementData] SSE соединение разорвано')
-      disconnectSSE()
-      
-      // Пытаемся переподключиться через 10 секунд, если не в офлайн-режиме
-      if (!isFlightMode()) {
-        reconnectTimeout = setTimeout(() => {
-          connectToSSE()
-        }, 10000)
-      }
-    })
-  }
-
-  /**
-   * Обработчик изменения режима полёта
-   */
-  const handleFlightModeChange = (event) => {
-    if (event.detail.isFlightMode) {
-      // При переходе в офлайн - закрываем SSE
-      disconnectSSE()
-    } else {
-      // При переходе в онлайн - подключаем SSE
-      connectToSSE()
+      case 'statement-active-changed':
+        // Проверяем ТОЛЬКО для смены активности
+        if (data.data?.attachmentId === Number(attachmentId)) return
+        console.log(`SSE: Ведомость стала активной у другого пользователя`)
+        router.push('/')
+        break
+        
+      case 'statement-deleted':
+        // Проверяем ТОЛЬКО для удаления
+        if (data.data?.attachmentId !== Number(attachmentId)) return
+        console.log(`SSE: Ведомость ${attachmentId} удалена`)
+        router.push('/')
+        break
     }
   }
 
-  // Подписываемся на события изменения режима полёта
-  window.addEventListener('flight-mode-changed', handleFlightModeChange)
+  // Подключаем SSE через композабл (автоподключение только если не в офлайн-режиме)
+  const { disconnect: disconnectSSE } = useSSE(handleSSEMessage, { autoConnect: !isFlightMode() })
 
   // Автоматическая загрузка при инициализации
   loadData()
 
-  // Подключаем SSE после загрузки данных
-  setTimeout(() => {
-    connectToSSE()
-  }, 100)
-
   // Закрываем соединение при размонтировании компонента
   onUnmounted(() => {
     disconnectSSE()
-    window.removeEventListener('flight-mode-changed', handleFlightModeChange)
   })
 
   return {
+    // Состояния
     loading,
     error,
-    statements,
+    statements, // отсортированные данные
+    
+    // Методы
     reload,
     getRowGroup
   }

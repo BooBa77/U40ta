@@ -150,7 +150,7 @@ const tableStatements = computed(() => filteredStatements.value)
 const statementTitle = computed(() => {
   if (!statements.value?.length) return ''
   const firstRow = statements.value[0]
-  return `${firstRow.doc_type} ${firstRow.sklad}`
+  return `${firstRow.docType} ${firstRow.sklad}`
 })
 
 // === ОБРАБОТЧИК КЛИКА ПО СТРОКЕ ТАБЛИЦЫ ===
@@ -211,11 +211,11 @@ const handleObjectFormSave = async (result) => {
   console.log('Модалка закрыта', objectFormStatementId.value)
 
   // Если объект изменился
-  if (result.was_created) {
-    // Обновляем have_object для записи ведомости
+  if (result.wasCreated) {
+    // Обновляем haveObject для записи ведомости
     if (objectFormStatementId.value) {
       try {
-        console.log('[STATEMENT-PAGE] Устанавливаем have_object=true для записи:', {
+        console.log('[STATEMENT-PAGE] Устанавливаем haveObject=true для записи:', {
           statementId: objectFormStatementId.value
         })
         

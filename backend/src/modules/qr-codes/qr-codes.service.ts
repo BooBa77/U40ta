@@ -1,74 +1,76 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+// qr-codes.service.ts
+
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { QrCode } from './entities/qr-code.entity';
+import { QrScanResult } from './interfaces/qr-scan-result.interface';
 import { CreateQrCodeDto } from './dto/create-qr-code.dto';
 import { UpdateQrOwnerDto } from './dto/update-qr-owner.dto';
-import { QrScanResult } from './interfaces/qr-scan-result.interface';
 
 @Injectable()
 export class QrCodesService {
   constructor(
     @InjectRepository(QrCode)
-    private qrCodesRepository: Repository<QrCode>,
+    private readonly qrCodesRepository: Repository<QrCode>,
   ) {}
 
-  // Поиск объекта по QR
+  /**
+   * Ищет объект по значению QR-кода (для сканирования)
+   */
   async findObjectByQr(qrValue: string): Promise<QrScanResult> {
     const qrCode = await this.qrCodesRepository.findOne({
-      where: { qrValue: qrValue },
+      where: { qrValue },
     });
 
     if (!qrCode) {
       return {
         success: false,
-        qrValue: qrValue,
+        qrValue,
         error: 'QR-код не найден',
       };
     }
 
     return {
       success: true,
-      qrValue: qrValue,
+      qrValue,
       objectId: qrCode.objectId ?? undefined,
     };
   }
 
-  // Создать QR
-  async create(createQrCodeDto: CreateQrCodeDto, userId: number): Promise<QrCode> {
-    const existing = await this.qrCodesRepository.findOne({
-      where: { qrValue: createQrCodeDto.qrValue },
-    });
+  /**
+   * Универсальное сохранение: создаёт новый QR или обновляет привязку существующего
+   */
+  async save(
+    qrValue: string,
+    objectId: number,
+    manager?: EntityManager,
+  ): Promise<QrCode> {
+    const repo = manager ? manager.getRepository(QrCode) : this.qrCodesRepository;
+
+    const existing = await repo.findOne({ where: { qrValue } });
 
     if (existing) {
-      throw new ConflictException('QR-код уже существует');
+      existing.objectId = objectId;
+      return repo.save(existing);
+    } else {
+      const qrCode = repo.create({ qrValue, objectId });
+      return repo.save(qrCode);
     }
-
-    const qrCode = this.qrCodesRepository.create(createQrCodeDto);
-    const savedQrCode = await this.qrCodesRepository.save(qrCode);
-
-    return savedQrCode;
   }
 
-  // Переназначение QR
-  async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto, userId: number): Promise<{ success: boolean }> {
-    const { qrValue, newObjectId } = updateQrOwnerDto;
-    
-    const qrCode = await this.qrCodesRepository.findOne({
-      where: { qrValue }
-    });
+  /**
+   * Создание нового QR-кода (для обратной совместимости)
+   */
+  async create(createQrCodeDto: CreateQrCodeDto): Promise<QrCode> {
+    return this.save(createQrCodeDto.qrValue, createQrCodeDto.objectId);
+  }
 
-    if (!qrCode) {
-      throw new NotFoundException(`QR-код ${qrValue} не найден`);
-    }
-
-    const oldObjectId = qrCode.objectId;
-    
-    qrCode.objectId = newObjectId;
-    await this.qrCodesRepository.save(qrCode);
-    
-    return {
-      success: true
-    };
-  }  
+  /**
+   * Обновление владельца QR-кода (для обратной совместимости)
+   */
+  async updateOwner(updateQrOwnerDto: UpdateQrOwnerDto): Promise<{ success: boolean }> {
+    await this.save(updateQrOwnerDto.qrValue, updateQrOwnerDto.newObjectId);
+    return { success: true };
+  }
 }

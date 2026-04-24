@@ -97,7 +97,7 @@ import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 import { qrService } from '@/services/qr-service.js'
 import { objectService } from '@/services/object-service.js'
-import { useCamera } from '@/composables/useCamera.js'
+import { useCamera } from '@/composables/useCamera'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useSSE } from '@/composables/useSSE'
 

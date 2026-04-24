@@ -93,7 +93,7 @@ import {
   getCoreRowModel 
 } from '@tanstack/vue-table'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
-import { useCamera } from '@/composables/useCamera.js'
+import { useCamera } from '@/composables/useCamera'
 
 const props = defineProps({
   statements: {

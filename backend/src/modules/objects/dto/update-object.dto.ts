@@ -1,31 +1,57 @@
-import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsInt, IsString, IsOptional, MaxLength, IsArray, ValidateNested, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class PhotoToAddDto {
+  @IsString()
+  max!: string;
+
+  @IsString()
+  min!: string;
+}
 
 export class UpdateObjectDto {
-  @IsOptional()
   @IsString()
+  @IsOptional()
+  @MaxLength(100)
   sn?: string;
 
-  @IsOptional()
   @IsString()
-  commentary?: string;
-
   @IsOptional()
+  @MaxLength(100)
+  placeTer?: string;
+
   @IsString()
-  place_ter?: string;
-
   @IsOptional()
+  @MaxLength(100)
+  placePos?: string;
+
   @IsString()
-  place_pos?: string;
-
   @IsOptional()
+  @MaxLength(100)
+  placeCab?: string;
+
   @IsString()
-  place_cab?: string;
-
   @IsOptional()
-  @IsString()
-  place_user?: string;
+  @MaxLength(100)
+  placeUser?: string;
 
+  @IsDateString()
   @IsOptional()
-  @IsDateString() // формат YYYY-MM-DD
-  checked_at?: string;
+  checkedAt?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  qrCodes?: string[];
+
+  @IsArray()
+  @IsInt({ each: true })
+  @IsOptional()
+  photosToDelete?: number[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PhotoToAddDto)
+  @IsOptional()
+  photosToAdd?: PhotoToAddDto[];
 }

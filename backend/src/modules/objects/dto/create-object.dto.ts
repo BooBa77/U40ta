@@ -1,25 +1,34 @@
-import { IsInt, IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsInt, IsString, IsOptional, MaxLength, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class PhotoToAddDto {
+  @IsString()
+  max!: string;  // base64 полноразмерного фото 800x800
+
+  @IsString()
+  min!: string;  // base64 миниатюры 150x150
+}
 
 export class CreateObjectDto {
   @IsInt()
-  zavod: number;
+  zavod!: number;
 
   @IsString()
   @MaxLength(8)
-  sklad: string;
+  sklad!: string;
 
   @IsString()
   @MaxLength(255)
-  buh_name: string;
+  buhName!: string;
 
   @IsString()
   @MaxLength(255)
-  inv_number: string;
+  invNumber!: string;
 
   @IsString()
   @IsOptional()
   @MaxLength(255)
-  party_number?: string | null;
+  partyNumber?: string | null;
 
   @IsString()
   @IsOptional()
@@ -29,20 +38,31 @@ export class CreateObjectDto {
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  place_ter?: string | null;
+  placeTer?: string | null;
 
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  place_pos?: string | null;
+  placePos?: string | null;
 
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  place_cab?: string | null;
+  placeCab?: string | null;
 
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  place_user?: string | null;
+  placeUser?: string | null;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  qrCodes?: string[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PhotoToAddDto)
+  @IsOptional()
+  photosToAdd?: PhotoToAddDto[];
 }

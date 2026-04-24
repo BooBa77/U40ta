@@ -107,7 +107,7 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
   }
   
   // Сброс
-  const reset = () => {
+  const resetQr = () => {
     pendingQrCodes.value.clear()
     isScanning.value = false
     const { stopCameraScan } = useQrCamera()
@@ -120,6 +120,6 @@ export function useObjectQrManager(objectData, { onCancel } = {}) {
     scanQrCode,
     processInitialQrCode,  // метод для переданного QR-кода
     saveQrCodes,
-    reset
+    resetQr
   }
 }

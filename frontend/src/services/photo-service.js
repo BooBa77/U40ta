@@ -5,9 +5,12 @@
  * Онлайн-режим (flightMode = false): все запросы к API
  * Офлайн-режим (flightMode = true): все операции в IndexedDB
  * 
- * Для онлайн-режима: фото загружаются через fetch с токеном, затем создаются ObjectURL
- * Это решает проблему 401 в production, т.к. браузер не передаёт Authorization в <img src>
+ * ВНИМАНИЕ: Модалка НЕ вызывает uploadPhoto и deletePhoto напрямую.
+ * Эти методы используются ТОЛЬКО для синхронизации офлайн-изменений.
+ * 
+ * Фото сохраняются и удаляются через комбинированный saveObject в objectService.
  */
+
 import { offlineCache } from './offline-cache-service'
 
 export class PhotoService {
@@ -15,13 +18,9 @@ export class PhotoService {
     this.baseUrl = '/api'
   }
 
-  //============================================================================
-  // БАЗОВЫЕ МЕТОДЫ
-  //============================================================================
-
   /**
    * Проверяет, активен ли режим полёта
-   * @returns {boolean} true если режим полёта включен
+   * @returns {boolean}
    */
   isFlightMode() {
     return localStorage.getItem('u40ta_flight_mode') === 'true'
@@ -31,7 +30,7 @@ export class PhotoService {
    * Универсальный метод для запросов к API
    * @param {string} endpoint - API endpoint (без /api/)
    * @param {Object} options - Параметры запроса
-   * @returns {Promise<any>} Ответ от сервера
+   * @returns {Promise<any>}
    */
   async apiRequest(endpoint, options = {}) {
     const token = localStorage.getItem('auth_token')
@@ -62,7 +61,6 @@ export class PhotoService {
       throw new Error(`HTTP ошибка: ${response.status}`)
     }
 
-    // Если статус 204 (No Content) или ответ пустой
     if (response.status === 204 || response.headers.get('content-length') === '0') {
       return null
     }
@@ -70,9 +68,13 @@ export class PhotoService {
     return await response.json()
   }
 
+  //============================================================================
+  // КОНВЕРТАЦИЯ BLOB <-> ARRAYBUFFER (ДЛЯ КЭША)
+  //============================================================================
+
   /**
-   * Преобразует Blob в ArrayBuffer для сохранения в IndexedDB
-   * @param {Blob} blob - Blob изображения
+   * Преобразует Blob в ArrayBuffer
+   * @param {Blob} blob
    * @returns {Promise<ArrayBuffer>}
    */
   async blobToArrayBuffer(blob) {
@@ -85,8 +87,8 @@ export class PhotoService {
   }
 
   /**
-   * Преобразует ArrayBuffer в Blob для отображения
-   * @param {ArrayBuffer} buffer - ArrayBuffer изображения
+   * Преобразует ArrayBuffer в Blob
+   * @param {ArrayBuffer} buffer
    * @param {string} type - MIME тип
    * @returns {Blob}
    */
@@ -168,25 +170,23 @@ export class PhotoService {
     try {
       const photos = await offlineCache.getPhotosByObjectId(objectId)
       
-      // Из кэша приходят ArrayBuffer, преобразуем в Blob и ObjectURL
       const photosWithUrls = photos.map(photo => {
-        const maxBlob = new Blob([photo.photo_max_data], { type: 'image/jpeg' })
-        const minBlob = new Blob([photo.photo_min_data], { type: 'image/jpeg' })
+        const maxBlob = new Blob([photo.photoMaxData], { type: 'image/jpeg' })
+        const minBlob = new Blob([photo.photoMinData], { type: 'image/jpeg' })
         
         const url = URL.createObjectURL(maxBlob)
         const thumbUrl = URL.createObjectURL(minBlob)
         
         return {
           id: photo.id,
-          object_id: photo.object_id,
+          objectId: photo.objectId,
           url: url,
           thumbUrl: thumbUrl,
-          // Метод для освобождения памяти
           revoke() {
             URL.revokeObjectURL(url)
             URL.revokeObjectURL(thumbUrl)
           },
-          uploaded_at: photo.created_at
+          uploadedAt: photo.createdAt
         }
       })
       
@@ -202,16 +202,13 @@ export class PhotoService {
   /**
    * Онлайн: получает фото через API
    * Возвращает объекты с асинхронными геттерами getUrl() и getThumbUrl()
-   * Это решает проблему 401, т.к. фото загружаются через fetch с токеном
    */
   async getFromApi(objectId) {
     try {
       const photos = await this.apiRequest(`/photos/object/${objectId}`)
       
-      // Сохраняем ссылку на this для использования внутри замыканий
       const self = this
       
-      // photos — это уже массив, без обёртки
       const photosWithLoaders = photos.map(photo => {
         let currentUrl = null
         let currentThumbUrl = null
@@ -220,12 +217,8 @@ export class PhotoService {
         
         return {
           id: photo.id,
-          object_id: photo.object_id,
+          objectId: photo.objectId,
           
-          /**
-           * Асинхронно получает URL полноразмерного фото
-           * @returns {Promise<string>}
-           */
           async getUrl() {
             if (currentUrl) return currentUrl
             const { url, revoke } = await self.createObjectURL(photo.id, 'full')
@@ -234,10 +227,6 @@ export class PhotoService {
             return url
           },
           
-          /**
-           * Асинхронно получает URL миниатюры
-           * @returns {Promise<string>}
-           */
           async getThumbUrl() {
             if (currentThumbUrl) return currentThumbUrl
             const { url, revoke } = await self.createObjectURL(photo.id, 'thumb')
@@ -246,10 +235,6 @@ export class PhotoService {
             return url
           },
           
-          /**
-           * Освобождает ObjectURL и память
-           * Обязательно вызывать при уничтожении компонента
-           */
           revoke() {
             if (revokeFull) {
               revokeFull()
@@ -263,7 +248,7 @@ export class PhotoService {
             currentThumbUrl = null
           },
           
-          uploaded_at: photo.created_at
+          uploadedAt: photo.createdAt
         }
       })
       
@@ -277,221 +262,68 @@ export class PhotoService {
   }
 
   //============================================================================
-  // ВЫГРУЗКА ФОТОГРАФИИ
+  // МЕТОДЫ ДЛЯ СИНХРОНИЗАЦИИ ОФЛАЙН-ИЗМЕНЕНИЙ
+  // (НЕ ИСПОЛЬЗУЮТСЯ В МОДАЛКЕ, ТОЛЬКО ПРИ ВЫХОДЕ ИЗ ОФЛАЙН-РЕЖИМА)
   //============================================================================
 
   /**
-   * Выгружает фотографию для объекта
+   * Загружает фото на сервер (для синхронизации)
    * @param {number} objectId - ID объекта
-   * @param {Blob} fileBlob - Blob фотографии (полноразмерное)
-   * @param {Blob} thumbBlob - Blob миниатюры (опционально)
-   * @returns {Promise<Object>} Информация о загруженной фотографии
+   * @param {Blob} fileBlob - Blob полноразмерного фото
+   * @param {Blob} thumbBlob - Blob миниатюры
+   * @returns {Promise<Object>}
    */
-  async uploadPhoto(objectId, fileBlob, thumbBlob = null) {
+  async uploadPhoto(objectId, fileBlob, thumbBlob) {
     if (this.isFlightMode()) {
-      console.log(`[PhotoService] Офлайн-режим: сохранение фото в кэш для объекта ${objectId}`)
-      return this.uploadToCache(objectId, fileBlob, thumbBlob)
+      throw new Error('uploadPhoto не вызывается в офлайн-режиме напрямую')
     }
     
-    console.log(`[PhotoService] Онлайн-режим: загрузка фото на сервер для объекта ${objectId}`)
-    return this.uploadToApi(objectId, fileBlob, thumbBlob)
-  }
-
-  /**
-   * Офлайн: сохраняет фото в IndexedDB
-   */
-  async uploadToCache(objectId, fileBlob, thumbBlob) {
-    try {
-      const minBlob = thumbBlob || fileBlob
-      
-      const photoForCache = {
-        object_id: objectId,
-        photo_max_data: await this.blobToArrayBuffer(fileBlob),
-        photo_min_data: await this.blobToArrayBuffer(minBlob)
-      }
-      
-      await offlineCache.savePhoto(photoForCache)
-      
-      console.log(`[PhotoService] Фото сохранено в кэш для объекта ${objectId}`)
-      
-      return {
-        id: photoForCache.id,
-        object_id: objectId,
-        url: URL.createObjectURL(fileBlob),
-        thumbUrl: URL.createObjectURL(minBlob),
-        uploaded_at: photoForCache.created_at
-      }
-      
-    } catch (error) {
-      console.error('[PhotoService] Ошибка сохранения фото в кэш:', error)
-      throw new Error('Не удалось сохранить фото в кэше')
+    console.log(`[PhotoService] Синхронизация: загрузка фото для объекта ${objectId}`)
+    
+    const formData = new FormData()
+    formData.append('photo', fileBlob, 'photo.jpg')
+    
+    const token = localStorage.getItem('auth_token')
+    const response = await fetch(`${this.baseUrl}/photos?objectId=${objectId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ошибка: ${response.status}`)
     }
-  }
-
-  /**
-   * Онлайн: загружает фото через API
-   */
-  async uploadToApi(objectId, fileBlob, thumbBlob) {
-    try {
-      const formData = new FormData()
-      formData.append('photo', fileBlob, 'photo.jpg')
-      // thumbBlob не отправляем, бэкенд сам создаёт миниатюру
-      
-      const token = localStorage.getItem('auth_token')
-      const response = await fetch(`${this.baseUrl}/photos?objectId=${objectId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      })
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ошибка: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      
-      // Бэкенд возвращает { message: '...', photoId: id }
-      if (!data.photoId) {
-        throw new Error(data.message || 'Ошибка загрузки фотографии')
-      }
-      
-      console.log(`[PhotoService] Фото загружено через API, ID: ${data.photoId}`)
-      
-      // Сохраняем ссылку на this для замыкания
-      const self = this
-      const photoId = data.photoId
-      
-      return {
-        id: photoId,
-        object_id: objectId,
-        // Возвращаем объект с методами для совместимости
-        async getUrl() {
-          const { url, revoke } = await self.createObjectURL(photoId, 'full')
-          // Сохраняем revoke для последующей очистки
-          this._revokeFull = revoke
-          return url
-        },
-        async getThumbUrl() {
-          const { url, revoke } = await self.createObjectURL(photoId, 'thumb')
-          this._revokeThumb = revoke
-          return url
-        },
-        revoke() {
-          if (this._revokeFull) {
-            this._revokeFull()
-            this._revokeFull = null
-          }
-          if (this._revokeThumb) {
-            this._revokeThumb()
-            this._revokeThumb = null
-          }
-        },
-        uploaded_at: new Date().toISOString()
-      }
-      
-    } catch (error) {
-      console.error('[PhotoService] Ошибка загрузки фото через API:', error)
-      throw error
+    
+    const data = await response.json()
+    
+    if (!data.photoId) {
+      throw new Error(data.message || 'Ошибка загрузки фотографии')
     }
+    
+    return data
   }
 
-  //============================================================================
-  // УДАЛЕНИЕ ФОТОГРАФИИ
-  //============================================================================
-
   /**
-   * Удаляет фотографию
-   * @param {number} photoId - ID фотографии
-   * @returns {Promise<boolean>} true если успешно
+   * Удаляет фото на сервере (для синхронизации)
+   * @param {number} photoId - ID фото
+   * @returns {Promise<boolean>}
    */
   async deletePhoto(photoId) {
     if (this.isFlightMode()) {
-      console.log(`[PhotoService] Офлайн-режим: удаление фото ${photoId} из кэша`)
-      return this.deleteFromCache(photoId)
+      throw new Error('deletePhoto не вызывается в офлайн-режиме напрямую')
     }
     
-    console.log(`[PhotoService] Онлайн-режим: удаление фото ${photoId} с сервера`)
-    return this.deleteFromApi(photoId)
-  }
-
-  /**
-   * Офлайн: удаляет фото из IndexedDB
-   */
-  async deleteFromCache(photoId) {
-    try {
-      await offlineCache.deletePhoto(photoId)
-      console.log(`[PhotoService] Фото ${photoId} удалено из кэша`)
-      return true
-    } catch (error) {
-      console.error('[PhotoService] Ошибка удаления фото из кэша:', error)
-      throw new Error('Не удалось удалить фото из кэша')
-    }
-  }
-
-  /**
-   * Онлайн: удаляет фото через API
-   */
-  async deleteFromApi(photoId) {
-    try {
-      await this.apiRequest(`/photos/${photoId}`, {
-        method: 'DELETE'
-      })
-      
-      console.log(`[PhotoService] Фото ${photoId} удалено через API`)
-      return true
-      
-    } catch (error) {
-      console.error('[PhotoService] Ошибка удаления фото через API:', error)
-      throw error
-    }
-  }
-
-}
-
-// ============================================================================
-// УТИЛИТЫ ДЛЯ РАБОТЫ С URL ФОТО
-// ============================================================================
-
-/**
- * Преобразует относительный путь фото в полный URL
- * @param {string} path - Относительный путь (например, "/api/photos/1")
- * @param {PhotoService} service - Экземпляр сервиса (для доступа к baseUrl)
- * @returns {string|null} Полный URL
- */
-function getFullPhotoUrl(path, service = photoService) {
-  if (!path) return null
-  if (path.startsWith('blob:')) return path
-  if (path.startsWith('http')) return path
-  
-  // Для относительных путей добавляем baseUrl
-  // Убираем возможный дублирующийся слеш
-  const baseUrl = service.baseUrl.replace(/\/$/, '')
-  const cleanPath = path.startsWith('/') ? path : `/${path}`
-  return `${baseUrl}${cleanPath}`
-}
-
-/**
- * Создает временный URL из Blob и возвращает объект с URL и функцией очистки
- * @param {Blob} blob - Blob изображения
- * @returns {Object} { url, revoke } - URL и функция очистки
- */
-function createTemporaryPhotoUrl(blob) {
-  if (!blob || !(blob instanceof Blob)) {
-    return { url: null, revoke: () => {} }
-  }
-  
-  const url = URL.createObjectURL(blob)
-  return {
-    url,
-    revoke: () => URL.revokeObjectURL(url)
+    console.log(`[PhotoService] Синхронизация: удаление фото ${photoId}`)
+    
+    await this.apiRequest(`/photos/${photoId}`, {
+      method: 'DELETE'
+    })
+    
+    return true
   }
 }
 
 // Экспортируем синглтон
 export const photoService = new PhotoService()
-export {
-  getFullPhotoUrl,
-  createTemporaryPhotoUrl
-}

@@ -5,9 +5,9 @@ import { objectService } from '@/services/object-service'
 export function useObjectPlaces() {
   // Значения полей
   const territory = ref('')
-  const position = ref('')      // позиция, здание (place_pos)
-  const cabinet = ref('')       // кабинет (place_cab)
-  const user = ref('')          // пользователь (place_user)
+  const position = ref('')      // позиция, здание (placePos)
+  const cabinet = ref('')       // кабинет (placeCab)
+  const user = ref('')          // пользователь (placeUser)
 
   // Все комбинации, загруженные с сервера
   const allCombinations = ref([])
@@ -92,10 +92,10 @@ export function useObjectPlaces() {
   const setPlacesFromObject = (object) => {
     console.log('[setPlacesFromObject] Весь объект:', object)
     console.log('[setPlacesFromObject] Поля с place_:', {
-      place_ter: object.place_ter,
-      place_pos: object.place_pos,
-      place_cab: object.place_cab,
-      place_user: object.place_user
+      placeTer: object.placeTer,
+      placePos: object.placePos,
+      placeCab: object.placeCab,
+      placeUser: object.placeUser
     })
     console.log('[setPlacesFromObject] Поля без place_:', {
       ter: object.ter,
@@ -104,10 +104,10 @@ export function useObjectPlaces() {
       user: object.user
     })
 
-    territory.value = object.place_ter || object.ter || ''
-    position.value = object.place_pos || object.pos || ''
-    cabinet.value = object.place_cab || object.cab || ''
-    user.value = object.place_user || object.user || ''
+    territory.value = object.placeTer || object.ter || ''
+    position.value = object.placePos || object.pos || ''
+    cabinet.value = object.placeCab || object.cab || ''
+    user.value = object.placeUser || object.user || ''
 
     console.log('[setPlacesFromObject] После установки:', {
       territory: territory.value,
@@ -120,10 +120,10 @@ export function useObjectPlaces() {
   // Получение объекта для сохранения
   const getPlacesForSave = () => {
     return {
-      place_ter: territory.value,
-      place_pos: position.value,
-      place_cab: cabinet.value,
-      place_user: user.value
+      placeTer: territory.value,
+      placePos: position.value,
+      placeCab: cabinet.value,
+      placeUser: user.value
     }
   }
 

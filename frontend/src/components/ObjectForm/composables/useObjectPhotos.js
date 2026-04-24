@@ -1,95 +1,155 @@
+/**
+ * Composable для управления фотографиями объекта
+ * 
+ * Отвечает за:
+ * - Загрузку фото с сервера/из кэша через photoService
+ * - Добавление новых фото с камеры (создание квадратных миниатюр 150x150 и 800x800)
+ * - Пометку фото на удаление
+ * - Подготовку данных для комбинированного сохранения (prepareForSave)
+ * - Освобождение ресурсов (ObjectURL)
+ * 
+ * Для каждого фото предоставляет единый интерфейс getFullUrl() 
+ * для получения полноразмерного изображения (скрывает детали реализации)
+ */
+
 import { ref } from 'vue'
 import { photoService } from '@/services/photo-service.js'
 
+/**
+ * Создаёт квадратную версию изображения (cover-эффект)
+ * @param {Blob} blob - исходный Blob изображения
+ * @param {number} size - целевой размер (ширина = высота)
+ * @returns {Promise<Blob>} Blob квадратного изображения в формате JPEG
+ */
+async function createSquareImage(blob, size) {
+  return new Promise((resolve, reject) => {
+    if (!blob || !(blob instanceof Blob) || blob.size === 0) {
+      reject(new Error('Некорректные данные изображения'))
+      return
+    }
+
+    const img = new Image()
+    const url = URL.createObjectURL(blob)
+
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+
+      const ctx = canvas.getContext('2d')
+      
+      // Вычисляем масштаб и отступы для cover-эффекта
+      const scale = Math.max(size / img.width, size / img.height)
+      const x = (size - img.width * scale) / 2
+      const y = (size - img.height * scale) / 2
+
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale)
+
+      canvas.toBlob((thumbnailBlob) => {
+        resolve(thumbnailBlob)
+      }, 'image/jpeg', 0.9)
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Ошибка загрузки изображения'))
+    }
+
+    img.src = url
+  })
+}
+
+/**
+ * Конвертирует Blob в base64 строку
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+async function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
 export function useObjectPhotos() {
   const photos = ref([])
-  const isProcessing = ref(false)
   const isLoading = ref(false)
   const loadError = ref(null)
 
-  // Функция создания миниатюры (только для новых фото с камеры)
-  const createThumbnail = (blob, size) => {
-    return new Promise((resolve, reject) => {
-      if (!blob || !(blob instanceof Blob) || blob.size === 0) {
-        reject(new Error('Некорректные данные изображения'))
-        return
-      }
-
-      const img = new Image()
-      
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = size
-        canvas.height = size
-        
-        const ctx = canvas.getContext('2d')
-        const scale = Math.max(size / img.width, size / img.height)
-        const x = (size - img.width * scale) / 2
-        const y = (size - img.height * scale) / 2
-        
-        ctx.drawImage(img, x, y, img.width * scale, img.height * scale)
-        
-        canvas.toBlob((thumbnailBlob) => {
-          URL.revokeObjectURL(img.src)
-          resolve(thumbnailBlob)
-        }, 'image/jpeg', 0.8)
-      }
-      
-      img.onerror = () => {
-        URL.revokeObjectURL(img.src)
-        reject(new Error('Ошибка загрузки изображения'))
-      }
-      
-      img.src = URL.createObjectURL(blob)
-    })
-  }
-
-  // Функция загрузки фотографий с сервера
+  /**
+   * Загружает фотографии объекта с сервера или из кэша
+   * @param {number} objectId - ID объекта
+   */
   const loadPhotos = async (objectId) => {
     if (!objectId) return
-    
+
     isLoading.value = true
     loadError.value = null
-    
+
     try {
       const serverPhotos = await photoService.getObjectPhotos(objectId)
-      
-      // Освобождаем старые URL перед очисткой
-      photos.value.forEach(p => {
-        if (p.min?.startsWith('blob:')) URL.revokeObjectURL(p.min)
-        if (p.max?.startsWith('blob:')) URL.revokeObjectURL(p.max)
-        // Также revoke через photoObject если есть
-        if (p._photoObject) {
-          p._photoObject.revoke()
+
+      // Освобождаем старые ресурсы
+      resetPhotos()
+
+      // Создаём массив с единым интерфейсом
+      const loadedPhotos = []
+
+      for (const serverPhoto of serverPhotos) {
+        // Сразу получаем миниатюру для отображения
+        let minUrl = null
+        try {
+          minUrl = await serverPhoto.getThumbUrl()
+        } catch (err) {
+          console.error(`Ошибка загрузки миниатюры для фото ${serverPhoto.id}:`, err)
+          continue
         }
-      })
-      
-      // Сохраняем фото с асинхронными геттерами
-      photos.value = serverPhotos.map(photo => ({
-        id: photo.id,
-        _photoObject: photo,           // сохраняем оригинал для вызова revoke и getUrl
-        min: null,                     // будет заполнено асинхронно
-        max: null,                     // будет заполнено по требованию
-        _loadingMin: false,            // флаг для предотвращения дублирования загрузки
-        isDeleted: false
-      }))
-      
-      // Асинхронно загружаем миниатюры (не блокируем рендер)
-      for (const p of photos.value) {
-        if (!p.min && !p._loadingMin) {
-          p._loadingMin = true
-          try {
-            p.min = await p._photoObject.getThumbUrl()
-          } catch (error) {
-            console.error(`Ошибка загрузки миниатюры для фото ${p.id}:`, error)
-            // Можно поставить плейсхолдер
-            p.min = null
-          } finally {
-            p._loadingMin = false
+
+        let revokeFn = null
+        let maxUrl = null
+
+        loadedPhotos.push({
+          id: serverPhoto.id,
+          minUrl: minUrl,
+          isDeleted: false,
+
+          // Единый метод получения полноразмерного фото
+          getFullUrl: async () => {
+            if (maxUrl) return maxUrl
+
+            try {
+              const url = await serverPhoto.getUrl()
+              maxUrl = url
+              return url
+            } catch (err) {
+              console.error(`Ошибка загрузки полноразмерного фото ${serverPhoto.id}:`, err)
+              throw err
+            }
+          },
+
+          // Внутренние данные
+          _source: 'server',
+          _photoObject: serverPhoto,
+          _maxBlob: null,
+          _maxUrl: null,
+          _revokeFn: () => {
+            if (revokeFn) revokeFn()
+            if (maxUrl && maxUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(maxUrl)
+              maxUrl = null
+            }
           }
-        }
+        })
       }
-      
+
+      photos.value = loadedPhotos
     } catch (error) {
       loadError.value = error.message
       throw error
@@ -97,170 +157,121 @@ export function useObjectPhotos() {
       isLoading.value = false
     }
   }
-  
+
   /**
-   * Получить полноразмерное фото для просмотра
-   * @param {Object} photoItem - элемент из photos.value
-   * @returns {Promise<string|null>} URL фото
+   * Добавляет новое фото с камеры
+   * @param {Blob} blob - исходный Blob с камеры
    */
-  const getFullPhotoUrl = async (photoItem) => {
-    if (!photoItem || !photoItem._photoObject) return null
-    if (photoItem.max) return photoItem.max
-    
+  const addPhoto = async (blob) => {
     try {
-      photoItem.max = await photoItem._photoObject.getUrl()
-      return photoItem.max
-    } catch (error) {
-      console.error(`Ошибка загрузки полноразмерного фото ${photoItem.id}:`, error)
-      return null
-    }
-  }
-  
-  // Добавление фотографии с камеры (новое фото, ещё не на сервере)
-  const addPhoto = async (photoBlob) => {
-    if (isProcessing.value) return
-    
-    try {
-      isProcessing.value = true
-      
-      const minBlob = await createThumbnail(photoBlob, 150)
+      // Создаём квадратные версии
+      const [minBlob, maxBlob] = await Promise.all([
+        createSquareImage(blob, 150),
+        createSquareImage(blob, 800)
+      ])
+
+      // Создаём ObjectURL для миниатюры (сразу для отображения)
       const minUrl = URL.createObjectURL(minBlob)
-      const maxUrl = URL.createObjectURL(photoBlob)
-      
-      photos.value.push({
+
+      let maxUrl = null
+
+      const newPhoto = {
         id: null,
-        min: minUrl,
-        max: maxUrl,
-        _photoObject: null,           // для новых фото нет _photoObject
-        _raw: {
-          min: minBlob,
-          max: photoBlob
+        minUrl: minUrl,
+        isDeleted: false,
+
+        getFullUrl: async () => {
+          if (maxUrl) return maxUrl
+          maxUrl = URL.createObjectURL(maxBlob)
+          return maxUrl
         },
-        isDeleted: false
-      })
-      
-    } catch (error) {
-      console.error('Ошибка при обработке фото:', error)
-      throw error
-    } finally {
-      isProcessing.value = false
-    }
-  }
 
-  // Пометить/снять пометку на удаление
-  const toggleDeleteMark = (index) => {
-    if (index < 0 || index >= photos.value.length) return
-    const photo = photos.value[index]
-    photo.isDeleted = !photo.isDeleted
-  }
-
-  // Сохранение изменений
-  const savePhotosChanges = async (objectId) => {
-    if (!objectId) return { uploaded: [], deleted: [] }
-    
-    const uploaded = []
-    const deleted = []
-    
-    // 1. Удаляем помеченные фото (только те, у которых есть id на сервере)
-    const toDelete = photos.value.filter(p => p.id !== null && p.isDeleted === true)
-    for (const photo of toDelete) {
-      try {
-        await photoService.deletePhoto(photo.id)
-        deleted.push(photo.id)
-      } catch (error) {
-        console.error(`Ошибка удаления фото ${photo.id}:`, error)
-        throw error
-      }
-    }
-    
-    // 2. Загружаем новые фото (id === null && isDeleted === false && _raw?.max)
-    const toUpload = photos.value.filter(p => p.id === null && !p.isDeleted && p._raw?.max)
-    for (const photo of toUpload) {
-      try {
-        const saved = await photoService.uploadPhoto(objectId, photo._raw.max, photo._raw.min)
-        uploaded.push(saved)
-      } catch (error) {
-        console.error('Ошибка загрузки фото:', error)
-        throw error
-      }
-    }
-    
-    // 3. Обновляем локальный массив
-    // Оставляем только фото, которые не помечены на удаление и имеют id (или новые которые загружены)
-    const remaining = photos.value.filter(p => !(p.id !== null && p.isDeleted === true))
-    
-    // Заменяем новые фото на сохранённые (с реальными id)
-    let uploadIndex = 0
-    const updatedRemaining = []
-    
-    for (const p of remaining) {
-      if (p.id === null && !p.isDeleted && uploadIndex < uploaded.length) {
-        const saved = uploaded[uploadIndex++]
-        // Освобождаем временные URL
-        if (p.min?.startsWith('blob:')) URL.revokeObjectURL(p.min)
-        if (p.max?.startsWith('blob:')) URL.revokeObjectURL(p.max)
-        
-        // Сохраняем как фото с сервера (с _photoObject)
-        // Для загруженного фото saved.getUrl и saved.getThumbUrl — это методы
-        updatedRemaining.push({
-          id: saved.id,
-          _photoObject: saved,
-          min: null,        // будет загружено асинхронно при необходимости
-          max: null,
-          _loadingMin: false,
-          isDeleted: false
-        })
-      } else {
-        updatedRemaining.push(p)
-      }
-    }
-    
-    photos.value = updatedRemaining
-    
-    // Асинхронно загружаем миниатюры для новых загруженных фото
-    for (const p of photos.value) {
-      if (p._photoObject && !p.min && !p._loadingMin) {
-        p._loadingMin = true
-        try {
-          p.min = await p._photoObject.getThumbUrl()
-        } catch (error) {
-          console.error(`Ошибка загрузки миниатюры для нового фото:`, error)
-        } finally {
-          p._loadingMin = false
+        _source: 'new',
+        _photoObject: null,
+        _maxBlob: maxBlob,
+        _maxUrl: null,
+        _revokeFn: () => {
+          if (minUrl && minUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(minUrl)
+          }
+          if (maxUrl && maxUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(maxUrl)
+            maxUrl = null
+          }
         }
       }
+
+      photos.value.push(newPhoto)
+    } catch (error) {
+      console.error('Ошибка при добавлении фото:', error)
+      throw error
     }
-    
-    return { uploaded, deleted }
   }
 
-  // Очистка массива и освобождение памяти
-  const cleanup = () => {
-    photos.value.forEach(p => {
-      // Освобождаем blob URL для новых фото
-      if (p.min?.startsWith('blob:')) URL.revokeObjectURL(p.min)
-      if (p.max?.startsWith('blob:')) URL.revokeObjectURL(p.max)
-      // Вызываем revoke у photoObject (для фото с сервера)
-      if (p._photoObject && typeof p._photoObject.revoke === 'function') {
-        p._photoObject.revoke()
+  /**
+   * Переключает пометку на удаление у фото по индексу
+   * @param {number} index
+   */
+  const toggleDeleteMark = (index) => {
+    if (index < 0 || index >= photos.value.length) return
+    photos.value[index].isDeleted = !photos.value[index].isDeleted
+  }
+
+  /**
+   * Подготавливает данные для комбинированного сохранения
+   * @returns {{ toAdd: Array<{max: string, min: string}>, toDelete: Array<number> }}
+   */
+  const prepareForSave = async () => {
+    const toAdd = []
+    const toDelete = []
+
+    for (const photo of photos.value) {
+      // Новое фото, не помеченное на удаление
+      if (photo.id === null && !photo.isDeleted && photo._source === 'new') {
+        const maxBase64 = await blobToBase64(photo._maxBlob)
+        // Для миниатюры нужно получить Blob из ObjectURL
+        // Загружаем изображение из minUrl, чтобы получить Blob
+        const minResponse = await fetch(photo.minUrl)
+        const minBlob = await minResponse.blob()
+        const minBase64 = await blobToBase64(minBlob)
+        
+        toAdd.push({
+          max: maxBase64,
+          min: minBase64
+        })
       }
-    })
+      
+      // Существующее фото, помеченное на удаление
+      if (photo.id !== null && photo.isDeleted === true) {
+        toDelete.push(photo.id)
+      }
+    }
+
+    return { toAdd, toDelete }
+  }
+
+  /**
+   * Освобождает все ресурсы (ObjectURL) и очищает массив
+   */
+  const resetPhotos = () => {
+    for (const photo of photos.value) {
+      if (photo._revokeFn) {
+        photo._revokeFn()
+      }
+    }
     photos.value = []
-    isProcessing.value = false
     isLoading.value = false
     loadError.value = null
   }
 
   return {
     photos,
-    isProcessing,
     isLoading,
     loadError,
     loadPhotos,
-    getFullPhotoUrl,
     addPhoto,
     toggleDeleteMark,
-    savePhotosChanges,
-    cleanup
+    prepareForSave,
+    resetPhotos
   }
 }

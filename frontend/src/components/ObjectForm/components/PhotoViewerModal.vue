@@ -85,10 +85,6 @@ const props = defineProps({
   currentSn: {
     type: String,
     default: ''
-  },
-  getFullUrl: {
-    type: Function,
-    default: null
   }
 })
 
@@ -141,25 +137,26 @@ const loadCurrentPhoto = async () => {
   }
   
   isLoadingFullPhoto.value = true
-  
+
   try {
     let url = null
     
-    // Проверка на _raw.max (новое фото с камеры)
-    if (photo._raw?.max) {
-      console.log('[PhotoViewer] Ветка: новое фото с камеры, создаю ObjectURL')
-      url = URL.createObjectURL(photo._raw.max)
+    // Новое фото с камеры (ещё не сохранённое на сервере)
+    // У таких фото есть поле _maxBlob с Blob'ом полноразмерного изображения
+    if (photo._maxBlob) {
+      console.log('[PhotoViewer] Ветка: новое фото с камеры, создаю ObjectURL из _maxBlob')
+      url = URL.createObjectURL(photo._maxBlob)
       console.log('[PhotoViewer] Создан ObjectURL:', url)
     }
-    // Проверка на метод getUrl (фото с сервера)
-    else if (typeof photo.getUrl === 'function') {
-      console.log('[PhotoViewer] Ветка: фото с сервера, вызываю getUrl()')
-      url = await photo.getUrl()
-      console.log('[PhotoViewer] getUrl() вернул:', url)
+    // Фото с сервера или из кэша — используем единый интерфейс getFullUrl
+    else if (typeof photo.getFullUrl === 'function') {
+      console.log('[PhotoViewer] Ветка: вызов getFullUrl()')
+      url = await photo.getFullUrl()
+      console.log('[PhotoViewer] getFullUrl() вернул:', url)
     }
-    // Проверка на поле max (старый формат)
+    // Fallback для старых форматов (на всякий случай)
     else if (photo.max) {
-      console.log('[PhotoViewer] Ветка: старый формат, photo.max:', photo.max)
+      console.log('[PhotoViewer] Ветка: fallback, photo.max:', photo.max)
       url = photo.max
     }
     else {
@@ -169,6 +166,7 @@ const loadCurrentPhoto = async () => {
     
     if (url) {
       currentPhotoUrl.value = url
+      // Запоминаем только blob URL, чтобы потом освободить
       currentObjectUrl = url.startsWith('blob:') ? url : null
       console.log('[PhotoViewer] currentPhotoUrl установлен:', currentPhotoUrl.value)
     } else {
@@ -179,7 +177,7 @@ const loadCurrentPhoto = async () => {
   } finally {
     isLoadingFullPhoto.value = false
     console.log('[PhotoViewer] loadCurrentPhoto END')
-  }
+  }  
 }
 
 const hasMultiplePhotos = computed(() => props.photos.length > 1)
