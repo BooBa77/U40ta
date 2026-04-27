@@ -31,9 +31,9 @@ export class LogsController {
       'object_history',
       req.user!.sub,
       {
-        object_id: dto.object_id,
-        event_type: dto.event_type,
-        story_line: dto.story_line,
+        object_id: dto.objectId,
+        event_type: dto.eventType,
+        story_line: dto.storyLine,
       },
     );
     return { success: true };
@@ -49,9 +49,9 @@ export class LogsController {
       'qr_code_history',
       req.user!.sub,
       {
-        qr_code_value: dto.qr_code_value,
-        old_object_id: dto.old_object_id,
-        new_object_id: dto.new_object_id,
+        qr_code_value: dto.qrCodeValue,
+        old_object_id: dto.oldObjectId,
+        new_object_id: dto.newObjectId,
       },
     );
     return { success: true };

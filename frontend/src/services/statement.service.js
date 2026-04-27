@@ -128,29 +128,29 @@ export class StatementService {
   }
 
   //============================================================================
-  // ОБНОВЛЕНИЕ СТАТУСА have_object
+  // ОБНОВЛЕНИЕ СТАТУСА haveObject
   //============================================================================
 
   /**
-   * Обновляет статус have_object для записи ведомости
+   * Обновляет статус haveObject для записи ведомости
    * @param {number} statementId - ID записи ведомости
-   * @param {boolean} haveObject - Новое значение have_object
+   * @param {boolean} haveObject - Новое значение haveObject
    * @returns {Promise<boolean>} true если успешно
    */
   async updateStatementHaveObject(statementId, haveObject) {
     const statementIdNum = Number(statementId)
 
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: обновление have_object для записи ${statementIdNum}`)
+      console.log(`[StatementService] Офлайн-режим: обновление haveObject для записи ${statementIdNum}`)
       return this.updateHaveObjectInCache(statementIdNum, haveObject)
     }
 
-    console.log(`[StatementService] Онлайн-режим: обновление have_object для записи ${statementIdNum}`)
+    console.log(`[StatementService] Онлайн-режим: обновление haveObject для записи ${statementIdNum}`)
     return this.updateHaveObjectInApi(statementIdNum, haveObject)
   }
 
   /**
-   * Обновляет have_object в кэше IndexedDB
+   * Обновляет haveObject в кэше IndexedDB
    * @param {number} statementId - ID записи ведомости
    * @param {boolean} haveObject - Новое значение
    * @returns {Promise<boolean>}
@@ -158,7 +158,7 @@ export class StatementService {
   async updateHaveObjectInCache(statementId, haveObject) {
     try {
       await offlineCache.updateProcessedStatementHaveObject(statementId, haveObject)
-      console.log(`[StatementService] Запись ${statementId} обновлена: have_object=${haveObject}`)
+      console.log(`[StatementService] Запись ${statementId} обновлена: haveObject=${haveObject}`)
       return true
     } catch (error) {
       console.error('[StatementService] Ошибка обновления в кэше:', error)
@@ -167,7 +167,7 @@ export class StatementService {
   }
 
   /**
-   * Обновляет have_object через API
+   * Обновляет haveObject через API
    * @param {number} statementId - ID записи ведомости
    * @param {boolean} haveObject - Новое значение
    * @returns {Promise<boolean>}
@@ -252,7 +252,7 @@ export class StatementService {
 
   /**
    * Получает записи ведомости по инвентарному номеру (для ObjectViewModal)
-   * Возвращает все записи, независимо от have_object
+   * Возвращает все записи, независимо от haveObject
    * @param {string} inv - Инвентарный номер
    * @param {number} [zavod] - Номер завода (опционально)
    * @param {string} [sklad] - Код склада (опционально)

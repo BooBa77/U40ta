@@ -1,11 +1,13 @@
 /**
- * Сервис для работы с универсальными логами
- * Поддерживает онлайн/офлайн режимы работы
- * 
- * Онлайн-режим (flightMode = false): все запросы к API
- * Офлайн-режим (flightMode = true): все операции в IndexedDB
- * 
- * Используется для записи любых событий: история объектов, история QR-кодов и т.д.
+ * Сервис для работы с универсальными логами.
+ * Поддерживает онлайн/офлайн режимы работы.
+ *
+ * Онлайн (flightMode = false): все запросы к API.
+ * Офлайн (flightMode = true): все операции в IndexedDB.
+ *
+ * Соглашение об именовании:
+ * - Фронтовый код и API общаются в camelCase.
+ * - IndexedDB хранит данные в camelCase.
  */
 import { offlineCache } from './offline-cache-service'
 
@@ -15,56 +17,44 @@ export class LogsService {
   }
 
   //============================================================================
-  // БАЗОВЫЕ МЕТОДЫ
+  // УТИЛИТЫ
   //============================================================================
 
   /**
-   * Проверяет, активен ли режим полёта
-   * @returns {boolean} true если режим полёта включен
+   * Проверяем режим полёта.
+   * @returns {boolean} true — офлайн, false — онлайн.
    */
   isFlightMode() {
     return localStorage.getItem('u40ta_flight_mode') === 'true'
   }
 
   /**
-   * Универсальный метод для запросов к API
-   * @param {string} endpoint - API endpoint (без /api/logs/)
-   * @param {Object} options - Параметры запроса
-   * @returns {Promise<any>} Ответ от сервера
+   * Универсальный метод для HTTP-запросов к API.
+   * @param {string} endpoint — путь без /api/logs/.
+   * @param {Object} [options] — параметры fetch.
+   * @returns {Promise<any>} тело ответа.
    */
   async apiRequest(endpoint, options = {}) {
     const token = localStorage.getItem('auth_token')
-    if (!token) {
-      throw new Error('Токен авторизации не найден')
+    if (!token) throw new Error('Токен авторизации не найден')
+
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...options.headers
     }
 
-    const defaultOptions = {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    }
+    const body = options.body && typeof options.body !== 'string'
+      ? JSON.stringify(options.body)
+      : options.body
 
-    const requestOptions = {
-      ...defaultOptions,
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
-      headers: {
-        ...defaultOptions.headers,
-        ...options.headers
-      }
-    }
+      headers,
+      body
+    })
 
-    if (requestOptions.body && typeof requestOptions.body !== 'string') {
-      requestOptions.body = JSON.stringify(requestOptions.body)
-    }
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, requestOptions)
-
-    if (!response.ok) {
-      throw new Error(`HTTP ошибка: ${response.status}`)
-    }
-
+    if (!response.ok) throw new Error(`HTTP ошибка: ${response.status}`)
     return await response.json()
   }
 
@@ -73,27 +63,47 @@ export class LogsService {
   //============================================================================
 
   /**
-   * Добавляет запись в историю изменений объекта
-   * @param {number} objectId - ID объекта
-   * @param {string} storyLine - Текстовая запись об изменении
-   * @returns {Promise<boolean>} true если запись добавлена успешно
+   * Менеджер: добавляет запись в историю изменений объекта.
+   * @param {number} objectId — ID объекта.
+   * @param {string} eventType — тип события (snChanged, placeChanged и т.д.).
+   * @param {string} storyLine — текстовая запись об изменении.
+   * @returns {Promise<boolean>} true если запись добавлена успешно.
    */
   async addObjectHistory(objectId, eventType, storyLine) {
-    console.log(`[LogsService] Добавление записи для объекта ${objectId}:`, storyLine)
-    
-    if (this.isFlightMode()) {
-      return this.addToCache('object_history', {
-        object_id: Number(objectId),
-        event_type: eventType,
-        story_line: storyLine
-      })
+    if (!objectId || isNaN(objectId)) {
+      console.error('[LogsService] Некорректный objectId:', objectId)
+      return false
     }
-    
-    return this.addToApi('object-history', {
-      object_id: Number(objectId),
-      event_type: eventType,
-      story_line: storyLine
-    })
+
+    console.log(`[LogsService] Добавление записи для объекта ${objectId}:`, storyLine)
+
+    const payload = {
+      objectId: Number(objectId),
+      eventType,
+      storyLine
+    }
+
+    return this.isFlightMode()
+      ? this.addToCache('object_history', payload)
+      : this.addToApi('object-history', payload)
+  }
+
+  /**
+   * Исполнитель для онлайн: отправляет лог через API.
+   * @param {Object} data — данные в camelCase.
+   * @returns {Promise<boolean>}
+   */
+  async addObjectHistoryToApi(data) {
+    return this.addToApi('object-history', data)
+  }
+
+  /**
+   * Исполнитель для офлайн: сохраняет лог в IndexedDB.
+   * @param {Object} data — данные в camelCase.
+   * @returns {Promise<boolean>}
+   */
+  async addObjectHistoryToCache(data) {
+    return this.addToCache('object_history', data)
   }
 
   //============================================================================
@@ -101,28 +111,42 @@ export class LogsService {
   //============================================================================
 
   /**
-   * Добавляет запись в историю перемещений QR-кода
-   * @param {number} qrCodeId - ID записи QR-кода
-   * @param {number} oldObjectId - ID старого объекта
-   * @param {number} newObjectId - ID нового объекта
-   * @returns {Promise<boolean>} true если запись добавлена успешно
+   * Менеджер: добавляет запись в историю перемещений QR-кода.
+   * @param {number} qrCodeValue — значение QR-кода.
+   * @param {number} oldObjectId — ID старого объекта (0 для новых QR-кодов).
+   * @param {number} newObjectId — ID нового объекта.
+   * @returns {Promise<boolean>} true если запись добавлена успешно.
    */
   async addQrCodeHistory(qrCodeValue, oldObjectId, newObjectId) {
     console.log(`[LogsService] Добавление записи для QR-кода ${qrCodeValue}: ${oldObjectId} -> ${newObjectId}`)
-    
-    if (this.isFlightMode()) {
-      return this.addToCache('qr_code_history', {
-        qr_code_value: qrCodeValue,
-        old_object_id: Number(oldObjectId),
-        new_object_id: Number(newObjectId)
-      })
+
+    const payload = {
+      qrCodeValue,
+      oldObjectId: Number(oldObjectId),
+      newObjectId: Number(newObjectId)
     }
-    
-    return this.addToApi('qr-code-history', {
-      qr_code_value: qrCodeValue,
-      old_object_id: Number(oldObjectId),
-      new_object_id: Number(newObjectId)
-    })
+
+    return this.isFlightMode()
+      ? this.addToCache('qr_code_history', payload)
+      : this.addToApi('qr-code-history', payload)
+  }
+
+  /**
+   * Исполнитель для онлайн: отправляет лог через API.
+   * @param {Object} data — данные в camelCase.
+   * @returns {Promise<boolean>}
+   */
+  async addQrCodeHistoryToApi(data) {
+    return this.addToApi('qr-code-history', data)
+  }
+
+  /**
+   * Исполнитель для офлайн: сохраняет лог в IndexedDB.
+   * @param {Object} data — данные в camelCase.
+   * @returns {Promise<boolean>}
+   */
+  async addQrCodeHistoryToCache(data) {
+    return this.addToCache('qr_code_history', data)
   }
 
   //============================================================================
@@ -130,9 +154,9 @@ export class LogsService {
   //============================================================================
 
   /**
-   * Универсальный метод для отправки лога в API
-   * @param {string} endpoint - Эндпоинт (object-history, qr-code-history и т.д.)
-   * @param {Object} data - Данные для лога
+   * Универсальный метод для отправки лога в API.
+   * @param {string} endpoint — эндпоинт (object-history, qr-code-history и т.д.).
+   * @param {Object} data — данные в camelCase.
    * @returns {Promise<boolean>}
    */
   async addToApi(endpoint, data) {
@@ -141,18 +165,19 @@ export class LogsService {
         method: 'POST',
         body: data
       })
-      
+
       console.log(`[LogsService] Запись успешно отправлена на сервер`)
       return result.success === true
     } catch (error) {
       console.error('[LogsService] Ошибка отправки на сервер:', error)
+      return false
     }
   }
 
   /**
-   * Сохраняет лог в кэш IndexedDB (оффлайн режим)
-   * @param {string} source - Тип лога (object_history, qr_code_history и т.д.)
-   * @param {Object} content - Данные лога
+   * Универсальный метод для сохранения лога в IndexedDB (офлайн режим).
+   * @param {string} source — тип лога (object_history, qr_code_history и т.д.).
+   * @param {Object} content — данные лога в camelCase.
    * @returns {Promise<boolean>}
    */
   async addToCache(source, content) {
@@ -164,6 +189,78 @@ export class LogsService {
       console.error('[LogsService] Ошибка сохранения в кэш:', error)
       return false
     }
+  }
+
+  //============================================================================
+  // ПОЛУЧЕНИЕ ИСТОРИИ
+  //============================================================================
+
+  /**
+   * Менеджер: получает историю объекта.
+   * @param {number} objectId — ID объекта.
+   * @returns {Promise<Array>} массив записей истории в camelCase.
+   */
+  async getObjectHistory(objectId) {
+    return this.isFlightMode()
+      ? this.getObjectHistoryFromCache(objectId)
+      : this.getObjectHistoryFromApi(objectId)
+  }
+
+  /**
+   * Исполнитель для офлайн: получает историю из IndexedDB.
+   * @param {number} objectId
+   * @returns {Promise<Array>}
+   */
+  async getObjectHistoryFromCache(objectId) {
+    const dbLogs = await offlineCache.getLogsByFilter({
+      source: 'object_history',
+      content: { objectId: objectId }
+    })
+    return dbLogs
+  }
+
+  /**
+   * Исполнитель для онлайн: получает историю через API.
+   * @param {number} objectId
+   * @returns {Promise<Array>}
+   */
+  async getObjectHistoryFromApi(objectId) {
+    const data = await this.apiRequest(`/object-history/${objectId}`)
+    return data.history || []
+  }
+
+  /**
+   * Менеджер: получает историю QR-кода.
+   * @param {string} qrCodeValue — значение QR-кода.
+   * @returns {Promise<Array>} массив записей истории в camelCase.
+   */
+  async getQrCodeHistory(qrCodeValue) {
+    return this.isFlightMode()
+      ? this.getQrCodeHistoryFromCache(qrCodeValue)
+      : this.getQrCodeHistoryFromApi(qrCodeValue)
+  }
+
+  /**
+   * Исполнитель для офлайн: получает историю из IndexedDB.
+   * @param {string} qrCodeValue
+   * @returns {Promise<Array>}
+   */
+  async getQrCodeHistoryFromCache(qrCodeValue) {
+    const dbLogs = await offlineCache.getLogsByFilter({
+      source: 'qr_code_history',
+      content: { qrCodeValue: qrCodeValue }
+    })
+    return dbLogs
+  }
+
+  /**
+   * Исполнитель для онлайн: получает историю через API.
+   * @param {string} qrCodeValue
+   * @returns {Promise<Array>}
+   */
+  async getQrCodeHistoryFromApi(qrCodeValue) {
+    const data = await this.apiRequest(`/qr-code-history/${encodeURIComponent(qrCodeValue)}`)
+    return data.history || []
   }
 }
 

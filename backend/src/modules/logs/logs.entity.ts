@@ -13,9 +13,9 @@ export class Log {
   @Index()
   time: Date;
 
-  @Column({ type: 'bigint', nullable: true })
+  @Column({ name: 'user_id', type: 'bigint', nullable: true })
   @Index()
-  user_id: number | null;
+  userId: number | null;
 
   @Column({ type: 'jsonb' })
   content: any;

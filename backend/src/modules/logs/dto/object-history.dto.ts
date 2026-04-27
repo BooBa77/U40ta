@@ -3,13 +3,13 @@ import { IsInt, IsString, IsNotEmpty } from 'class-validator';
 export class ObjectHistoryDto {
   @IsInt()
   @IsNotEmpty()
-  object_id: number;
+  objectId!: number;
 
   @IsString()
   @IsNotEmpty()
-  event_type: string;
+  eventType!: string;
 
   @IsString()
   @IsNotEmpty()
-  story_line: string;
+  storyLine!: string;
 }

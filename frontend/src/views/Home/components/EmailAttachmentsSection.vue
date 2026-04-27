@@ -92,7 +92,7 @@ const checkFlightMode = () => {
   return localStorage.getItem(FLIGHT_MODE_KEY) === 'true';
 };
 
-// Загрузка файлов с API
+// Загрузка файлов / обновление
 const loadFiles = async () => {
   isLoading.value = true;
   try {
@@ -185,10 +185,7 @@ const handleFlightModeChange = (event) => {
   isFlightMode.value = event.detail.isFlightMode;
   console.log('EmailAttachmentsSection: Flight Mode изменён:', isFlightMode.value);
   
-  // Обновляем данные при переходе в онлайн
-  if (!isFlightMode.value) {
-    loadFiles();
-  }
+  loadFiles();
 };
 
 // Инициализация состояния Flight Mode из localStorage
@@ -211,10 +208,7 @@ onMounted(() => {
   window.addEventListener('storage', (event) => {
     if (event.key === FLIGHT_MODE_KEY) {
       isFlightMode.value = JSON.parse(event.newValue || 'false');
-      // Обновляем данные при переходе в онлайн
-      if (!isFlightMode.value) {
-        loadFiles();
-      }
+      loadFiles();
     }
   });
   

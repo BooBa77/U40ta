@@ -446,13 +446,15 @@ const handleSave = async () => {
       photosToAdd: photosToAdd,
       photosToDelete: photosToDelete
     })
-    console.log('DEBUG: savedObject', savedObject)
     console.log('DEBUG: savedObject type', typeof savedObject)
+    console.log('DEBUG: savedObject', savedObject)
+    console.log('DEBUG: savedObject.object', savedObject.object)
+    console.log('DEBUG: savedObject.id', savedObject.id)
+    console.log('DEBUG: savedObject.object?.id', savedObject.object?.id)
 
 
-
-    const wasCreated = !objectData.value.id && savedObject.id
-    objectData.value.id = savedObject.id
+    const wasCreated = !objectData.value.id && savedObject.object.id
+    objectData.value.id = savedObject.object.id
 
     // 2. Записи в лог
     const historyEntries = []
@@ -481,19 +483,19 @@ const handleSave = async () => {
     }
 
     for (const entry of historyEntries) {
-      await logsService.addObjectHistory(savedObject.id, entry.eventType, entry.storyLine)
+      await logsService.addObjectHistory(savedObject.object.id, entry.eventType, entry.storyLine)
     }
 
     if (comment.value.trim()) {
-      await logsService.addObjectHistory(savedObject.id, 'comment', comment.value.trim())
+      await logsService.addObjectHistory(savedObject.object.id, 'comment', comment.value.trim())
     }
 
     const hasAnyChanges = historyEntries.length > 0 || comment.value.trim()
 
     if (hasAnyChanges) {
-      await objectService.updateCheckedAt(savedObject.id)
+      await objectService.updateCheckedAt(savedObject.object.id)
     } else {
-      await logsService.addObjectHistory(savedObject.id, 'checked', 'проверено')
+      await logsService.addObjectHistory(savedObject.object.id, 'checked', 'проверено')
       await objectService.updateCheckedAt(savedObject.id)
     }
 

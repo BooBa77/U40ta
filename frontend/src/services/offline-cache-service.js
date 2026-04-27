@@ -301,27 +301,32 @@ class OfflineCacheService {
    * @returns {Promise<Array>} Массив записей ведомости
    */
   async getProcessedStatementsByInv(inv, zavod, sklad) {
-    let statements = await this.db.processed_statements.toArray()
-    
-    statements = statements.filter(statement => {
-      return statement.invNumber === inv
-    })
-    
-    if (zavod !== undefined && zavod !== null) {
-      const targetZavod = Number(zavod)
+      let statements = await this.db.processed_statements.toArray()
+      
       statements = statements.filter(statement => {
-        return Number(statement.zavod) === targetZavod
+        return statement.invNumber === inv
       })
-    }
-    
-    if (sklad !== undefined && sklad !== null) {
+      
+      if (zavod !== undefined && zavod !== null) {
+        const targetZavod = Number(zavod)
+        statements = statements.filter(statement => {
+          return Number(statement.zavod) === targetZavod
+        })
+      }
+      
+      if (sklad !== undefined && sklad !== null) {
+        statements = statements.filter(statement => {
+          return statement.sklad === sklad
+        })
+      }
+      
+      // Только записи без объекта — эмулирует поведение бэкенда
       statements = statements.filter(statement => {
-        return statement.sklad === sklad
+        return statement.haveObject === false || statement.haveObject === undefined
       })
-    }
-    
-    console.log(`[OfflineCache] Найдено записей по inv=${inv}: ${statements.length}`)
-    return statements
+      
+      console.log(`[OfflineCache] Найдено невовлечённых записей по inv=${inv}: ${statements.length}`)
+      return statements
   }
 
   //============================================================================

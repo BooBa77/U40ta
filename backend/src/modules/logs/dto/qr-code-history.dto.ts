@@ -3,13 +3,13 @@ import { IsInt, IsString, IsNotEmpty } from 'class-validator';
 export class QrCodeHistoryDto {
   @IsString()
   @IsNotEmpty()
-  qr_code_value: string;
+  qrCodeValue!: string;
 
   @IsInt()
   @IsNotEmpty()
-  old_object_id: number;
+  oldObjectId!: number;
 
   @IsInt()
   @IsNotEmpty()
-  new_object_id: number;
+  newObjectId!: number;
 }

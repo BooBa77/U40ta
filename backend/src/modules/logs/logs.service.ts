@@ -23,7 +23,7 @@ export class LogsService {
     this.logsRepository
       .insert({
         source,
-        user_id: userId,
+        userId: userId,
         content,
       })
       .catch((err) => {
