@@ -1,4 +1,8 @@
+import { IsNotEmpty, IsInt } from 'class-validator';
+
 export class CreatePhotoDto {
-  object_id: number;
+  @IsNotEmpty()
+  @IsInt()
+  objectId!: number;
   // файлы будем принимать через multer отдельно
 }

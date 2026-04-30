@@ -466,25 +466,19 @@ class OfflineCacheService {
    * Сохраняет фотографию в кэш
    * @param {Object} photoData - Данные фотографии в camelCase
    * @param {number} photoData.objectId - ID объекта
-   * @param {Blob|ArrayBuffer} photoData.photoMaxData - Полноразмерное фото
-   * @param {Blob|ArrayBuffer} photoData.photoMinData - Миниатюра фото
+   * @param {string} photoData.photoMaxData - Полноразмерное фото в base64
+   * @param {string} photoData.photoMinData - Миниатюра фото в base64
    * @returns {Promise<void>}
    */
   async savePhoto(photoData) {
-    // Преобразуем Blob в ArrayBuffer если необходимо
-    const toArrayBuffer = async (data) => {
-      if (data instanceof Blob) return await data.arrayBuffer()
-      return data
-    }
-
-    const photoForCache = {
-      objectId: photoData.objectId,
-      photoMaxData: await toArrayBuffer(photoData.photoMaxData),
-      photoMinData: await toArrayBuffer(photoData.photoMinData),
-      createdAt: new Date().toISOString()
-    }
-    
-    await this.db.photos.add(photoForCache)
+      const photoForCache = {
+        objectId: photoData.objectId,
+        photoMaxData: photoData.photoMaxData,
+        photoMinData: photoData.photoMinData,
+        createdAt: new Date().toISOString()
+      }
+      
+      await this.db.photos.add(photoForCache)
   }
 
   /**

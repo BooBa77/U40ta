@@ -28,7 +28,7 @@ export class LogsController {
     @Body() dto: ObjectHistoryDto,
   ) {
     this.logsService.log(
-      'object_history',
+      'object-history',
       req.user!.sub,
       {
         object_id: dto.objectId,
@@ -46,12 +46,11 @@ export class LogsController {
     @Body() dto: QrCodeHistoryDto,
   ) {
     this.logsService.log(
-      'qr_code_history',
+      'qr-code-history',
       req.user!.sub,
       {
         qr_code_value: dto.qrCodeValue,
-        old_object_id: dto.oldObjectId,
-        new_object_id: dto.newObjectId,
+        object_id: dto.objectId,
       },
     );
     return { success: true };

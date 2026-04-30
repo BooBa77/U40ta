@@ -24,7 +24,7 @@ export interface OfflineDataDto {
 
 // DTO для ответа API
 export class OfflineDataResponseDto {
-  success: boolean;
-  data: OfflineDataDto;
-  message: string;
+  success!: boolean;
+  data!: OfflineDataDto;
+  message?: string;
 }

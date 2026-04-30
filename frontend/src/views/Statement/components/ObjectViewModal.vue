@@ -268,29 +268,26 @@ const handleObjectFormSave = async (result) => {
     objectFormQrCode.value = null
   }, 300)
   
-  // Если объект изменился - обновляем данные
-  if (result.objectChanged) {
-    console.log('[LocViewModal] Объект изменён, перезагружаем данные')
-    
-    // Если это была запись ведомости - обновляем статус в statement
-    if (objectFormStatementId.value) {
-      try {
-        console.log('[LocViewModal] Устанавливаем haveObject=true для записи:', {
-          attachmentId: props.attachmentId, 
-          statementId: objectFormStatementId.value
-        })
-        await statementService.updateStatementHaveObject(
-           objectFormStatementId.value,
-           true
-        )
-      } catch (error) {
-        console.error('[LocViewModal] Ошибка обновления ведомости:', error)
-      }
+  // обновляем данные об объектах
+ 
+  // Если это была запись ведомости - обновляем статус в statement
+  if (objectFormStatementId.value) {
+    try {
+      console.log('[LocViewModal] Устанавливаем haveObject=true для записи:', {
+        attachmentId: props.attachmentId, 
+        statementId: objectFormStatementId.value
+      })
+      await statementService.updateStatementHaveObject(
+          objectFormStatementId.value,
+          true
+      )
+    } catch (error) {
+      console.error('[LocViewModal] Ошибка обновления ведомости:', error)
     }
-    
-    // Перезагружаем данные модалки
-    await loadData()
   }
+  // Перезагружаем данные модалки
+  await loadData()
+  
 }
 
 /**

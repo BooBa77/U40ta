@@ -119,14 +119,12 @@
 
     {
       "qrCodeValue": "QR-ABC123",
-      "oldObjectId": 100,
-      "newObjectId": 200
+      "objectId": 200
     }
 
 **DTO валидация** (QrCodeHistoryDto):
 - qrCodeValue — string, обязательный (значение QR-кода)
-- oldObjectId — integer, обязательный (ID объекта, с которого снят QR-код, или 0 для новой привязки)
-- newObjectId — integer, обязательный (ID объекта, на который повешен QR-код, или 0 для отвязки)
+- objectId — integer, обязательный (ID объекта, на который повешен QR-код)
 
 **Что пишется в лог**:
 
@@ -134,15 +132,9 @@
       "source": "qr_code_history",
       "content": {
         "qr_code_value": "QR-ABC123",
-        "old_object_id": 100,
-        "new_object_id": 200
+        "object_id": 200
       }
     }
-
-**Примеры сценариев**:
-- Новая привязка: oldObjectId: 0, newObjectId: 200
-- Отвязка: oldObjectId: 100, newObjectId: 0
-- Перенос: oldObjectId: 100, newObjectId: 200
 
 ## Сервис логирования (logs.service.ts)
 

@@ -5,16 +5,16 @@ import { User } from '../../users/entities/user.entity';
 export class MolAccess {
   // Составной первичный ключ
   @PrimaryColumn({ name: 'user_id' })
-  userId: number;
+  userId!: number;
 
   @PrimaryColumn()
-  zavod: number;
+  zavod!: number;
 
   @PrimaryColumn({ length: 4 })
-  sklad: string;
+  sklad!: string;
 
   // Связь с пользователем
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user!: User;
 }

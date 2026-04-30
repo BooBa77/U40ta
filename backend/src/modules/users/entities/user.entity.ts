@@ -4,19 +4,19 @@ import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column({ name: 'telegram_users_id', nullable: true, unique: true })
-  telegramUsersId: number; // id из telegram_users
+  telegramUsersId!: number; // id из telegram_users
 
   @Column({ name: 'last_name' })
-  lastName: string;
+  lastName!: string;
 
   @Column({ name: 'first_name' })
-  firstName: string;
+  firstName!: string;
 
   @Column()
-  abr: string;
+  abr!: string;
 
 }
 

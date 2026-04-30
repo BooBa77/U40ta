@@ -19,23 +19,28 @@ export class QrCodesService {
    * Ищет объект по значению QR-кода (для сканирования)
    */
   async findObjectByQr(qrValue: string): Promise<QrScanResult> {
-    const qrCode = await this.qrCodesRepository.findOne({
-      where: { qrValue },
-    });
+      const qrCode = await this.qrCodesRepository.findOne({
+        where: { qrValue },
+        relations: ['object'],
+      });
 
-    if (!qrCode) {
+      if (!qrCode) {
+        return {
+          success: false,
+          qrValue,
+          error: 'QR-код не найден',
+        };
+      }
+
       return {
-        success: false,
+        success: true,
         qrValue,
-        error: 'QR-код не найден',
+        objectId: qrCode.objectId ?? undefined,
+        object: qrCode.object ? {
+          invNumber: qrCode.object.invNumber,
+          buhName: qrCode.object.buhName,
+        } : undefined,
       };
-    }
-
-    return {
-      success: true,
-      qrValue,
-      objectId: qrCode.objectId ?? undefined,
-    };
   }
 
   /**

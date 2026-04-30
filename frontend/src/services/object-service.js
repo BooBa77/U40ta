@@ -59,36 +59,6 @@ export class ObjectService {
   }
 
   //============================================================================
-  // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С BLOB/BASE64 (фотографии)
-  //============================================================================
-
-  /**
-   * Конвертирует base64-строку в Blob.
-   * @param {string} base64 — строка без префикса data:image/jpeg;base64,.
-   * @returns {Promise<Blob>}
-   */
-  async base64ToBlob(base64) {
-    const chars = atob(base64)
-    const bytes = new Uint8Array(chars.length)
-    for (let i = 0; i < chars.length; i++) bytes[i] = chars.charCodeAt(i)
-    return new Blob([bytes], { type: 'image/jpeg' })
-  }
-
-  /**
-   * Конвертирует Blob в ArrayBuffer.
-   * @param {Blob} blob
-   * @returns {Promise<ArrayBuffer>}
-   */
-  blobToArrayBuffer(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = reject
-      reader.readAsArrayBuffer(blob)
-    })
-  }
-
-  //============================================================================
   // ПОЛУЧЕНИЕ ОБЪЕКТА ПО ID
   //============================================================================
 
@@ -289,12 +259,10 @@ export class ObjectService {
           }
 
           for (const photo of photosToAdd) {
-            const max = await this.base64ToBlob(photo.max)
-            const min = await this.base64ToBlob(photo.min)
             await offlineCache.savePhoto({
               objectId: dbObject.id,
-              photoMaxData: await this.blobToArrayBuffer(max),
-              photoMinData: await this.blobToArrayBuffer(min)
+              photoMaxData: photo.max,
+              photoMinData: photo.min
             })
           }
         }
@@ -362,12 +330,10 @@ export class ObjectService {
           }
 
           for (const photo of photosToAdd) {
-            const max = await this.base64ToBlob(photo.max)
-            const min = await this.base64ToBlob(photo.min)
             await offlineCache.savePhoto({
               objectId: id,
-              photoMaxData: await this.blobToArrayBuffer(max),
-              photoMinData: await this.blobToArrayBuffer(min)
+              photoMaxData: photo.max,
+              photoMinData: photo.min
             })
           }
 

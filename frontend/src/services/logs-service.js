@@ -84,7 +84,7 @@ export class LogsService {
     }
 
     return this.isFlightMode()
-      ? this.addToCache('object_history', payload)
+      ? this.addToCache('object-history', payload)
       : this.addToApi('object-history', payload)
   }
 
@@ -103,7 +103,7 @@ export class LogsService {
    * @returns {Promise<boolean>}
    */
   async addObjectHistoryToCache(data) {
-    return this.addToCache('object_history', data)
+    return this.addToCache('object-history', data)
   }
 
   //============================================================================
@@ -117,17 +117,16 @@ export class LogsService {
    * @param {number} newObjectId — ID нового объекта.
    * @returns {Promise<boolean>} true если запись добавлена успешно.
    */
-  async addQrCodeHistory(qrCodeValue, oldObjectId, newObjectId) {
-    console.log(`[LogsService] Добавление записи для QR-кода ${qrCodeValue}: ${oldObjectId} -> ${newObjectId}`)
+  async addQrCodeHistory(qrCodeValue, objectId) {
+    console.log(`[LogsService] Добавление записи для QR-кода ${qrCodeValue}: ${objectId}`)
 
     const payload = {
       qrCodeValue,
-      oldObjectId: Number(oldObjectId),
-      newObjectId: Number(newObjectId)
+      objectId: Number(objectId)
     }
 
     return this.isFlightMode()
-      ? this.addToCache('qr_code_history', payload)
+      ? this.addToCache('qr-code-history', payload)
       : this.addToApi('qr-code-history', payload)
   }
 
@@ -146,7 +145,7 @@ export class LogsService {
    * @returns {Promise<boolean>}
    */
   async addQrCodeHistoryToCache(data) {
-    return this.addToCache('qr_code_history', data)
+    return this.addToCache('qr-code-history', data)
   }
 
   //============================================================================
@@ -176,7 +175,7 @@ export class LogsService {
 
   /**
    * Универсальный метод для сохранения лога в IndexedDB (офлайн режим).
-   * @param {string} source — тип лога (object_history, qr_code_history и т.д.).
+   * @param {string} source — тип лога (object-history, qr-code-history и т.д.).
    * @param {Object} content — данные лога в camelCase.
    * @returns {Promise<boolean>}
    */
@@ -213,7 +212,7 @@ export class LogsService {
    */
   async getObjectHistoryFromCache(objectId) {
     const dbLogs = await offlineCache.getLogsByFilter({
-      source: 'object_history',
+      source: 'object-history',
       content: { objectId: objectId }
     })
     return dbLogs
@@ -247,7 +246,7 @@ export class LogsService {
    */
   async getQrCodeHistoryFromCache(qrCodeValue) {
     const dbLogs = await offlineCache.getLogsByFilter({
-      source: 'qr_code_history',
+      source: 'qr-code-history',
       content: { qrCodeValue: qrCodeValue }
     })
     return dbLogs

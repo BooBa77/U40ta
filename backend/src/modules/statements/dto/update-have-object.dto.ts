@@ -6,9 +6,9 @@ import { IsInt, IsBoolean, IsNotEmpty } from 'class-validator';
 
 export class UpdateHaveObjectDto {
   @IsInt()
-  statementId: number;
+  statementId!: number;
 
   @IsBoolean()
   @IsNotEmpty()
-  haveObject: boolean;  
+  haveObject!: boolean;  
 }

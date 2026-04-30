@@ -73,36 +73,40 @@ export class QrService {
   //============================================================================
 
   /**
-   * Ищет ID объекта и ID QR-кода по значению QR-кода
+   * Ищет объект по значению QR-кода
    * @param {string} qrValue - Значение QR-кода
-   * @returns {Promise<Object|null>} {object_id} или null
+   * @returns {Promise<Object|null>} {objectId, object} или null
    */
-  async findObjectIdByQrCode(qrValue) {
+  async findObjectByQrCode(qrValue) {
     if (!qrValue || typeof qrValue !== 'string') {
       throw new Error('Некорректное значение QR-кода')
     }
 
     if (this.isFlightMode()) {
       console.log(`[QrService] Офлайн-режим: поиск объекта по QR-коду "${qrValue}"`)
-      return this.findInCache(qrValue)
+      return this.findObjectByQrCodeInCache(qrValue)
     }
 
     console.log(`[QrService] Онлайн-режим: поиск объекта по QR-коду "${qrValue}"`)
-    return this.findInApi(qrValue)
+    return this.findObjectByQrCodeInApi(qrValue)
   }
 
   /**
    * Ищет в кэше IndexedDB
    */
-  async findInCache(qrValue) {
+  async findObjectByQrCodeInCache(qrValue) {
     try {
       const qrRecord = await offlineCache.getQrCode(qrValue)
-
       console.log(`[QrService] Результат поиска в кэше:`, qrRecord ? 'найден' : 'не найден')
       
       if (qrRecord) {
+        const object = await offlineCache.getObject(qrRecord.objectId)
         return {
-          object_id: qrRecord.object_id,
+          objectId: qrRecord.objectId,
+          object: object ? {
+            invNumber: object.invNumber,
+            buhName: object.buhName,
+          } : undefined,
         }
       }
       
@@ -116,48 +120,24 @@ export class QrService {
   /**
    * Ищет через API
    */
-  async findInApi(qrValue) {
+  async findObjectByQrCodeInApi(qrValue) {
     try {
       const data = await this.apiRequest(`/qr-codes/scan?qr=${encodeURIComponent(qrValue)}`)
       
-      if (data.success && data.object_id) {
+      if (data.success && data.objectId) {
         return {
-          object_id: data.object_id,
+          objectId: data.objectId,
+          object: data.object ? {
+            invNumber: data.object.invNumber,
+            buhName: data.object.buhName,
+          } : undefined,
+
         }
       }
       
       return null
     } catch (error) {
       console.error('[QrService] Ошибка поиска через API:', error)
-      throw error
-    }
-  }
-
-  //============================================================================
-  // ПОЛУЧЕНИЕ QR-КОДОВ ОБЪЕКТА
-  //============================================================================
-
-  /**
-   * Получает все QR-коды для объекта
-   * @param {number} objectId - ID объекта
-   * @returns {Promise<Array>}
-   */
-  async getQrCodesByObject(objectId) {
-    if (this.isFlightMode()) {
-      try {
-        const qrCode = await offlineCache.getQrCodesByObjectId(objectId)
-        return qrCode ? [qrCode] : []
-      } catch (error) {
-        console.error('[QrService] Ошибка получения QR-кодов из кэша:', error)
-        return []
-      }
-    }
-
-    try {
-      const data = await this.apiRequest(`/qr-codes/object/${objectId}`)
-      return data.qr_codes || []
-    } catch (error) {
-      console.error('[QrService] Ошибка получения QR-кодов через API:', error)
       throw error
     }
   }
@@ -193,8 +173,8 @@ export class QrService {
       }
 
       const newQrCode = {
-        qr_value: qrValue,
-        object_id: objectId
+        qrValue: qrValue,
+        objectId: objectId
       }
 
       const id = await offlineCache.saveQrCode(newQrCode)
@@ -214,8 +194,8 @@ export class QrService {
       const data = await this.apiRequest('/qr-codes', {
         method: 'POST',
         body: {
-          qr_value: qrValue,
-          object_id: Number(objectId)
+          qrValue: qrValue,
+          objectId: Number(objectId)
         }
       })
       
@@ -258,7 +238,7 @@ export class QrService {
       }
 
       // Обновляем владельца и сохраняем (saveQrCode сам запишет историю)
-      qrRecord.object_id = newObjectId
+      qrRecord.objectId = newObjectId
       await offlineCache.saveQrCode(qrRecord)
       
       console.log(`[QrService] QR-код обновлён в кэше`)
@@ -277,8 +257,8 @@ export class QrService {
       const data = await this.apiRequest('/qr-codes/update-owner', {
         method: 'PUT',
         body: {
-          qr_value: qrValue,
-          new_object_id: Number(newObjectId)
+          qrValue: qrValue,
+          objectId: Number(newObjectId)
         }
       })
 

@@ -6,15 +6,15 @@ import { IsNumber, IsString, IsBoolean, IsOptional } from 'class-validator';
  */
 export class UpdateIgnoreDto {
   @IsNumber()
-  attachmentId: number;
+  attachmentId!: number;
   
   @IsString()
-  invNumber: string;
+  invNumber!: string;
   
   @IsString()
   @IsOptional()
   partyNumber?: string;
   
   @IsBoolean()
-  isIgnore: boolean;
+  isIgnore!: boolean;
 }

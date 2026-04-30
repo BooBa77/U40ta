@@ -7,9 +7,5 @@ export class QrCodeHistoryDto {
 
   @IsInt()
   @IsNotEmpty()
-  oldObjectId!: number;
-
-  @IsInt()
-  @IsNotEmpty()
-  newObjectId!: number;
+  objectId!: number;
 }

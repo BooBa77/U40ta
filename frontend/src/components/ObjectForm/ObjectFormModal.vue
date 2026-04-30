@@ -180,9 +180,10 @@
 import { ref, watch, computed } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { objectService } from '@/services/object-service.js'
+import { qrService } from '@/services/qr-service.js'
 import { logsService } from '@/services/logs-service.js'
 import { useObjectPhotos } from './composables/useObjectPhotos'
-import { useObjectQrManager } from './composables/useObjectQrManager'
+import { useObjectQrCodes } from './composables/useObjectQrCodes'
 import { useCamera } from '@/composables/useCamera'
 import { useObjectPlaces } from './composables/useObjectPlaces'
 import PhotoViewerModal from './components/PhotoViewerModal.vue'
@@ -240,10 +241,9 @@ const {
 const {
   pendingQrCodes,
   scanQrCode,
-  saveQrCodes,
   processInitialQrCode,
   resetQr
-} = useObjectQrManager(objectData, {
+} = useObjectQrCodes(objectData, {
   onCancel: () => handleCancel()
 })
 // Photo-менеджер
@@ -496,9 +496,15 @@ const handleSave = async () => {
       await objectService.updateCheckedAt(savedObject.object.id)
     } else {
       await logsService.addObjectHistory(savedObject.object.id, 'checked', 'проверено')
-      await objectService.updateCheckedAt(savedObject.id)
+      await objectService.updateCheckedAt(savedObject.object.id)
     }
 
+    // Логи по QR-кодам
+    for (const qrCode of pendingQrCodes.value) {
+      await logsService.addQrCodeHistory(qrCode, savedObject.object.id)      
+    }
+    
+    
     emit('save', { wasCreated: wasCreated })
     resetForm()
     
