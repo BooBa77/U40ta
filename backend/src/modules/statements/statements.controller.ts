@@ -121,8 +121,8 @@ export class StatementsController {
    * POST /api/statements/update-have-object
    */
   @Post('update-have-object')
-  @HttpCode(204)
-  async updateHaveObject(@Body() dto: UpdateHaveObjectDto): Promise<void> {
-    await this.statementObjectsService.updateSingleHaveObject(dto.statementId);
-  }
+  async updateHaveObject(@Body() dto: UpdateHaveObjectDto) {
+      await this.statementObjectsService.updateSingleHaveObject(dto.statementId);
+      return { success: true };
+  } 
 }
