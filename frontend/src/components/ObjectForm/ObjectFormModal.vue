@@ -425,38 +425,30 @@ const handleSave = async () => {
   errorMessage.value = ''
   
   try {
-    // Добавляем местоположение к данным объекта
     const objectToSave = {
       ...objectData.value,
       ...getPlacesForSave()
     }
 
-    // Получаем данные для фото
     const { toAdd: photosToAdd, toDelete: photosToDelete } = await prepareForSave()
-
-    // 1. Сохраняем объект со всеми данными (объект, QR, фото)
 
     console.log('DEBUG: objectToSave', objectToSave)
     console.log('DEBUG: pendingQrCodes', Array.from(pendingQrCodes.value))
     console.log('DEBUG: photosToAdd', photosToAdd)
     console.log('DEBUG: photosToDelete', photosToDelete)
+    
     const savedObject = await objectService.saveObject({
       objectData: objectToSave,
       qrCodes: Array.from(pendingQrCodes.value),
       photosToAdd: photosToAdd,
       photosToDelete: photosToDelete
     })
-    console.log('DEBUG: savedObject type', typeof savedObject)
-    console.log('DEBUG: savedObject', savedObject)
-    console.log('DEBUG: savedObject.object', savedObject.object)
-    console.log('DEBUG: savedObject.id', savedObject.id)
-    console.log('DEBUG: savedObject.object?.id', savedObject.object?.id)
+    
+    const savedId = savedObject.object?.id || savedObject.id
 
+    const wasCreated = !objectData.value.id && savedId
+    objectData.value.id = savedId
 
-    const wasCreated = !objectData.value.id && savedObject.object.id
-    objectData.value.id = savedObject.object.id
-
-    // 2. Записи в лог
     const historyEntries = []
 
     if (wasCreated) {
@@ -483,27 +475,25 @@ const handleSave = async () => {
     }
 
     for (const entry of historyEntries) {
-      await logsService.addObjectHistory(savedObject.object.id, entry.eventType, entry.storyLine)
+      await logsService.addObjectHistory(savedId, entry.eventType, entry.storyLine)
     }
 
     if (comment.value.trim()) {
-      await logsService.addObjectHistory(savedObject.object.id, 'comment', comment.value.trim())
+      await logsService.addObjectHistory(savedId, 'comment', comment.value.trim())
     }
 
     const hasAnyChanges = historyEntries.length > 0 || comment.value.trim()
 
     if (hasAnyChanges) {
-      await objectService.updateCheckedAt(savedObject.object.id)
+      await objectService.updateCheckedAt(savedId)
     } else {
-      await logsService.addObjectHistory(savedObject.object.id, 'checked', 'проверено')
-      await objectService.updateCheckedAt(savedObject.object.id)
+      await logsService.addObjectHistory(savedId, 'checked', 'проверено')
+      await objectService.updateCheckedAt(savedId)
     }
 
-    // Логи по QR-кодам
     for (const qrCode of pendingQrCodes.value) {
-      await logsService.addQrCodeHistory(qrCode, savedObject.object.id)      
+      await logsService.addQrCodeHistory(qrCode, savedId)      
     }
-    
     
     emit('save', { wasCreated: wasCreated })
     resetForm()
