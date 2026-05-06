@@ -243,7 +243,7 @@ export function useObjectPhotos() {
       
       // Существующее фото, помеченное на удаление
       if (photo.id !== null && photo.isDeleted === true) {
-        toDelete.push(photo.id)
+        toDelete.push(Number(photo.id))
       }
     }
 
