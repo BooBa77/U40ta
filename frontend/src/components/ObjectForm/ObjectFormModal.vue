@@ -33,12 +33,12 @@
           </datalist>
         </div>
 
-        <!-- Помещение -->
+        <!-- Здание -->
         <div class="form-field">
           <input
             type="text"
             v-model="position"
-            placeholder="Помещение"
+            placeholder="Здание"
             class="input-field"
             list="position-options"
             :disabled="isSaving || placesLoading || !isPositionEnabled"
