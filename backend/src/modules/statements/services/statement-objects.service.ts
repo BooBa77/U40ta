@@ -140,27 +140,27 @@ export class StatementObjectsService {
    * Задаёт haveObject для одной записи при создании объекта
    */
   async updateSingleHaveObject(statementId: number): Promise<void> {
-    const statement = await this.processedStatementRepo.findOne({
+    const statementRow = await this.processedStatementRepo.findOne({
       where: { id: statementId }  // ← убрали emailAttachmentId
     });
 
-    if (!statement) return;
+    if (!statementRow) return;
 
     // Проверяем, есть ли объект в системе
     const object = await this.inventoryObjectRepo.findOne({
       where: {
-        zavod: statement.zavod,
-        sklad: statement.sklad,
-        invNumber: statement.invNumber,
-        partyNumber: statement.partyNumber || '',
+        zavod: statementRow.zavod,
+        sklad: statementRow.sklad,
+        invNumber: statementRow.invNumber,
+        partyNumber: statementRow.partyNumber || '',
       }
     });
 
-    statement.haveObject = !!object;
-    await this.processedStatementRepo.save(statement);
+    statementRow.haveObject = !!object;
+    await this.processedStatementRepo.save(statementRow);
     
     // Отправляем SSE уведомление об изменении ведомости
-    this.appEventsService.notifyStatementUpdated(statementId);
+    this.appEventsService.notifyStatementUpdated(statementRow.emailAttachmentId);
   }
  
 }
