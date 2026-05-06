@@ -202,6 +202,8 @@ export class ObjectService {
       const { objectData, qrCodes = [], photosToAdd = [], photosToDelete = [] } = payload
       const hasId = objectData.id != null
 
+      console.log('[saveObject] isFlightMode:', this.isFlightMode(), 'hasId:', objectData.id != null)
+
       if (this.isFlightMode()) {
         return hasId
           ? this.updateInCache(objectData.id, { ...objectData, qrCodes, photosToAdd, photosToDelete })
@@ -238,6 +240,9 @@ export class ObjectService {
    * @returns {Promise<Object>} созданный объект в camelCase.
    */
   async createInCache(objectData) {
+      
+      console.log('[createInCache] ВХОД, objectData:', JSON.stringify(objectData))
+    
       const { qrCodes = [], photosToAdd = [], ...restData } = objectData
 
       const dbObject = {
@@ -252,6 +257,9 @@ export class ObjectService {
       await offlineCache.db.transaction('rw',
         [offlineCache.db.objects, offlineCache.db.qr_codes, offlineCache.db.photos],
         async () => {
+
+          console.log('[DEBUG createInCache] dbObject перед add:', JSON.stringify(dbObject))
+
           await offlineCache.db.objects.add(dbObject)
 
           for (const qrValue of qrCodes) {

@@ -437,6 +437,8 @@ const handleSave = async () => {
     console.log('DEBUG: photosToAdd', photosToAdd)
     console.log('DEBUG: photosToDelete', photosToDelete)
     
+    console.log('[handleSave] Перед saveObject')
+
     const savedObject = await objectService.saveObject({
       objectData: objectToSave,
       qrCodes: Array.from(pendingQrCodes.value),
@@ -444,6 +446,8 @@ const handleSave = async () => {
       photosToDelete: photosToDelete
     })
     
+    console.log('savedObject = ', savedObject)
+
     const savedId = savedObject.object?.id || savedObject.id
 
     const wasCreated = !objectData.value.id && savedId

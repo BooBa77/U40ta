@@ -5,7 +5,7 @@ class OfflineCacheService {
     this.db = new Dexie('u40ta_offline_db')
     
     // Схема базы данных (camelCase для единообразия с бэкендом)
-    this.db.version(1).stores({
+    this.db.version(2).stores({
       // Файлы ведомостей (только массовая загрузка, без отдельных операций)
       email_attachments: 'id, filename, emailFrom, receivedAt, docType, zavod, sklad, inProcess, isInventory',
       // Объекты (есть массовая загрузка и отдельные операции add/update)
@@ -13,7 +13,7 @@ class OfflineCacheService {
       // Объекты обрабатываемых ведомостей (только массовая загрузка, без отдельных операций)
       processed_statements: 'id, emailAttachmentId, zavod, sklad, docType, invNumber, partyNumber, buhName, haveObject, isIgnore, isExcess',
       // QR-коды (есть массовая загрузка и отдельные операции add/update)
-      qr_codes: 'id, qrValue, objectId',
+      qr_codes: '++id, qrValue, objectId',
       // Фотографии (кэширования из БД нет, только накопление во время оффлайн-сеанса)
       photos: '++id, objectId' ,
       // Логи (кэширования из БД нет, только накопление во время оффлайн-сеанса)
@@ -507,6 +507,8 @@ class OfflineCacheService {
       content: content,
       time: new Date().toISOString()
     }
+    
+    console.log('DEBUG [addPendingLog] logEntry перед add:', JSON.stringify(logEntry))
     
     await this.db.logs.add(logEntry)
   }
