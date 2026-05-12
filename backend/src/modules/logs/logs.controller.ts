@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LogsService } from './logs.service';
 import { ObjectHistoryDto } from './dto/object-history.dto';
 import { QrCodeHistoryDto } from './dto/qr-code-history.dto';
+import { PhotoHistoryDto } from './dto/photo-history.dto';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface'
 
 @Controller('logs')
@@ -51,6 +52,23 @@ export class LogsController {
       {
         qr_code_value: dto.qrCodeValue,
         object_id: dto.objectId,
+      },
+    );
+    return { success: true };
+  }
+
+  @Post('photo-history')
+  @UseGuards(JwtAuthGuard)
+  createPhotoHistory(
+    @Req() req: RequestWithUser,
+    @Body() dto: PhotoHistoryDto,
+  ) {
+    this.logsService.log(
+      'photo-history',
+      req.user!.sub,
+      {
+        object_id: dto.objectId,
+        photo_id: dto.photoId,
       },
     );
     return { success: true };

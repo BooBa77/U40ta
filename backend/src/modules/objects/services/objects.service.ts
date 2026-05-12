@@ -82,24 +82,24 @@ export class ObjectsService {
   }  
   
   /**
-   * Создание объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции
+   * Создание объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции.
+   * При синхронизации на выход из оффлайн выполняется в общей транзакции, которая передаётся внешним менеджером manager?
    */
-  async create(dto: CreateObjectDto, userId: number): Promise<InventoryObject> {
-    return this.entityManager.transaction(async (manager) => {
+  async create(dto: CreateObjectDto, userId: number, manager?: EntityManager): Promise<InventoryObject> {
+    const run = async (mgr: EntityManager) => {
       // 1. Создаём объект
-
-      const object = manager.create(InventoryObject, {
-        ...dto,  // ← ВСЕ ПОЛЯ СРАЗУ!
+      const object = mgr.create(InventoryObject, {
+        ...dto,
         isWrittenOff: false,
         checkedAt: new Date(),
       });
 
-      const savedObject = await manager.save(object);
+      const savedObject = await mgr.save(object);
 
       // 2. Привязываем QR-коды
       if (dto.qrCodes?.length) {
         for (const qrValue of dto.qrCodes) {
-          await this.qrCodesService.save(qrValue, savedObject.id, manager);
+          await this.qrCodesService.save(qrValue, savedObject.id, mgr);
         }
       }
 
@@ -108,21 +108,27 @@ export class ObjectsService {
         for (const photoDto of dto.photosToAdd) {
           const maxBuffer = Buffer.from(photoDto.max, 'base64');
           const minBuffer = Buffer.from(photoDto.min, 'base64');
-          await this.photosService.createFromBuffers(savedObject.id, maxBuffer, minBuffer, userId, manager);
+          await this.photosService.createFromBuffers(savedObject.id, maxBuffer, minBuffer, userId, mgr);
         }
       }
 
       return savedObject;
-    });
+    };
+
+    return manager ? run(manager) : this.entityManager.transaction(run); // Если сейчас онлайн режим и внешний менеджер (транзакция) не передан, то создаём свою транзакцию и работаем в ней
   }
 
   /**
    * Обновление объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции
    */
-  async update(id: number, dto: UpdateObjectDto, userId: number): Promise<InventoryObject> {
-    return this.entityManager.transaction(async (manager) => {
+  /**
+   * Обновление объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции.
+   * При синхронизации на выход из оффлайн выполняется в общей транзакции, которая передаётся внешним менеджером manager.
+   */
+  async update(id: number, dto: UpdateObjectDto, userId: number, manager?: EntityManager): Promise<InventoryObject> {
+    const run = async (mgr: EntityManager) => {
       // 1. Находим объект
-      const object = await manager.findOne(InventoryObject, { where: { id } });
+      const object = await mgr.findOne(InventoryObject, { where: { id } });
       if (!object) {
         throw new NotFoundException(`Object with ID ${id} not found`);
       }
@@ -130,24 +136,23 @@ export class ObjectsService {
       // 2. Обновляем поля, переданные через DTO
       Object.assign(object, dto);
 
-      // checkedAt нужно преобразовать в Date
       if (dto.checkedAt) {
         object.checkedAt = new Date(dto.checkedAt);
       }
 
-      const savedObject = await manager.save(object);
+      const savedObject = await mgr.save(object);
 
       // 3. Обрабатываем QR-коды (полная замена набора)
       if (dto.qrCodes?.length) {
         for (const qrValue of dto.qrCodes) {
-          await this.qrCodesService.save(qrValue, savedObject.id, manager);
+          await this.qrCodesService.save(qrValue, savedObject.id, mgr);
         }
-      }      
+      }
 
       // 4. Удаляем помеченные фото
       if (dto.photosToDelete?.length) {
         for (const photoId of dto.photosToDelete) {
-          await this.photosService.remove(photoId, manager);
+          await this.photosService.remove(photoId, mgr);
         }
       }
 
@@ -156,11 +161,50 @@ export class ObjectsService {
         for (const photoDto of dto.photosToAdd) {
           const maxBuffer = Buffer.from(photoDto.max, 'base64');
           const minBuffer = Buffer.from(photoDto.min, 'base64');
-          await this.photosService.createFromBuffers(savedObject.id, maxBuffer, minBuffer, userId, manager);
+          await this.photosService.createFromBuffers(savedObject.id, maxBuffer, minBuffer, userId, mgr);
         }
       }
 
       return savedObject;
-    });
+    };
+
+    return manager ? run(manager) : this.entityManager.transaction(run);
+    // Если сейчас онлайн режим и внешний менеджер (транзакция) не передан, то создаём свою транзакцию и работаем в ней
+  }
+
+  /**
+   * Поиск похожих объектов при синхронизации из офлайна.
+   * Если docType = 'ОС' — ищет только по invNumber.
+   * Если docType = 'ОСВ' — ищет по invNumber + partyNumber + sn.
+   * @param docType - тип документа ('ОС' | 'ОСВ')
+   * @param invNumber - инвентарный номер
+   * @param partyNumber - номер партии (только для ОСВ)
+   * @param sn - серийный номер (только для ОСВ)
+   */
+  async findSimilar(
+    docType: string,
+    invNumber: string,
+    partyNumber?: string,
+    sn?: string,
+  ): Promise<InventoryObject[]> {
+    console.log(`[ObjectsService] findSimilar: docType=${docType}, inv=${invNumber}, party=${partyNumber}, sn=${sn}`);
+
+    const queryBuilder = this.objectRepository
+      .createQueryBuilder('object')
+      .where('object.inv_number = :invNumber', { invNumber });
+
+    if (docType === 'ОСВ') {
+      if (partyNumber && partyNumber.trim() !== '') {
+        queryBuilder.andWhere('object.party_number = :partyNumber', { partyNumber });
+      }
+      if (sn && sn.trim() !== '' && sn !== '-') {
+        queryBuilder.andWhere('object.sn = :sn', { sn });
+      }
+    }
+    // Для 'ОС' дополнительные условия не добавляем — только invNumber
+
+    const objects = await queryBuilder.getMany();
+    console.log(`[ObjectsService] findSimilar: найдено ${objects.length} объектов`);
+    return objects;
   }
 }

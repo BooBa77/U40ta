@@ -280,7 +280,7 @@ const handleQrScan = async (qrCode) => {
   
   try {
     // Используем qrService для получения кода
-    const result = await qrService.findObjectIdByQrCode(qrCode)
+    const result = await qrService.findObjectByQrCode(qrCode)
     
     if (result && result.object_id) {
       // QR найден, получаем данные объекта

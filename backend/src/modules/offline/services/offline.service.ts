@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { LogsService } from 'src/modules/logs';
 import { OfflineCacheService } from './offline-cache.service';
 import { OfflineSyncService } from './offline-sync.service';
+import { SyncChangesRequestDto } from '../dto/sync-changes.request.dto';
 
 @Injectable()
 export class OfflineService {
@@ -81,17 +82,16 @@ export class OfflineService {
   /**
    * Основной метод для синхронизации изменений
    */
-  async syncChanges(userId: number, changes: any[]): Promise<any> {
-    console.log(`OfflineService: синхронизация ${changes?.length || 0} изменений`);
-    
+  async syncChanges(userId: number, dto: SyncChangesRequestDto): Promise<any> {
+    console.log(`OfflineService: синхронизация ${dto.changes?.length || 0} изменений`);
+
     try {
-      const result = await this.offlineSyncService.applyChanges(userId, changes || []);
+      const result = await this.offlineSyncService.applyChanges(userId, dto);
       return {
         success: true,
         ...result,
         message: 'Синхронизация завершена'
       };
-      
     } catch (error) {
       console.error('OfflineService: ошибка синхронизации:', error);
       return {

@@ -35,11 +35,20 @@ async function bootstrap() {
 
   // Глобальная валидация входящих данных
   // ValidationPipe автоматически проверяет данные по правилам, которые мы задаем в DTO классах
-  app.useGlobalPipes(new ValidationPipe({
+  /*app.useGlobalPipes(new ValidationPipe({
     whitelist: true,        // Удаляет поля, которые не описаны в DTO
     forbidNonWhitelisted: true, // Возвращает ошибку, если есть лишние поля
     transform: true,        // Автоматически преобразует типы (строки в числа и т.д.)
   }));
+  */
+  // Глобальная валидация входящих данных
+  const validationPipe = new ValidationPipe({
+    whitelist: true, // Удаляет поля, которые не описаны в DTO
+    forbidNonWhitelisted: true, // Возвращает ошибку, если есть лишние поля
+    transform: true, // Автоматически преобразует типы (строки в числа и т.д.)
+  });
+  console.log('[Bootstrap] ValidationPipe forbidNonWhitelisted:', (validationPipe as any).forbidNonWhitelisted);
+  app.useGlobalPipes(validationPipe); 
 
   // Получаем экземпляр LogsService из приложения
   const logsService = app.get(LogsService);

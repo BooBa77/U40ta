@@ -89,6 +89,8 @@ export function useObjectPlaces() {
     user.value = ''
   }
 
+  const isInitializing = ref(false) // идёт загрузка данных карточки объекта, чтобы не сбрасывались поля
+  
   const setPlacesFromObject = (object) => {
     console.log('[setPlacesFromObject] Весь объект:', object)
     console.log('[setPlacesFromObject] Поля с place_:', {
@@ -103,12 +105,15 @@ export function useObjectPlaces() {
       cab: object.cab,
       user: object.user
     })
-
+    isInitializing.value = true
     territory.value = object.placeTer || object.ter || ''
     position.value = object.placePos || object.pos || ''
     cabinet.value = object.placeCab || object.cab || ''
     user.value = object.placeUser || object.user || ''
-
+    // Даём Vue время установить поля, потом снимаем флаг isInitializing
+    setTimeout(() => {
+        isInitializing.value = false
+    }, 0)
     console.log('[setPlacesFromObject] После установки:', {
       territory: territory.value,
       position: position.value,
@@ -128,52 +133,55 @@ export function useObjectPlaces() {
   }
 
   // Обработчики изменений с логикой сброса
-  const handleTerritoryChange = (newValue) => {
+  const handleTerritoryChange = (newValue, oldValue) => {
+    if (isInitializing.value) return  // пропускаем во время инициализации
     if (!existsInOptions(newValue, territoryOptions)) {
       // Ручной ввод нового значения - ничего не сбрасываем
       return
     }
     
     // Выбрано существующее значение - сбрасываем нижестоящие
-    if (newValue !== territory.value) {
+    if (newValue !== oldValue) {
       position.value = ''
       cabinet.value = ''
       user.value = ''
     }
   }
 
-  const handlePositionChange = (newValue) => {
+  const handlePositionChange = (newValue, oldVal) => {
+    if (isInitializing.value) return  // пропускаем во время инициализации
     if (!existsInOptions(newValue, positionOptions)) {
       return
     }
     
-    if (newValue !== position.value) {
+    if (newValue !== oldValue) {
       cabinet.value = ''
       user.value = ''
     }
   }
 
-  const handleCabinetChange = (newValue) => {
+  const handleCabinetChange = (newValue, oldVal) => {
+    if (isInitializing.value) return  // пропускаем во время инициализации
     if (!existsInOptions(newValue, cabinetOptions)) {
       return
     }
     
-    if (newValue !== cabinet.value) {
+    if (newValue !== oldValue) {
       user.value = ''
     }
   }
 
   // Watcher'ы для применения логики при изменениях через v-model
-  watch(territory, (newVal) => {
-    handleTerritoryChange(newVal)
+  watch(territory, (newVal, oldVal) => {
+    handleTerritoryChange(newVal, oldVal)
   })
 
-  watch(position, (newVal) => {
-    handlePositionChange(newVal)
+  watch(position, (newVal, oldVal) => {
+    handlePositionChange(newVal, oldVal)
   })
 
-  watch(cabinet, (newVal) => {
-    handleCabinetChange(newVal)
+  watch(cabinet, (newVal, oldVal) => {
+    handleCabinetChange(newVal, oldVal)
   })
 
   return {

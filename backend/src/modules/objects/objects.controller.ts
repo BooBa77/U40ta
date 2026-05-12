@@ -85,6 +85,25 @@ export class ObjectsController {
   }  
 
   /**
+   * Поиск похожих объектов для синхронизации из офлайна
+   * GET /api/objects/find-similar?docType=...&invNumber=...&partyNumber=...&sn=...
+   */
+  @Get('find-similar')
+  async findSimilar(
+    @Query('docType') docType: string,
+    @Query('invNumber') invNumber: string,
+    @Query('partyNumber') partyNumber?: string,
+    @Query('sn') sn?: string,
+  ) {
+    if (!docType || !invNumber) {
+      return { success: false, objects: [], message: 'docType и invNumber обязательны' };
+    }
+
+    const objects = await this.objectsService.findSimilar(docType, invNumber, partyNumber, sn);
+    return { success: true, objects, count: objects.length };
+  }
+
+  /**
    * Получение объекта по ID
    * GET /api/objects/:id
    */

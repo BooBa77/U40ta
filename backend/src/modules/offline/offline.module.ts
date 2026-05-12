@@ -16,6 +16,7 @@ import { ObjectsModule } from '../objects/objects.module';
 import { StatementsModule } from '../statements/statements.module';
 import { QrCodesModule } from '../qr-codes/qr-codes.module';
 import { PhotosModule } from '../photos/photos.module';
+import { AppEventsModule } from '../app-events/app-events.module';
 
 @Module({
   imports: [
@@ -35,7 +36,8 @@ import { PhotosModule } from '../photos/photos.module';
     StatementsModule,
     ObjectsModule,
     QrCodesModule,
-    PhotosModule
+    PhotosModule,
+    AppEventsModule
   ],
   controllers: [OfflineController],
   providers: [

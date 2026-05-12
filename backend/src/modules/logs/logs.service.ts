@@ -18,13 +18,14 @@ export class LogsService {
    * @param userId - id пользователя (может быть null)
    * @param content - любые данные в формате JSON
    */
-  log(source: string, userId: number | null, content: any): void {
+  log(source: string, userId: number | null, content: any, time?: Date): void {
     // Не ждем результат, чтобы не блокировать приложение
     this.logsRepository
       .insert({
         source,
         userId: userId,
         content,
+        time: time ?? undefined,  // если time передан — используем его (это для синхронизации после оффлайн), иначе сработает дефолт - текущее время
       })
       .catch((err) => {
         // Тихий fallback — логируем в консоль, но не ломаем пользователю работу

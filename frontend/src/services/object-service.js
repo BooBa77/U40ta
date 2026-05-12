@@ -95,7 +95,7 @@ export class ObjectService {
   }
 
   //============================================================================
-  // ПОЛУЧЕНИЕ ОБЪЕКТОВ ПО ИНВЕНТАРНОМУ НОМЕРУ
+  // ПОЛУЧЕНИЕ ОБЪЕКТОВ
   //============================================================================
 
   /**
@@ -136,6 +136,28 @@ export class ObjectService {
     const data = await this.apiRequest(`/objects/by-inv?${params}`)
     return data.objects || []
   }
+
+  /**
+   * Ищет похожие объекты на сервере для проверки дубликатов перед синхронизацией.
+   * Используется при выходе из офлайна для новых объектов (id < 0).
+   *
+   * Для docType='ОС' поиск только по invNumber.
+   * Для docType='ОСВ' поиск по invNumber + partyNumber + sn.
+   *
+   * @param {string} docType — тип документа ('ОС' или 'ОСВ')
+   * @param {string} invNumber — инвентарный номер
+   * @param {string} [partyNumber] — номер партии (только для ОСВ)
+   * @param {string} [sn] — серийный номер (только для ОСВ)
+   * @returns {Promise<Array>} массив найденных объектов (может быть пустым)
+   */
+  async findSimilarObjects(docType, invNumber, partyNumber, sn) {
+    const params = new URLSearchParams({ docType, invNumber })
+    if (partyNumber) params.append('partyNumber', partyNumber)
+    if (sn) params.append('sn', sn)
+
+    const data = await this.apiRequest(`/objects/find-similar?${params}`)
+    return data.objects || []
+  }  
 
   //============================================================================
   // ПОЛУЧЕНИЕ МЕСТОПОЛОЖЕНИЙ

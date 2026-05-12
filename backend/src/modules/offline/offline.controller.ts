@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, UsePipes, ValidationPipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OfflineService } from './services/offline.service';
 import { OfflineDataResponseDto } from './dto/offline-data.response.dto';
+import { SyncChangesRequestDto } from './dto/sync-changes.request.dto'
 
 @Controller('offline')
 @UseGuards(JwtAuthGuard) // Защита JWT для всех endpoint'ов
@@ -103,23 +104,26 @@ export class OfflineController {
    * POST /api/offline/sync
    */
   @Post('sync')
-  async syncChanges(@Req() request: any, @Body() body: any) {
+  //@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }))
+  async syncChanges(
+    @Req() request: any,
+    @Body() body: SyncChangesRequestDto,
+  ) {
+    console.log('[OfflineController] raw body:', JSON.stringify(body, null, 2));
     try {
       const userId = request.user?.sub || request.user?.userId;
-      const changes = body.changes || [];
-      
       if (!userId) {
         throw new Error('Не удалось определить пользователя');
       }
 
-      const result = await this.offlineService.syncChanges(userId, changes);
-      
+      const result = await this.offlineService.syncChanges(userId, body);
+
       return {
         success: true,
         ...result,
         message: 'Изменения успешно синхронизированы',
       };
-      
+
     } catch (error) {
       return {
         success: false,

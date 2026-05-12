@@ -1,4 +1,5 @@
 import Dexie from 'dexie'
+import { offlineSyncService } from './offline-sync-service'
 
 class OfflineCacheService {
   constructor() {
@@ -90,13 +91,20 @@ class OfflineCacheService {
     console.log('[OfflineCache] Выключение режима полёта...')
     
     try {
-      // TODO: синхронизация локальных изменений (будет добавлена позже)
+      // 1. Синхронизация локальных изменений
+      const syncResult = await offlineSyncService.synchronize()
       
-      // Очищаем кэш
+      if (!syncResult.success) {
+        throw new Error(syncResult.message || 'Синхронизация не удалась')
+      }
+      
+      console.log(`[OfflineCache] Синхронизировано объектов: ${syncResult.syncedCount}`)
+      
+      // 2. Очищаем кэш
       await this.clearAllCache()
       
       console.log('[OfflineCache] Режим полёта выключен, кэш очищен')
-      return { success: true, error: null }
+      return { success: true, error: null, syncedCount: syncResult.syncedCount }
       
     } catch (error) {
       console.error('[OfflineCache] Ошибка при выключении режима полёта:', error)
