@@ -135,12 +135,6 @@ export function useObjectPlaces() {
   // Обработчики изменений с логикой сброса
   const handleTerritoryChange = (newValue, oldValue) => {
     if (isInitializing.value) return  // пропускаем во время инициализации
-    if (!existsInOptions(newValue, territoryOptions)) {
-      // Ручной ввод нового значения - ничего не сбрасываем
-      return
-    }
-    
-    // Выбрано существующее значение - сбрасываем нижестоящие
     if (newValue !== oldValue) {
       position.value = ''
       cabinet.value = ''
@@ -148,40 +142,32 @@ export function useObjectPlaces() {
     }
   }
 
-  const handlePositionChange = (newValue, oldVal) => {
+  const handlePositionChange = (newValue, oldValue) => {
     if (isInitializing.value) return  // пропускаем во время инициализации
-    if (!existsInOptions(newValue, positionOptions)) {
-      return
-    }
-    
     if (newValue !== oldValue) {
       cabinet.value = ''
       user.value = ''
     }
   }
 
-  const handleCabinetChange = (newValue, oldVal) => {
+  const handleCabinetChange = (newValue, oldValue) => {
     if (isInitializing.value) return  // пропускаем во время инициализации
-    if (!existsInOptions(newValue, cabinetOptions)) {
-      return
-    }
-    
     if (newValue !== oldValue) {
       user.value = ''
     }
   }
 
   // Watcher'ы для применения логики при изменениях через v-model
-  watch(territory, (newVal, oldVal) => {
-    handleTerritoryChange(newVal, oldVal)
+  watch(territory, (newVal, oldValue) => {
+    handleTerritoryChange(newVal, oldValue)
   })
 
-  watch(position, (newVal, oldVal) => {
-    handlePositionChange(newVal, oldVal)
+  watch(position, (newVal, oldValue) => {
+    handlePositionChange(newVal, oldValue)
   })
 
-  watch(cabinet, (newVal, oldVal) => {
-    handleCabinetChange(newVal, oldVal)
+  watch(cabinet, (newVal, oldValue) => {
+    handleCabinetChange(newVal, oldValue)
   })
 
   return {
