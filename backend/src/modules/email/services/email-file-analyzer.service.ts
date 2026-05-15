@@ -1,12 +1,31 @@
 import { Injectable } from '@nestjs/common';
 import * as XLSX from 'xlsx';
-import * as path from 'path';
-import * as fs from 'fs';
 import { LogsService } from '../../logs/logs.service';
 
+/**
+ * Сервис анализа Excel-файлов, поступающих по электронной почте.
+ * 
+ * ## Назначение
+ * Определяет тип документа (ОСВ или ОС) по заголовкам колонок и извлекает
+ * информацию о складе из первой непустой строки.
+ * 
+ * ## Поддерживаемые типы документов
+ * - **ОСВ** (оборотно-сальдовая ведомость) — колонки: Завод, Склад, КрТекстМатериала,
+ *   Материал, Партия, Запас на конец периода
+ * - **ОС** (основные средства) — колонки: Основное средство, Название, Инвентарный номер, МОЛ
+ * 
+ * ## Принцип работы
+ * Принимает Buffer с содержимым Excel-файла, не зависит от файловой системы.
+ * 
+ * ## Использование
+ * Вызывается из EmailProcessor.analyzeAttachment() для каждого вложения.
+ */
 @Injectable()
 export class EmailFileAnalyzer {
-  // Колонки для ОСВ (оборотно-сальдовая ведомость)
+  /**
+   * Обязательные колонки для документа типа ОСВ (оборотно-сальдовая ведомость).
+   * Файл считается ОСВ, если в первой строке присутствуют ВСЕ эти колонки.
+   */
   private readonly osvColumns = [
     'Завод',
     'Склад',
@@ -16,7 +35,10 @@ export class EmailFileAnalyzer {
     'Запас на конец периода'
   ];
 
-  // Колонки для ОС (основные средства)
+  /**
+   * Обязательные колонки для документа типа ОС (основные средства).
+   * Файл считается ОС, если в первой строке присутствуют ВСЕ эти колонки.
+   */
   private readonly osColumns = [
     'Основное средство',
     'Название',
@@ -27,46 +49,38 @@ export class EmailFileAnalyzer {
   constructor(private readonly logsService: LogsService) {}
 
   /**
-   * Анализирует Excel-файл и определяет его валидность, тип и склад
-   * @param filePath - путь к файлу на диске
-   * @returns Результат анализа
+   * Проанализировать Excel-файл из Buffer.
+   * 
+   * ## Этапы анализа
+   * 1. Чтение Excel из Buffer через библиотеку xlsx
+   * 2. Проверка, что файл содержит хотя бы один лист
+   * 3. Проверка, что файл не пустой (есть строки данных)
+   * 4. Определение типа документа по колонкам первой строки
+   * 5. Извлечение zavod и sklad из первой непустой строки
+   * 
+   * ## Результат
+   * - Для валидного файла: `{ isValid: true, docType, zavod, sklad }`
+   * - Для невалидного: `{ isValid: false, error }`
+   * 
+   * Для инвентаризационных ведомостей (is_inventory = true) используются
+   * только поля `isValid` и `docType`, zavod/sklad игнорируются.
+   * 
+   * @param buffer - содержимое Excel-файла в виде Buffer
+   * @returns Объект с результатом анализа
    */
-  async analyzeExcel(filePath: string): Promise<{
+  async analyzeExcel(buffer: Buffer): Promise<{
     isValid: boolean;
     docType?: string;
     zavod?: number;
     sklad?: string;
     error?: string;
   }> {
-    console.log(`Анализируем Excel файл: ${filePath}`);
-    this.logsService.log('backend', null, {
-      action: 'excel_analysis',
-      filePath: filePath,
-      status: 'started'
-    });    
-
-    // Этап 1: Проверка расширения файла
-    const ext = path.extname(filePath).toLowerCase();
-    if (ext !== '.xlsx' && ext !== '.xls') {
-      return {
-        isValid: false,
-        error: 'Это не Excel-таблица. Поддерживаются только .xlsx и .xls файлы'
-      };
-    }
-
-    // Этап 2: Проверка существования файла
-    if (!fs.existsSync(filePath)) {
-      return {
-        isValid: false,
-        error: 'Файл не найден на диске'
-      };
-    }
-
     try {
-      // Этап 3: Чтение Excel файла
-      const workbook = XLSX.readFile(filePath);
-      
-      // Берём первый лист (по умолчанию)
+      // ========== Этап 1: Чтение Excel из Buffer ==========
+      // Библиотека xlsx умеет читать напрямую из Buffer
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+      // ========== Этап 2: Проверка наличия листов ==========
       const firstSheetName = workbook.SheetNames[0];
       if (!firstSheetName) {
         return {
@@ -76,11 +90,11 @@ export class EmailFileAnalyzer {
       }
 
       const worksheet = workbook.Sheets[firstSheetName];
-      
-      // Конвертируем в JSON (массив объектов)
+
+      // Конвертируем лист в массив объектов (каждая строка — объект с ключами-колонками)
       const data: any[] = XLSX.utils.sheet_to_json(worksheet);
-      
-      // Этап 4: Проверка что файл не пустой
+
+      // ========== Этап 3: Проверка что файл не пустой ==========
       if (data.length === 0) {
         return {
           isValid: false,
@@ -88,45 +102,39 @@ export class EmailFileAnalyzer {
         };
       }
 
-      // Берём первую строку для проверки колонок
+      // ========== Этап 4: Определение типа документа ==========
       const firstRow = data[0];
 
-      // Этап 5: Определение типа документа
-      // Сначала проверяем на ОСВ (более популярный тип)
-      const hasOsvColumns = this.hasRequiredColumns(firstRow, this.osvColumns);
-      
-      if (hasOsvColumns) {
-        return await this.analyzeOsvDocument(data);
+      // Сначала проверяем на ОСВ (более частый тип)
+      if (this.hasRequiredColumns(firstRow, this.osvColumns)) {
+        return this.extractOsvData(data);
       }
 
-      // Проверяем на ОС
-      const hasOsColumns = this.hasRequiredColumns(firstRow, this.osColumns);
-      
-      if (hasOsColumns) {
-        return await this.analyzeOsDocument(data);
+      // Затем проверяем на ОС
+      if (this.hasRequiredColumns(firstRow, this.osColumns)) {
+        return this.extractOsData(data);
       }
 
-      // Если ни один тип не подошёл
+      // ========== Ни один тип не подошёл ==========
       return {
         isValid: false,
         error: `Некорректная структура данных. Файл должен содержать колонки для ОСВ (${this.osvColumns.join(', ')}) или для ОС (${this.osColumns.join(', ')})`
       };
 
     } catch (error) {
-      
+      // ========== Обработка ошибок чтения ==========
       let errorMessage = 'Ошибка чтения файла';
-      if (error.message.includes('not a valid zip file')) {
-        errorMessage = 'Файл поврежден или не является Excel-файлом';
-      } else if (error.message.includes('file not found')) {
-        errorMessage = 'Файл не найден';
+      if (error.message?.includes('Unsupported file')) {
+        errorMessage = 'Формат файла не поддерживается';
       }
 
-      console.error(`Ошибка анализа Excel файла: ${error.message}`, error.stack);
+      console.error(`Ошибка анализа Excel: ${error.message}`, error.stack);
+
       this.logsService.log('backend', null, {
         action: 'excel_analysis',
         result: 'error',
-        filePath,
-        error: errorMessage
+        error: errorMessage,
+        originalError: error.message
       });
 
       return {
@@ -137,7 +145,15 @@ export class EmailFileAnalyzer {
   }
 
   /**
-   * Проверяет наличие всех требуемых колонок в строке
+   * Проверить наличие всех требуемых колонок в строке.
+   * 
+   * Используется для определения типа документа: если в первой строке
+   * присутствуют ВСЕ обязательные колонки определённого типа — документ
+   * считается валидным для этого типа.
+   * 
+   * @param row - объект строки Excel (ключи — названия колонок)
+   * @param requiredColumns - массив названий обязательных колонок
+   * @returns true если ВСЕ требуемые колонки присутствуют, иначе false
    */
   private hasRequiredColumns(row: any, requiredColumns: string[]): boolean {
     for (const column of requiredColumns) {
@@ -149,24 +165,26 @@ export class EmailFileAnalyzer {
   }
 
   /**
-   * Анализирует документ типа ОСВ
+   * Извлечь zavod и sklad из первой непустой строки документа ОСВ.
+   * 
+   * Проходит по строкам сверху вниз, ищет первую строку с непустым складом.
+   * 
+   * @param data - массив строк Excel
+   * @returns Результат с docType='ОСВ', zavod и sklad или ошибкой
    */
-  private async analyzeOsvDocument(data: any[]): Promise<{
+  private extractOsvData(data: any[]): {
     isValid: boolean;
     docType?: string;
     zavod?: number;
     sklad?: string;
     error?: string;
-  }> {
-    // Поиск первой строки с данными (где склад не пустой)
-    let zavod = 0;
-    let sklad = '';
-    
+  } {
     for (const row of data) {
       const rowZavod = row['Завод'];
       const rowSklad = row['Склад'];
-      
-      // Приводим zavod к числу
+
+      // Извлекаем zavod — приводим к числу
+      let zavod = 0;
       if (typeof rowZavod === 'number') {
         zavod = rowZavod;
       } else if (typeof rowZavod === 'string') {
@@ -175,80 +193,76 @@ export class EmailFileAnalyzer {
       } else {
         zavod = Number(rowZavod) || 0;
       }
-      
+
+      // Проверяем, что склад не пустой
       if (rowSklad && typeof rowSklad === 'string' && rowSklad.trim() !== '') {
-        sklad = rowSklad.trim();
-        break;
+        this.logsService.log('backend', null, {
+          action: 'excel_analysis',
+          result: 'success',
+          docType: 'ОСВ',
+          zavod,
+          sklad: rowSklad.trim()
+        });
+
+        return {
+          isValid: true,
+          docType: 'ОСВ',
+          zavod,
+          sklad: rowSklad.trim()
+        };
       }
     }
 
-    if (!sklad) {
-      return {
-        isValid: false,
-        error: 'Не удалось определить склад (колонка "Склад" пустая во всех строках)'
-      };
-    }
-
-    // Всё ок - файл валидный ОСВ
-    this.logsService.log('backend', null, {
-      action: 'excel_analysis',
-      result: 'success',
-      docType: 'ОСВ',
-      zavod,
-      sklad
-    });    
-    
+    // Все строки с пустым складом
     return {
-      isValid: true,
-      docType: 'ОСВ',
-      zavod: zavod,
-      sklad: sklad
+      isValid: false,
+      error: 'Не удалось определить склад (колонка "Склад" пустая во всех строках)'
     };
   }
 
   /**
-   * Анализирует документ типа ОС (основные средства)
+   * Извлечь sklad из первой непустой строки документа ОС.
+   * 
+   * Проходит по строкам сверху вниз, ищет первую строку с непустым МОЛ.
+   * Для ОС zavod всегда 0.
+   * 
+   * @param data - массив строк Excel
+   * @returns Результат с docType='ОС', zavod=0 и sklad или ошибкой
    */
-  private async analyzeOsDocument(data: any[]): Promise<{
+  private extractOsData(data: any[]): {
     isValid: boolean;
     docType?: string;
     zavod?: number;
     sklad?: string;
     error?: string;
-  }> {
-    // Поиск первой строки с данными (где МОЛ не пустой)
-    let sklad = '';
-    
+  } {
     for (const row of data) {
       const rowMol = row['МОЛ'];
-      // Проверяем наличие значения (независимо от типа)
+
       if (rowMol !== undefined && rowMol !== null && rowMol !== '') {
-        sklad = String(rowMol).trim();
+        const sklad = String(rowMol).trim();
         if (sklad !== '') {
-          break;
+          this.logsService.log('backend', null, {
+            action: 'excel_analysis',
+            result: 'success',
+            docType: 'ОС',
+            sklad
+          });
+
+          return {
+            isValid: true,
+            docType: 'ОС',
+            zavod: 0,
+            sklad
+          };
         }
       }
     }
 
-    if (!sklad) {
-      return {
-        isValid: false,
-        error: 'Не удалось определить склад (колонка "МОЛ" пустая во всех строках)'
-      };
-    }
-
-    // Всё ок - файл валидный ОС
-    this.logsService.log('backend', null, {
-      action: 'excel_analysis',
-      result: 'success',
-      docType: 'ОС',
-      sklad
-    });    
+    // Ошибка - все строки с пустым МОЛ
     return {
-      isValid: true,
-      docType: 'ОС',
-      zavod: 0,  // У ОС нет завода, ставим 0 для единообразия
-      sklad: sklad
+      isValid: false,
+      error: 'Не удалось определить склад (колонка "МОЛ" пустая во всех строках)'
     };
   }
 }

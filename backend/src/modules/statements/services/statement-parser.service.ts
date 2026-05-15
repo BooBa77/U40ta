@@ -55,9 +55,9 @@ export class StatementParserService {
     }
     
     // 2. Пропускаем инвентаризацию
-    if (attachment.isInventory) {
-      return [];
-    }
+    //if (attachment.isInventory) {
+    //  return [];
+    //}
     
     // 3. Если ведомость уже в работе - возвращаем существующие записи
     if (attachment.inProcess) {

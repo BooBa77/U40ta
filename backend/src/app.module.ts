@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppEventsModule } from './modules/app-events/app-events.module'; // SSE
 import { TelegramUsersModule } from './modules/telegram-users/telegram-users.module';
 import { UsersModule } from './modules/users/users.module';
@@ -14,6 +15,7 @@ import { OfflineModule } from './modules/offline/offline.module';
 import { ObjectsModule } from './modules/objects/objects.module';
 import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
 import { PhotosModule } from './modules/photos/photos.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -49,6 +51,9 @@ import { PhotosModule } from './modules/photos/photos.module';
       inject: [ConfigService], // Внедряем ConfigService в фабрику
     }),
 
+    // Модуль передачи событий для связи между модулями
+    EventEmitterModule.forRoot(),
+    
     // Модуль логгирования
     ThrottlerModule.forRoot([{
           ttl: 60000,  // время жизни окна в миллисекундах (1 минута)
@@ -97,6 +102,10 @@ import { PhotosModule } from './modules/photos/photos.module';
     // Модуль работы с фотографиями
     // Обеспечивает связь таблицы фотографий с объектами системы
     PhotosModule,
+
+    // InventoryModule — инвентаризационные ведомости ревизоров.
+    // Парсинг Excel из писем, управление строками, формирование сводных ведомостей.
+    InventoryModule,    
   ],
   
   // providers - массив сервисов, не объявленных в других модулях

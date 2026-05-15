@@ -7,5 +7,4 @@ export class EmailAttachmentResponseDto {
   zavod!: number;
   sklad!: string | null;
   inProcess!: boolean;
-  isInventory!: boolean;
 }

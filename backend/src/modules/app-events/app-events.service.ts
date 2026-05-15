@@ -73,6 +73,15 @@ export class AppEventsService {
     });
   }
 
+  // Для InventoryModule (новые инвентаризационные строки)
+  notifyInventoryStatementLoaded(email: string): void {
+    this.eventSubject.next({
+      type: 'inventory-statement-loaded',
+      message: 'Получены новые инвентаризационные ведомости',
+      data: { email }
+    });
+  }
+
   // Для получения потока событий (используется в контроллере)
   getEventStream(): Observable<{ message: string }> {
     return this.eventSubject.asObservable();

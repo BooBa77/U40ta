@@ -58,9 +58,9 @@ export class StatementService {
       throw new NotFoundException(`Вложение с ID ${attachmentId} не найдено`);
     }
 
-    if (attachment.isInventory) {
-      return [];
-    }
+    //if (attachment.isInventory) {
+    //  return [];
+    //}
 
     if (attachment.inProcess) {
       return await this.parserService.getExistingStatements(attachmentId);

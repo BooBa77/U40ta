@@ -69,7 +69,12 @@ text
 - `telegramUsersId` - ссылка на `telegram_users.id` (unique, nullable)
 - `firstName` - имя пользователя
 - `lastName` - фамилия пользователя
+- `email` - email пользователя (может быть null)
 - `abr` - аббревиатура для подписей (например: "ИИ" для "Иван Иванов")
+
+#### Специальные роли:
+- **МОЛ** - хранятся в таблице `mol_access`
+- **Ревизор** - хранятся в таблице `revisors`
 
 ### 4. DTO (Data Transfer Objects)
 

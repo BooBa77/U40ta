@@ -27,9 +27,6 @@ export class EmailAttachment {
   @Column({ name: 'in_process', type: 'boolean', default: false })
   inProcess!: boolean;
 
-  @Column({ name: 'is_inventory', type: 'boolean', default: false })
-  isInventory!: boolean;
-
   @OneToMany(() => ProcessedStatement, (statement) => statement.emailAttachment)
   processedStatements!: ProcessedStatement[];
 }

@@ -1,10 +1,19 @@
-import { IsString, IsOptional } from 'class-validator';
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateUserDto } from './create-user.dto';
+import { IsOptional, IsString, IsEmail } from 'class-validator';
 
 /**
- * DTO для обновления данных пользователя
- * Все поля необязательные
- * При обновлении имени/фамилии нужно пересчитывать abr
+ * DTO для обновления данных пользователя из админки
+ * Все поля опциональные — обновляется только то, что передано
  */
-export class UpdateUserDto extends PartialType(CreateUserDto) {}
+export class UpdateUserDto {
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  eMail?: string;
+}

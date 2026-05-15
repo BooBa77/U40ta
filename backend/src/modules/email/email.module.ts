@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { AppEventsModule } from '../app-events/app-events.module';
 import { LogsModule } from '../logs/logs.module';
@@ -18,6 +19,7 @@ import { EmailStorageService } from './services/email-storage.service';
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([EmailAttachment, MolAccess]),
+    EventEmitterModule, // Для отправки событий о поступлении новых Инвентаризационных ведомостей
     AppEventsModule, // Модуль SSE
     JwtAuthModule,
     LogsModule,

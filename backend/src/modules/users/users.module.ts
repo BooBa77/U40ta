@@ -5,6 +5,7 @@ import { MolAccess } from './entities/mol-access.entity';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
+import { Revisors } from './entities/revisors.entity';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { JwtAuthModule } from '../auth/jwt-auth.module';
     // В отличие от forRoot() в app.module, который настраивает всё подключение к БД,
     // forFeature() сообщает TypeORM какие именно сущности (таблицы) будут использоваться в этом модуле
     // [User] - массив сущностей, которые принадлежат этому модулю
-    TypeOrmModule.forFeature([User, MolAccess]),
+    TypeOrmModule.forFeature([User, MolAccess, Revisors]),
     JwtAuthModule,
   ],
   controllers: [UsersController],

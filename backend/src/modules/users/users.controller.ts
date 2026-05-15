@@ -62,6 +62,21 @@ export class UsersController {
     return { hasAccessToStatements: hasAccess };
   }
 
+  /**
+   * GET /api/users/me/is-revisor — проверяет, является ли текущий пользователь ревизором
+   */
+  @Get('me/is-revisor')
+  async checkIsRevisor(@Req() request: RequestWithUser) {
+    const userId = request.user?.sub;
+    
+    if (!userId) {
+      return { isRevisor: false };
+    }
+    
+    const isRevisor = await this.usersService.isRevisor(userId);
+    return { isRevisor };
+  }  
+
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.usersService.findById(+id); // +id преобразует строку в число
@@ -80,5 +95,4 @@ export class UsersController {
     const users = await this.usersService.findAll();
     return users;
   }
-
 }

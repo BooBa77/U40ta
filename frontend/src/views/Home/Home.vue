@@ -282,9 +282,9 @@ const handleQrScan = async (qrCode) => {
     // Используем qrService для получения кода
     const result = await qrService.findObjectByQrCode(qrCode)
     
-    if (result && result.object_id) {
+    if (result && result.objectId) {
       // QR найден, получаем данные объекта
-      await loadObjectData(result.object_id)
+      await loadObjectData(result.objectId)
     } else {
       // QR не найден
       showInfoMessage('QR-код не найден', 'Данный QR-код не обнаружен в базе данных.')

@@ -1,6 +1,6 @@
 export class DeleteAttachmentResponseDto {
-  success: boolean;
-  message: string;
+  success!: boolean;
+  message?: string;
   attachmentId?: number;
   error?: string;
 }

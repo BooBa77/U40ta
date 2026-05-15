@@ -7,14 +7,11 @@ import { IsNumber, IsString } from 'class-validator';
  */
 export class CreateUserDto {
   @IsNumber()
-  telegramUsersId: number;
+  telegramUsersId!: number;
 
   @IsString()
-  firstName: string;
+  firstName!: string;
 
   @IsString()
-  lastName: string;
-
-  @IsString()
-  abr: string; // Формат: первая буква имени + первая буква фамилии
+  lastName!: string;
 }

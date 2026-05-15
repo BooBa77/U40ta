@@ -1,28 +1,43 @@
-import { Controller, Post, Get, Delete, UseGuards, Req, Param, ParseIntPipe, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  UseGuards,
+  Req,
+  Param,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ConfigService } from '@nestjs/config';
 import { EmailAttachmentsService } from './services/email-attachments.service';
 import { ImapService } from './services/imap.service';
 import { EmailAttachmentResponseDto } from './dto/email-attachment-response.dto';
-import { DeleteAttachmentResponseDto } from './dto/delete-attachment-response.dto';
+import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
-// Интерфейс для Request с пользовательскими данными из JWT токена
-interface RequestWithUser extends Express.Request {
-  user?: { sub: number };
-}
-
+/**
+ * Контроллер для работы с ведомостями МОЛ, полученными по email.
+ * Инвентаризационные ведомости обрабатываются отдельным модулем inventory.
+ * 
+ * Базовый путь: /api/email
+ */
 @Controller('email')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard) // JWT-аутентификация для всех эндпоинтов
 export class EmailController {
   constructor(
     private readonly imapService: ImapService,
     private readonly emailAttachmentsService: EmailAttachmentsService,
-    private readonly configService: ConfigService,
   ) {}
 
-  // Проверка почты - endpoint для инициирования проверки новых писем
+  /**
+   * Запустить ручную проверку почтового ящика.
+   * Инвентаризационные ведомости передаются в inventory-модуль через EventEmitter.
+   * 
+   * POST /api/email/check
+   */
   @Post('check')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.OK) // 200 вместо 201 для POST
   async checkEmailNow(): Promise<{ success: boolean; message: string }> {
     try {
       await this.imapService.checkForNewEmails();
@@ -32,47 +47,56 @@ export class EmailController {
     }
   }
 
-  // Получение списка всех email-вложений с фильтрацией по доступным пользователю складам
+  /**
+   * Получить ведомости, доступные пользователю МОЛ.
+   * Фильтрация по складам из mol_access.
+   * 
+   * GET /api/email/attachments
+   */
   @Get('attachments')
   async getAllAttachments(
     @Req() request: RequestWithUser
   ): Promise<EmailAttachmentResponseDto[]> {
-    const userId = request.user?.sub;
-    if (!userId) return [];
-    
-    const attachments = await this.emailAttachmentsService.getAttachmentsForUser(userId);
-    
-    return attachments.map(this.toResponseDto);
+    const userId = request.user.sub;
+    if (!userId) {
+      return [];
+    }
+
+    const attachments = await this.emailAttachmentsService.getAttachmentsForMol(userId);
+    return attachments.map(a => this.toResponseDto(a));
   }
 
-  // Удаление вложения по ID
+  /**
+   * Удалить ведомость по ID.
+   * Удаляет файл с диска, запись из БД, отправляет SSE.
+   * 
+   * DELETE /api/email/attachments/:id
+   */
   @Delete('attachments/:id')
   async deleteAttachment(
     @Param('id', ParseIntPipe) id: number,
     @Req() request: RequestWithUser
-  ): Promise<DeleteAttachmentResponseDto> {
-    const userId = request.user?.sub;
-    if (!userId) {
+  ): Promise<{ success: boolean; message: string; attachmentId?: number; error?: string }> {
+    if (!request.user.sub) {
       return { success: false, message: 'Пользователь не аутентифицирован' };
     }
-    
+
     try {
-      await this.emailAttachmentsService.deleteAttachment(id, userId);
-      return {
-        success: true,
-        message: 'Вложение успешно удалено',
-        attachmentId: id,
-      };
+      await this.emailAttachmentsService.deleteAttachment(id);
+      return { success: true, message: 'Ведомость удалена', attachmentId: id };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Ошибка при удалении вложения',
+        message: error.message || 'Ошибка при удалении ведомости',
         attachmentId: id,
-        error: error.message,
+        error: error.message
       };
     }
   }
 
+  /**
+   * Преобразовать сущность в DTO для ответа фронтенду.
+   */
   private toResponseDto(attachment: any): EmailAttachmentResponseDto {
     const dto = new EmailAttachmentResponseDto();
     dto.id = attachment.id;
@@ -83,7 +107,6 @@ export class EmailController {
     dto.zavod = attachment.zavod;
     dto.sklad = attachment.sklad;
     dto.inProcess = attachment.inProcess;
-    dto.isInventory = attachment.isInventory;
     return dto;
-  }  
+  }
 }

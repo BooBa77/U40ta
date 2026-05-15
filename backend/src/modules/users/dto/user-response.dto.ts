@@ -1,14 +1,15 @@
-import { Exclude } from 'class-transformer';
+import { Exclude, Expose } from 'class-transformer';
 
 /**
  * DTO для безопасного ответа с данными пользователя
  * Исключает чувствительные данные если будут добавлены в будущем
  */
+@Exclude()
 export class UserResponseDto {
-  id: number;
-  telegramUsersId: number;
-  firstName: string;
-  lastName: string;
-  abr: string;
-  createdAt: Date;
+  @Expose() id!: number;
+  @Expose() telegramUsersId!: number;
+  @Expose() firstName!: string;
+  @Expose() lastName!: string;
+  @Expose() abr!: string;
+  @Expose() eMail!: string | null;
 }

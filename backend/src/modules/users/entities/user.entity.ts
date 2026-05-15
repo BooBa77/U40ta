@@ -15,6 +15,9 @@ export class User {
   @Column({ name: 'first_name' })
   firstName!: string;
 
+  @Column({ name: 'e_mail', nullable: true, length: 255, type: 'varchar' })
+  eMail!: string | null;
+
   @Column()
   abr!: string;
 
