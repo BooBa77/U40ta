@@ -3,7 +3,7 @@
     <!-- Хедер: аббревиатура и переключатель полета (если есть доступ) -->
     <header class="home-header">
       <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
-      <FlightModeToggle v-if="hasAccessToStatements" />
+      <FlightModeToggle v-if="hasAccessToStatements || isRevisor" />
     </header>
 
     <main class="home-main">
@@ -24,31 +24,23 @@
         </div>
       </section>
 
-      <!-- Панель инструментов МЦ: две кнопки в ряд -->
-      <!-- Отображается ДО таблицы вложений, только при наличии доступа -->
-      <div v-if="hasAccessToStatements" class="mc-tools-panel">
-        <button class="mc-tool-button" @click="navigateToObjects">
-          Работа с объектами
-        </button>
-        <button class="mc-tool-button" @click="navigateToJournal">
-          Журнал
-        </button>
-      </div>
+      <!-- Секция инвентаризационных книг (для ревизора) -->
+      <InventoryBooksSection 
+        v-if="isRevisor"
+        @edit-book="handleEditBook"
+      />
 
-      <!-- Условное отображение основного функционала -->
-      <template v-if="hasAccessToStatements">
-        <!-- Секция почтовых вложений (с кнопкой "Проверить почту" внутри) -->
-        <EmailAttachmentsSection />
-      </template>
+      <!-- Секция почтовых вложений (для МОЛ) -->
+      <EmailAttachmentsSection v-if="hasAccessToStatements" />
       
-      <!-- Сообщение для гостей без доступа к ведомостям -->
-      <div v-else-if="accessChecked" class="no-access-message">
-        <p>Доступ к ведомостям отсутствует.</p>
+      <!-- Сообщение для гостей без доступа -->
+      <div v-if="accessChecked && !hasAccessToStatements && !isRevisor" class="no-access-message">
+        <p>Доступ отсутствует.</p>
         <p>Обратитесь к администратору для получения прав.</p>
       </div>
       
       <!-- Состояние загрузки проверки доступа -->
-      <div v-else class="no-access-message">
+      <div v-if="!accessChecked" class="no-access-message">
         Проверка прав доступа...
       </div>
 
@@ -60,7 +52,14 @@
         :initial-data="objectFormData"
         @cancel="closeObjectForm"
         @save="handleObjectSaved"
-      />      
+      />
+
+      <!-- Модальное окно InventoryModal (создание/редактирование книги) -->
+      <InventoryModal
+        :is-open="showInventoryModal"
+        :book-id="editingBookId"
+        @close="closeInventoryModal"
+      />
 
       <!-- Информационное модальное окно для сообщений -->
       <div v-if="showInfoModal" class="info-modal-overlay" @click="closeInfoModal">
@@ -79,22 +78,29 @@
           </div>
         </div>
       </div>
-    </main>
 
-    <footer class="home-footer">
-      <PWAInstallButton />
-    </footer>
+      <!-- Нижнее меню -->
+      <BottomMenu
+        :is-revisor="isRevisor"
+        :has-access-to-statements="hasAccessToStatements"
+        :is-flight-mode="isFlightMode"
+        @new-inventory="handleNewInventory"
+        @tools="handleTools"
+      />
+    </main>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
+import InventoryBooksSection from './components/InventoryBooksSection.vue'
+import InventoryModal from './components/InventoryModal.vue'
+import BottomMenu from './components/BottomMenu.vue'
 import { qrService } from '@/services/qr-service.js'
 import { objectService } from '@/services/object-service.js'
 import { useCamera } from '@/composables/useCamera'
@@ -105,15 +111,15 @@ const router = useRouter()
 const route = useRoute()
 
 // Основные состояния компонента
-const hasAccessToStatements = ref(false) // Флаг доступа к ведомостям
-const accessChecked = ref(false) // Флаг завершения проверки доступа
-const { hasCamera } = useCamera() // Состояние камеры
+const hasAccessToStatements = ref(false)
+const accessChecked = ref(false)
+const { hasCamera } = useCamera()
 
 // Состояния сканирования QR
-const scannedQrCode = ref('') // Отсканированный QR-код
-const showObjectForm = ref(false) // Показать модальное окно ObjectForm
-const objectFormMode = ref('edit') // Режим модального окна (edit/create)
-const objectFormData = ref(null) // Данные для заполнения формы
+const scannedQrCode = ref('')
+const showObjectForm = ref(false)
+const objectFormMode = ref('edit')
+const objectFormData = ref(null)
 
 // Информационное модальное окно
 const showInfoModal = ref(false)
@@ -123,6 +129,10 @@ let infoModalTimeout = null
 
 // Оффлайн режим
 const isFlightMode = ref(false)
+
+// Инвентаризационная модалка
+const showInventoryModal = ref(false)
+const editingBookId = ref(null)
 
 /**
  * Проверяет, активен ли режим полёта
@@ -135,7 +145,6 @@ const checkFlightMode = () => {
  * Показать информационное модальное окно
  */
 const showInfoMessage = (title, message, autoClose = true) => {
-  // Очищаем предыдущий таймер
   if (infoModalTimeout) {
     clearTimeout(infoModalTimeout)
     infoModalTimeout = null
@@ -145,7 +154,6 @@ const showInfoMessage = (title, message, autoClose = true) => {
   infoModalMessage.value = message
   showInfoModal.value = true
   
-  // Автоматическое закрытие через 10 секунд
   if (autoClose) {
     infoModalTimeout = setTimeout(() => {
       closeInfoModal()
@@ -169,7 +177,6 @@ const closeInfoModal = () => {
 
 /**
  * Проверка аутентификации пользователя
- * Перенаправляет на страницу логина если токен отсутствует
  */
 const checkAuth = () => {
   const token = localStorage.getItem('auth_token')
@@ -181,17 +188,17 @@ const checkAuth = () => {
 }
 
 /**
- * Загрузка аббревиатуры пользователя из композабла
- * Вызывается при загрузке и при получении SSE событий об изменении данных пользователя
+ * Данные пользователя из композабла
  */
 const { 
   userAbr, 
-  fetchUserAbr 
+  fetchUserAbr,
+  isRevisor,
+  fetchIsRevisor
 } = useCurrentUser()
 
 /**
- * Проверка доступа к ведомостям через таблицу mol_access
- * Вызывается при загрузке и при получении SSE событий access-changed
+ * Проверка доступа к ведомостям
  */
 const checkAccessToStatements = async () => {
   try {
@@ -204,7 +211,6 @@ const checkAccessToStatements = async () => {
       const data = await response.json()
       hasAccessToStatements.value = data.hasAccessToStatements
       accessChecked.value = true
-      console.log('Home: доступ к ведомостям:', hasAccessToStatements.value)
     }
   } catch (error) {
     console.error('Home: ошибка проверки доступа к ведомостям:', error)
@@ -215,7 +221,6 @@ const checkAccessToStatements = async () => {
 
 /**
  * Обработка события изменения прав доступа
- * Проверяет, относится ли событие к текущему пользователю
  */
 const handleAccessChangedEvent = (eventData) => {
   const token = localStorage.getItem('auth_token')
@@ -224,19 +229,15 @@ const handleAccessChangedEvent = (eventData) => {
   const payload = JSON.parse(payloadJson)
   const currentUserId = payload.sub
   
-  // Если событие broadcast или для текущего пользователя
   if (!eventData.data || !eventData.data.userId || eventData.data.userId === currentUserId) {
-    console.log('Home: получено событие изменения прав доступа для текущего пользователя')
-    
-    // Перезагружаем данные пользователя
-    fetchUserAbr() // abr мог измениться при регистрации админом
-    checkAccessToStatements() // доступ к ведомостям мог измениться
+    fetchUserAbr()
+    checkAccessToStatements()
+    fetchIsRevisor()
   }
 }
 
 /**
  * Обработка события обновления данных пользователя
- * Может приходить при изменении ФИО или других данных
  */
 const handleUserDataUpdatedEvent = (eventData) => {
   const token = localStorage.getItem('auth_token')
@@ -246,8 +247,7 @@ const handleUserDataUpdatedEvent = (eventData) => {
   const currentUserId = payload.sub
   
   if (!eventData.data || !eventData.data.userId || eventData.data.userId === currentUserId) {
-    console.log('Home: получено событие обновления данных пользователя')
-    fetchUserAbr() // Перезагружаем аббревиатуру
+    fetchUserAbr()
   }
 }
 
@@ -255,45 +255,35 @@ const handleUserDataUpdatedEvent = (eventData) => {
  * Обработчик SSE сообщений
  */
 const handleSSEMessage = (data) => {
-  console.log('Home: получено SSE событие:', data.type)
-  
-  // Обработка события изменения прав доступа
   if (data.type === 'access-changed') {
     handleAccessChangedEvent(data)
   }
   
-  // Обработка события обновления данных пользователя
   if (data.type === 'user-data-updated') {
     handleUserDataUpdatedEvent(data)
   }
 }
 
-// Подключаем SSE через композабл (автоподключение только если не в офлайн-режиме)
 useSSE(handleSSEMessage, { autoConnect: !checkFlightMode() })
 
 /**
  * Обработка результата сканирования QR-кода
  */
 const handleQrScan = async (qrCode) => {
-  console.log('Home: получен QR-код:', qrCode)
   scannedQrCode.value = qrCode
   
   try {
-    // Используем qrService для получения кода
     const result = await qrService.findObjectByQrCode(qrCode)
     
     if (result && result.objectId) {
-      // QR найден, получаем данные объекта
       await loadObjectData(result.objectId)
     } else {
-      // QR не найден
       showInfoMessage('QR-код не найден', 'Данный QR-код не обнаружен в базе данных.')
       showObjectForm.value = false
     }
   } catch (error) {
     console.error('Home: ошибка при обработке QR-кода:', error)
     
-    // qrService сам выбрасывает понятные ошибки
     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
       showInfoMessage('Ошибка сети', 'Проверьте подключение к интернету.')
     } else {
@@ -308,19 +298,11 @@ const handleQrScan = async (qrCode) => {
  * Загрузка данных объекта по ID
  */
 const loadObjectData = async (objectId) => {
-  console.log('[Home] loadObjectData начат для objectId:', objectId)
-  
   try {
-    console.log('[Home] Вызов objectService.getObject...')
     const objectData = await objectService.getObject(objectId)
-    console.log('[Home] objectService.getObject вернул:', objectData)
-    
-    // Объект найден - открываем форму редактирования
     objectFormMode.value = 'edit'
     objectFormData.value = objectData
-    console.log('[Home] objectFormData.value установлен, открываем модалку')
     showObjectForm.value = true
-    
   } catch (error) {
     console.error('[Home] ошибка загрузки данных объекта:', error)
     showInfoMessage('Ошибка загрузки', error.message || 'Ошибка загрузки данных объекта.')
@@ -332,7 +314,6 @@ const loadObjectData = async (objectId) => {
  * Обработка ошибки сканирования QR-кода
  */
 const handleScanError = (error) => {
-  console.log('Home: ошибка сканирования:', error)
   showInfoMessage('Ошибка сканирования', `Ошибка сканирования: ${error}`)
 }
 
@@ -349,27 +330,45 @@ const closeObjectForm = () => {
  * Обработка сохранения объекта в ObjectForm
  */
 const handleObjectSaved = (savedObject) => {
-  console.log('Home: объект сохранен:', savedObject)
   showObjectForm.value = false
   objectFormData.value = null
   scannedQrCode.value = ''
   showInfoMessage('Успешно', 'Объект успешно сохранен.')
 }
 
+// ============================================================================
+// НИЖНЕЕ МЕНЮ — ОБРАБОТЧИКИ
+// ============================================================================
+
 /**
- * Навигация к работе с объектами
+ * Кнопка "Новая инвентаризация"
  */
-const navigateToObjects = () => {
-  console.log('Home: навигация к работе с объектами')
-  // router.push('/objects') - будет реализовано позже
+const handleNewInventory = () => {
+  editingBookId.value = null
+  showInventoryModal.value = true
 }
 
 /**
- * Навигация к журналу
+ * Кнопка "Инструменты" (МОЛ) — заглушка
  */
-const navigateToJournal = () => {
-  console.log('Home: навигация к журналу')
-  // router.push('/journal') - будет реализовано позже
+const handleTools = () => {
+  showInfoMessage('Инструменты', 'Раздел в разработке')
+}
+
+/**
+ * Редактирование книги (из InventoryBooksSection)
+ */
+const handleEditBook = (bookId) => {
+  editingBookId.value = bookId
+  showInventoryModal.value = true
+}
+
+/**
+ * Закрытие InventoryModal
+ */
+const closeInventoryModal = () => {
+  showInventoryModal.value = false
+  editingBookId.value = null
 }
 
 /**
@@ -377,11 +376,10 @@ const navigateToJournal = () => {
  */
 const handleFlightModeChange = (event) => {
   isFlightMode.value = event.detail.isFlightMode
-  console.log('Home: состояние оффлайн режима изменено:', isFlightMode.value)
   
-  // Обновляем данные
   fetchUserAbr()
   checkAccessToStatements()
+  fetchIsRevisor()
 }
 
 /**
@@ -389,34 +387,23 @@ const handleFlightModeChange = (event) => {
  */
 onMounted(() => {
   if (checkAuth()) {
-    // Загрузка данных пользователя
     fetchUserAbr()
-    
-    // Проверка доступа к ведомостям
     checkAccessToStatements()
+    fetchIsRevisor()
     
-    // Инициализация состояния Flight Mode
     isFlightMode.value = checkFlightMode()
     
-    // Подписка на события изменения оффлайн режима
     window.addEventListener('flight-mode-changed', handleFlightModeChange)
     
-    // Синхронизация оффлайн режима между вкладками
     window.addEventListener('storage', (event) => {
       if (event.key === 'u40ta_flight_mode') {
         isFlightMode.value = JSON.parse(event.newValue || 'false')
       }
     })
     
-    // ============ обработка QR параметра (при входе по ссылке из QR-кода) ============
     const qrParam = route.query.qr
     if (qrParam && typeof qrParam === 'string') {
-      console.log('Home: QR параметр из URL:', qrParam)
-      // Используем ту же функцию, что и при сканировании камерой
       handleQrScan(qrParam)
-      
-      // Очищаем query-параметр из URL
-      // чтобы при обновлении страницы модалка не открывалась снова
       router.replace({ query: {} })
     }
   }
@@ -426,12 +413,10 @@ onMounted(() => {
  * Очистка ресурсов при размонтировании компонента
  */
 onUnmounted(() => {
-  // Очистка таймера модального окна
   if (infoModalTimeout) {
     clearTimeout(infoModalTimeout)
   }
   
-  // Отписка от событий
   window.removeEventListener('flight-mode-changed', handleFlightModeChange)
 })
 </script>

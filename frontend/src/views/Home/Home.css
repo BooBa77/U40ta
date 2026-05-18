@@ -28,7 +28,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 1rem;
+  padding: 0 1rem 60px 1rem; /* 60px — отступ под нижнее меню */
   position: relative;
 }
 
@@ -151,39 +151,7 @@
   color: #ffffff;
 }
 
-/* ==================== ПАНЕЛЬ ИНСТРУМЕНТОВ МЦ ==================== */
-.mc-tools-panel {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  width: 100%;
-  max-width: 500px;
-  margin-bottom: 2rem;
-  margin-top: 1rem;
-}
-
-/* Кнопки инструментов МЦ */
-.mc-tool-button {
-  padding: 0.6rem 1rem;
-  border: 1px solid #000000;
-  background: #ffffff;
-  color: #000000;
-  font-family: monospace;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-  min-width: 160px;
-  flex: 1;
-  max-width: 200px;
-}
-
-.mc-tool-button:hover {
-  background: #000000;
-  color: #ffffff;
-}
-
-/* ==================== СЕКЦИЯ ВЛОЖЕНИЙ И ДОСТУПА ==================== */
+/* ==================== СЕКЦИИ ДОСТУПА ==================== */
 /* Сообщение об отсутствии доступа */
 .no-access-message {
   text-align: center;
@@ -194,13 +162,6 @@
   width: 100%;
   max-width: 500px;
   margin: 2rem auto;
-}
-
-/* ==================== ФУТЕР ==================== */
-.home-footer {
-  margin-top: auto;
-  padding: 0.8rem;
-  text-align: center;
 }
 
 /* ==================== АНИМАЦИИ ==================== */
@@ -222,15 +183,8 @@
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
-  .mc-tools-panel {
-    gap: 0.8rem;
-  }
-  
-  .mc-tool-button {
-    min-width: 140px;
-    max-width: 180px;
-    font-size: 0.85rem;
-    padding: 0.5rem 0.8rem;
+  .home-main {
+    padding: 0 0.8rem 56px 0.8rem;
   }
   
   .info-modal-content {
@@ -253,15 +207,8 @@
 }
 
 @media (max-width: 480px) {
-  .mc-tools-panel {
-    gap: 0.5rem;
-  }
-  
-  .mc-tool-button {
-    min-width: 120px;
-    max-width: 150px;
-    font-size: 0.8rem;
-    padding: 0.4rem 0.6rem;
+  .home-main {
+    padding: 0 0.5rem 52px 0.5rem;
   }
   
   .info-modal-content {

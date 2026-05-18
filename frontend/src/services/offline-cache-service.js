@@ -20,6 +20,14 @@ class OfflineCacheService {
       // Логи (кэширования из БД нет, только накопление во время оффлайн-сеанса)
       logs: '++id, source, time, content'
     })
+
+    // Версия 3: добавлены таблицы инвентаризационных книг
+    this.db.version(3).stores({
+      // Инвентаризационные книги (только массовая загрузка, без отдельных операций)
+      inventory_books: 'id, createdAt, idOwner',
+      // Строки инвентаризационных книг (только массовая загрузка, без отдельных операций)
+      inventory_book_items: 'id, idBook, zavod, sklad, invNumber, partyNumber, idObject, isIgnore, isOkManual, isOkAuto'
+    })
   }
 
 
@@ -64,7 +72,9 @@ class OfflineCacheService {
         objects: data.objects?.length || 0,
         processed_statements: data.processed_statements?.length || 0,
         qr_codes: data.qr_codes?.length || 0,
-        email_attachments: data.email_attachments?.length || 0
+        email_attachments: data.email_attachments?.length || 0,
+        inventory_books: data.inventory_books?.length || 0,
+        inventory_book_items: data.inventory_book_items?.length || 0
       })
       
       // 4. Сохраняем данные в кэш
@@ -112,9 +122,9 @@ class OfflineCacheService {
     }
   }
 
-  //============================================================================
+  // ============================================================================
   // УПРАВЛЕНИЕ КЭШЕМ
-  //============================================================================
+  // ============================================================================
 
   /**
    * Кэширует все данные для офлайн-режима
@@ -124,6 +134,8 @@ class OfflineCacheService {
    * @param {Array} data.objects - Массив объектов
    * @param {Array} data.qr_codes - Массив QR-кодов
    * @param {Array} data.email_attachments - Массив вложений
+   * @param {Array} data.inventory_books - Массив инвентаризационных книг
+   * @param {Array} data.inventory_book_items - Массив строк инвентаризационных книг
    * @returns {Promise<{success: boolean, error: string|null, stats: Object}>}
    */
   async cacheAllData(data) {
@@ -133,7 +145,9 @@ class OfflineCacheService {
       objects = [],
       processed_statements = [],
       qr_codes = [],
-      email_attachments = []
+      email_attachments = [],
+      inventory_books = [],
+      inventory_book_items = []
     } = data
 
     try {
@@ -144,7 +158,9 @@ class OfflineCacheService {
         objects: 0,
         processed_statements: 0,
         qr_codes: 0,
-        email_attachments: 0
+        email_attachments: 0,
+        inventory_books: 0,
+        inventory_book_items: 0
       }
       
       // Сохраняем email_attachments (массово)
@@ -170,6 +186,18 @@ class OfflineCacheService {
         await this.db.qr_codes.bulkAdd(qr_codes)
         stats.qr_codes = qr_codes.length
       }
+
+      // Сохраняем инвентаризационные книги (массово)
+      if (inventory_books.length) {
+        await this.db.inventory_books.bulkAdd(inventory_books)
+        stats.inventory_books = inventory_books.length
+      }
+
+      // Сохраняем строки инвентаризационных книг (массово)
+      if (inventory_book_items.length) {
+        await this.db.inventory_book_items.bulkAdd(inventory_book_items)
+        stats.inventory_book_items = inventory_book_items.length
+      }
       
       console.log('[OfflineCache] Кэширование завершено:', stats)
       return { success: true, error: null, stats }
@@ -193,16 +221,18 @@ class OfflineCacheService {
       this.db.objects.clear(),
       this.db.qr_codes.clear(),
       this.db.photos.clear(),
-      this.db.logs.clear()
+      this.db.logs.clear(),
+      this.db.inventory_books.clear(),
+      this.db.inventory_book_items.clear()
     ])
     
     console.log('[OfflineCache] Кэш очищен')
   }
 
 
-  //============================================================================
+  // ============================================================================
   // РАБОТА С ФАЙЛАМИ ВЕДОМОСТЕЙ (email_attachments)
-  //============================================================================
+  // ============================================================================
 
   /**
    * Получает все вложения email из кэша
@@ -221,9 +251,9 @@ class OfflineCacheService {
     return await this.db.email_attachments.get(id)
   }
 
-  //============================================================================
+  // ============================================================================
   // РАБОТА С ОБЪЕКТАМИ ВЕДОМОСТЕЙ (processed_statements)
-  //============================================================================
+  // ============================================================================
 
   /**
    * Получает все записи ведомости по ID вложения email
@@ -337,9 +367,9 @@ class OfflineCacheService {
       return statements
   }
 
-  //============================================================================
+  // ============================================================================
   // РАБОТА С ОБЪЕКТАМИ
-  //============================================================================
+  // ============================================================================
 
   /**
    * Получает объект по ID
@@ -401,9 +431,9 @@ class OfflineCacheService {
     return objects
   }
 
-  //============================================================================
+  // ============================================================================
   // РАБОТА С QR-КОДАМИ
-  //============================================================================
+  // ============================================================================
 
   /**
    * Находит QR-код по его значению
@@ -454,9 +484,9 @@ class OfflineCacheService {
     }
   }
 
-  //============================================================================
-  // РАБОТА С ФОТОГРАФИЯМИ (предварительно из БД не кэшируются, только новые из текущего оффлайн-сеанса)
-  //============================================================================
+  // ============================================================================
+  // РАБОТА С ФОТОГРАФИЯМИ (предварительно из БД не кэшируются, в кэше только новые из текущего оффлайн-сеанса)
+  // ============================================================================
 
   /**
    * Получает все фотографии объекта
@@ -498,9 +528,9 @@ class OfflineCacheService {
     await this.db.photos.delete(photoId)
   }
 
-  //============================================================================
+  // ============================================================================
   // РАБОТА С ЛОГАМИ
-  //============================================================================
+  // ============================================================================
 
   /**
    * Добавляет запись лога в кэш
@@ -519,6 +549,49 @@ class OfflineCacheService {
     console.log('DEBUG [addPendingLog] logEntry перед add:', JSON.stringify(logEntry))
     
     await this.db.logs.add(logEntry)
+  }
+
+  // ============================================================================
+  // РАБОТА С ИНВЕНТАРИЗАЦИОННЫМИ КНИГАМИ (inventory_books)
+  // ============================================================================
+
+  /**
+   * Получает все инвентаризационные книги из кэша
+   * @returns {Promise<Array>} Массив книг в camelCase
+   */
+  async getAllInventoryBooks() {
+    return await this.db.inventory_books.toArray()
+  }
+
+  /**
+   * Получает одну инвентаризационную книгу по ID
+   * @param {number} id - ID книги
+   * @returns {Promise<Object|null>}
+   */
+  async getInventoryBook(id) {
+    return await this.db.inventory_books.get(id)
+  }
+
+  // ============================================================================
+  // РАБОТА СО СТРОКАМИ ИНВЕНТАРИЗАЦИОННЫХ КНИГ (inventory_book_items)
+  // ============================================================================
+
+  /**
+   * Получает все строки инвентаризационной книги по ID книги
+   * @param {number} bookId - ID книги
+   * @returns {Promise<Array>} Массив строк книги
+   */
+  async getInventoryBookItems(bookId) {
+    const targetId = Number(bookId)
+    
+    const allItems = await this.db.inventory_book_items.toArray()
+    
+    const filtered = allItems.filter(item => {
+      return Number(item.idBook) === targetId
+    })
+    
+    console.log(`[OfflineCache] Получено строк для книги ${bookId}: ${filtered.length}`)
+    return filtered
   }
 }
 

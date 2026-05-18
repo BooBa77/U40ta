@@ -82,6 +82,19 @@ export class AppEventsService {
     });
   }
 
+  /**
+   * Для InventoryBooksSection.vue и InventoryModal.vue (изменение инвентаризационной книги).
+   * Отправляется при любом изменении книги: создание, обновление строк, удаление.
+   * InventoryModal.vue закрывается у других ревизоров, если они работают с той же книгой.
+   */
+  notifyInventoryBookChanged(bookId: number): void {
+    this.eventSubject.next({
+      type: 'inventory-book-changed',
+      message: 'Инвентаризационная книга изменена',
+      data: { bookId }
+    });
+  }
+
   // Для получения потока событий (используется в контроллере)
   getEventStream(): Observable<{ message: string }> {
     return this.eventSubject.asObservable();
