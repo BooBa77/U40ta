@@ -4,10 +4,14 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { AppEventsModule } from '../app-events/app-events.module';
 import { InventoryStatement } from './entities/inventory-statement.entity';
+import { InventoryBook } from './entities/inventory-book.entity';
+import { InventoryBookItem } from './entities/inventory-book-item.entity';
+import { RevisorAccess } from './entities/revisor-access.entity';
 import { InventoryController } from './inventory.controller';
 import { InventoryStatementParser } from './services/inventory-statement-parser.service';
 import { InventoryStatementsService } from './services/inventory-statements.service';
 import { InventoryBooksService } from './services/inventory-books.service';
+import { RevisorAccessService } from './services/revisor-access.service';
 
 /**
  * Модуль инвентаризации.
@@ -18,6 +22,7 @@ import { InventoryBooksService } from './services/inventory-books.service';
  * - Парсинг строк в inventory_statements
  * - Управление строками ведомостей (CRUD)
  * - Формирование сводных инвентаризационных ведомостей (inventory_books)
+ * - Управление доступом ревизоров к книгам (revisor_access)
  * 
  * ## События
  * Слушает `inventory.file.received` от EmailModule.
@@ -25,7 +30,12 @@ import { InventoryBooksService } from './services/inventory-books.service';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([InventoryStatement]),
+    TypeOrmModule.forFeature([
+      InventoryStatement,
+      InventoryBook,
+      InventoryBookItem,
+      RevisorAccess,
+    ]),
     EventEmitterModule,
     JwtAuthModule,
     AppEventsModule,
@@ -35,6 +45,7 @@ import { InventoryBooksService } from './services/inventory-books.service';
     InventoryStatementParser,
     InventoryStatementsService,
     InventoryBooksService,
+    RevisorAccessService,
   ],
 })
 export class InventoryModule {}

@@ -1,15 +1,19 @@
 import {
   Controller,
   Get,
+  Post,
   Delete,
   UseGuards,
   Req,
+  Param,
+  Body,
   Query,
   HttpCode,
   HttpStatus
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InventoryStatementsService } from './services/inventory-statements.service';
+import { InventoryBooksService } from './services/inventory-books.service';
 import { InventoryStatement } from './entities/inventory-statement.entity';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
@@ -20,22 +24,24 @@ import type { RequestWithUser } from '../../common/interfaces/request-with-user.
  * - **Batch (пакет)** — группа строк из одного Excel-файла. Уникальная комбинация:
  *   emailFrom + receivedAt + zavod + sklad.
  * - **Книга** — сводная инвентаризационная ведомость, которую ревизор собирает
- *   из выбранных batch'ей. Будет реализована позже.
+ *   из выбранных batch'ей.
  * 
  * Базовый путь: /api/inventory
  */
 @Controller('inventory')
-@UseGuards(JwtAuthGuard) // JWT-аутентификация для всех эндпоинтов
+@UseGuards(JwtAuthGuard)
 export class InventoryController {
   constructor(
     private readonly inventoryStatementsService: InventoryStatementsService,
+    private readonly inventoryBooksService: InventoryBooksService,
   ) {}
 
+  // ============================================================================
+  // BATCH'И (ПАКЕТЫ СТРОК ИЗ EXCEL-ФАЙЛОВ)
+  // ============================================================================
+
   /**
-   * Получить список уникальных batch'ей (пакетов) ревизора.
-   * Каждый batch — это группа строк из одного Excel-файла.
-   * Сгруппировано по emailFrom + receivedAt + zavod + sklad.
-   * 
+   * Получить список уникальных batch'ей ревизора.
    * GET /api/inventory/batches
    */
   @Get('batches')
@@ -52,10 +58,7 @@ export class InventoryController {
 
   /**
    * Получить все строки конкретного batch'а.
-   * Используется в модалке для просмотра и копирования строк в книгу.
-   * 
    * GET /api/inventory/batches/items
-   * Параметры query: emailFrom, receivedAt, zavod, sklad
    */
   @Get('batches/items')
   async getBatchItems(
@@ -80,9 +83,7 @@ export class InventoryController {
 
   /**
    * Удалить все строки конкретного batch'а.
-   * 
    * DELETE /api/inventory/batches
-   * Параметры query: emailFrom, receivedAt, zavod, sklad
    */
   @Delete('batches')
   @HttpCode(HttpStatus.OK)
@@ -111,5 +112,81 @@ export class InventoryController {
         message: error.message || 'Ошибка при удалении пакета'
       };
     }
+  }
+
+  // ============================================================================
+  // КНИГИ (ИНВЕНТАРИЗАЦИОННЫЕ СВОДНЫЕ ВЕДОМОСТИ)
+  // ============================================================================
+
+  /**
+   * Получить все книги, доступные ревизору.
+   * GET /api/inventory/books
+   */
+  @Get('books')
+  async getBooks(@Req() request: RequestWithUser) {
+    const userId = request.user.sub;
+    if (!userId) {
+      return { books: [] };
+    }
+
+    const books = await this.inventoryBooksService.getBooks(userId);
+    return { books };
+  }
+
+  /**
+   * Получить одну книгу по ID.
+   * GET /api/inventory/books/:id
+   */
+  @Get('books/:id')
+  async getBook(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number
+  ) {
+    const userId = request.user.sub;
+    const book = await this.inventoryBooksService.getBook(id, userId);
+    return { book };
+  }
+
+  /**
+   * Получить строки книги.
+   * GET /api/inventory/books/:id/items
+   */
+  @Get('books/:id/items')
+  async getBookItems(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number
+  ) {
+    const userId = request.user.sub;
+    const items = await this.inventoryBooksService.getBookItems(id, userId);
+    return { items };
+  }
+
+  /**
+   * Создать новую книгу.
+   * POST /api/inventory/books
+   */
+  @Post('books')
+  async createBook(
+    @Req() request: RequestWithUser,
+    @Body() body: { name: string; items: any[] }
+  ) {
+    const userId = request.user.sub;
+    const book = await this.inventoryBooksService.createBook(userId, body.name, body.items);
+    return { book };
+  }
+
+  /**
+   * Удалить книгу (только создатель).
+   * DELETE /api/inventory/books/:id
+   */
+  @Delete('books/:id')
+  @HttpCode(HttpStatus.OK)
+  async deleteBook(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number
+  ) {
+    const userId = request.user.sub;
+    await this.inventoryBooksService.deleteBook(id, userId);
+    return { success: true, message: 'Книга удалена' };
   }
 }
