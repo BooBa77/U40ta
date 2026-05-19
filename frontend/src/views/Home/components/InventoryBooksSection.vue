@@ -4,7 +4,7 @@
     <div class="section-list-grid">
       <!-- Состояние "нет книг" -->
       <div class="section-list-empty" v-if="!books.length && !isLoading">
-        Книг нет
+        Инвентаризаций не ожидается
       </div>
       
       <!-- Состояние загрузки -->

@@ -67,6 +67,60 @@ export class InventoryBookService {
   }
 
   //============================================================================
+  // СОЗДАНИЕ КНИГ
+  //============================================================================
+
+  /**
+   * Создать новую книгу.
+   * Только онлайн.
+   * 
+   * @param {string} name - Название книги
+   * @param {Array} items - Массив строк книги
+   * @returns {Promise<Object>} Созданная книга
+   */
+  async createBook(name, items) {
+    if (this.isFlightMode()) {
+      throw new Error('Создание книги недоступно в офлайн-режиме')
+    }
+
+    try {
+      const data = await this.apiRequest('/inventory/books', {
+        method: 'POST',
+        body: { name, items }
+      })
+      return data.book
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка создания книги:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Обновить книгу (название и другие поля).
+   * Только онлайн.
+   * 
+   * @param {number} bookId - ID книги
+   * @param {Object} updates - Поля для обновления
+   * @returns {Promise<Object>} Обновлённая книга
+   */
+  async updateBook(bookId, updates) {
+    if (this.isFlightMode()) {
+      throw new Error('Редактирование книги недоступно в офлайн-режиме')
+    }
+
+    try {
+      const data = await this.apiRequest(`/inventory/books/${bookId}`, {
+        method: 'PATCH',
+        body: updates
+      })
+      return data.book
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка обновления книги:', error)
+      throw error
+    }
+}
+
+  //============================================================================
   // ПОЛУЧЕНИЕ СПИСКА КНИГ
   //============================================================================
 

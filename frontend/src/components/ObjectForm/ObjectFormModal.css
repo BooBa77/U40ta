@@ -305,43 +305,6 @@
 }
 
 /* ============================================================================
- * Кнопки футера модалки
- * ========================================================================== */
-.btn {
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  min-width: 100px;
-  transition: background-color 0.2s;
-}
-
-.btn-secondary {
-  background-color: #6b7280;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #4b5563;
-}
-
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: #2563eb;
-}
-
-.btn-primary:disabled {
-  background-color: #93c5fd;
-  cursor: not-allowed;
-}
-
-/* ============================================================================
  * Адаптация для мобильных устройств (до 480px)
  * ========================================================================== */
 @media (max-width: 480px) {

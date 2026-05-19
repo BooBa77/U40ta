@@ -158,10 +158,10 @@
     </div>
 
     <template #footer>
-      <button @click="handleCancel" class="btn btn-secondary" :disabled="isSaving">
+      <button @click="handleCancel" class="modal-btn modal-btn-secondary" :disabled="isSaving">
         Отмена
       </button>
-      <button @click="handleSave" class="btn btn-primary" :disabled="isSaving">
+      <button @click="handleSave" class="modal-btn modal-btn-primary" :disabled="isSaving">
         {{ isSaving ? 'Сохранение...' : 'Сохранить' }}
       </button>
     </template>

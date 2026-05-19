@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   UseGuards,
   Req,
@@ -172,6 +173,22 @@ export class InventoryController {
   ) {
     const userId = request.user.sub;
     const book = await this.inventoryBooksService.createBook(userId, body.name, body.items);
+    return { book };
+  }
+
+  /**
+   * Обновить книгу (название и другие поля).
+   * Только создатель.
+   * PATCH /api/inventory/books/:id
+   */
+  @Patch('books/:id')
+  async updateBook(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number,
+    @Body() body: { name?: string }
+  ) {
+    const userId = request.user.sub;
+    const book = await this.inventoryBooksService.updateBook(id, userId, body);
     return { book };
   }
 

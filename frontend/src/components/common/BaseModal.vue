@@ -88,6 +88,9 @@ const emitClose = () => {
 </script>
 
 <style scoped>
+/* ============================================================================
+   БАЗОВЫЕ ПЕРЕМЕННЫЕ
+   ========================================================================== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -99,34 +102,42 @@ const emitClose = () => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  animation: fadeIn 0.2s ease;
 }
 
 .modal-container {
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 20px 35px -8px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideIn 0.3s ease;
 }
 
+/* ============================================================================
+   ХЕДЕР
+   ========================================================================== */
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e9ecef;
-  background-color: #f8f9fa;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eef2f6;
+  background-color: #ffffff;
   flex-shrink: 0;
 }
 
 .modal-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #333;
+  color: #1a1f36;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .modal-close {
@@ -135,47 +146,120 @@ const emitClose = () => {
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
-  color: #666;
+  color: #8a8f9e;
   padding: 0;
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .modal-close:hover {
-  background-color: #e9ecef;
-  color: #333;
+  background-color: #f1f3f5;
+  color: #1a1f36;
 }
 
+/* ============================================================================
+   КОНТЕНТ — базовые шрифты
+   ========================================================================== */
 .modal-content {
   overflow-y: auto;
   flex-grow: 1;
+  padding: 20px;
+  font-size: 14px;
+  color: #1f2937;
+  line-height: 1.4;
 }
-/*
-.modal-content {
-  padding: 24px;
-  overflow-y: auto;
-  flex-grow: 1;
-}
-*/
+
+/* ============================================================================
+   ФУТЕР
+   ========================================================================== */
 .modal-footer {
-  padding: 20px 24px;
-  border-top: 1px solid #e9ecef;
-  background-color: #f8f9fa;
+  padding: 12px 20px;
+  border-top: 1px solid #eef2f6;
+  background-color: #fafbfc;
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-/* Анимации */
+/* ============================================================================
+   ЕДИНЫЕ КНОПКИ ДЛЯ ВСЕХ МОДАЛОК
+   ========================================================================== */
+.modal-btn {
+  padding: 8px 16px;
+  min-width: 72px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+/* Primary — основное действие */
+.modal-btn-primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.modal-btn-primary:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.modal-btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Secondary — второстепенное действие */
+.modal-btn-secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.modal-btn-secondary:hover:not(:disabled) {
+  background-color: #4b5563;
+}
+
+.modal-btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Outline — отмена / сброс */
+.modal-btn-outline {
+  background-color: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.modal-btn-outline:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.modal-btn-outline:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Disabled для всех кнопок */
+.modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ============================================================================
+   АНИМАЦИИ
+   ========================================================================== */
 .modal-enter-active,
 .modal-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
 }
 
 .modal-enter-from,
@@ -185,49 +269,81 @@ const emitClose = () => {
 
 .modal-enter-active .modal-container,
 .modal-leave-active .modal-container {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
 
 .modal-enter-from .modal-container,
 .modal-leave-to .modal-container {
-  transform: translateY(-20px);
-  opacity: 0;
+  transform: scale(0.95) translateY(-5px);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* ============================================================================
+   СКРОЛЛБАР ДЛЯ CONTENT
+   ========================================================================== */
+.modal-content::-webkit-scrollbar {
+  width: 4px;
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.modal-content::-webkit-scrollbar-track {
+  background: #f1f3f5;
+  border-radius: 4px;
 }
 
-/* Адаптивность */
+.modal-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ============================================================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ (компактно)
+   ========================================================================== */
 @media (max-width: 768px) {
-  .modal-container {
-    width: 95% !important;
-    max-width: 95vw !important;
-    margin: 10px;
+  .modal-header {
+    padding: 12px 16px;
   }
   
-  /*
-  .modal-header,
-  .modal-content,
-  .modal-footer {
+  .modal-title {
+    font-size: 1rem;
+  }
+  
+  .modal-content {
     padding: 16px;
   }
-  */
+  
+  .modal-footer {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  
+  .modal-btn {
+    padding: 6px 14px;
+    min-width: 64px;
+    font-size: 13px;
+  }
+  
+  .modal-close {
+    width: 28px;
+    height: 28px;
+    font-size: 22px;
+  }
+}
 
-  .modal-title {
-    font-size: 1.1rem;
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 12px;
+  }
+  
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+  
+  .modal-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

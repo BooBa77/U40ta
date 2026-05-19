@@ -74,13 +74,13 @@
     
     <!-- Футер с кнопками действий -->
     <template #footer>
-      <button @click="handleReset" class="btn btn-secondary">
+      <button @click="handleReset" class="modal-btn modal-btn-secondary">
         Сбросить
       </button>
-      <button @click="handleCancel" class="btn btn-cancel">
+      <button @click="handleCancel" class="modal-btn modal-btn-outline">
         Отмена
       </button>
-      <button @click="handleApply" class="btn btn-primary" :disabled="isLoading">
+      <button @click="handleApply" class="modal-btn modal-btn-primary" :disabled="isLoading">
         Применить
       </button>
     </template>

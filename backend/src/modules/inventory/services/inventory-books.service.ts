@@ -134,6 +134,32 @@ export class InventoryBooksService {
   }
 
   /**
+   * Обновить книгу. Только создатель.
+   */
+  async updateBook(bookId: number, userId: number, updates: { name?: string }): Promise<InventoryBook> {
+    const book = await this.bookRepo.findOne({ where: { id: bookId } });
+
+    if (!book) {
+      throw new NotFoundException(`Книга с ID ${bookId} не найдена`);
+    }
+
+    if (book.idOwner !== userId) {
+      throw new ForbiddenException('Только создатель может редактировать книгу');
+    }
+
+    if (updates.name !== undefined) {
+      book.name = updates.name;
+    }
+
+    const updated = await this.bookRepo.save(book);
+    this.logger.log(`Книга ${bookId} обновлена пользователем ${userId}`);
+
+    this.appEventsService.notifyInventoryBookChanged(bookId);
+
+    return updated;
+  }
+
+  /**
    * Удалить книгу. Только создатель.
    * 
    * @param bookId - ID книги

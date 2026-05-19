@@ -198,57 +198,7 @@
 }
 
 /* ============================================
-   6. КНОПКИ ФУТЕРА (ACTIONS)
-============================================== */
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 80px;
-}
-
-/* Основная кнопка (Применить) */
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: #2563eb;
-}
-
-.btn-primary:disabled {
-  background-color: #93c5fd;
-  cursor: not-allowed;
-}
-
-/* Вторичная кнопка (Сбросить) */
-.btn-secondary {
-  background-color: #6b7280;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background-color: #4b5563;
-}
-
-/* Кнопка отмены */
-.btn-cancel {
-  background-color: transparent;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
-}
-
-.btn-cancel:hover {
-  background-color: #f3f4f6;
-}
-
-/* ============================================
-   7. АДАПТИВНЫЕ СТИЛИ
+   6. АДАПТИВНЫЕ СТИЛИ
 ============================================== */
 @media (max-width: 768px) {
   .filter-modal-content {
@@ -267,7 +217,7 @@
 }
 
 /* ============================================
-   8. КАСТОМНЫЙ СКРОЛЛБАР
+   7. КАСТОМНЫЙ СКРОЛЛБАР
 ============================================== */
 .checkbox-list::-webkit-scrollbar {
   width: 6px;

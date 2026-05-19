@@ -54,11 +54,11 @@
         @save="handleObjectSaved"
       />
 
-      <!-- Модальное окно InventoryModal (создание/редактирование книги) -->
-      <InventoryModal
-        :is-open="showInventoryModal"
+      <!-- Модальное окно InventoryBookEditModal (создание/редактирование книги) -->
+      <InventoryBookEditModal
+        :is-open="showInventoryBookEditModal"
         :book-id="editingBookId"
-        @close="closeInventoryModal"
+        @close="closeInventoryBookEditModal"
       />
 
       <!-- Информационное модальное окно для сообщений -->
@@ -99,7 +99,7 @@ import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import FlightModeToggle from './components/FlightModeToggle.vue'
 import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
 import InventoryBooksSection from './components/InventoryBooksSection.vue'
-import InventoryModal from './components/InventoryModal.vue'
+import InventoryBookEditModal from './components/InventoryBookEditModal.vue'
 import BottomMenu from './components/BottomMenu.vue'
 import { qrService } from '@/services/qr-service.js'
 import { objectService } from '@/services/object-service.js'
@@ -130,8 +130,8 @@ let infoModalTimeout = null
 // Оффлайн режим
 const isFlightMode = ref(false)
 
-// Инвентаризационная модалка
-const showInventoryModal = ref(false)
+// Модалка создания/редактирования инвентаризационной книги
+const showInventoryBookEditModal = ref(false)
 const editingBookId = ref(null)
 
 /**
@@ -345,7 +345,7 @@ const handleObjectSaved = (savedObject) => {
  */
 const handleNewInventory = () => {
   editingBookId.value = null
-  showInventoryModal.value = true
+  showInventoryBookEditModal.value = true
 }
 
 /**
@@ -360,14 +360,14 @@ const handleTools = () => {
  */
 const handleEditBook = (bookId) => {
   editingBookId.value = bookId
-  showInventoryModal.value = true
+  showInventoryBookEditModal.value = true
 }
 
 /**
- * Закрытие InventoryModal
+ * Закрытие InventoryBookEditModal
  */
-const closeInventoryModal = () => {
-  showInventoryModal.value = false
+const closeInventoryBookEditModal = () => {
+  showInventoryBookEditModal.value = false
   editingBookId.value = null
 }
 
