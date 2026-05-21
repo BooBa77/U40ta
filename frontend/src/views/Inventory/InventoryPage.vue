@@ -33,7 +33,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import { inventoryBookService } from '@/services/inventory-book.service'
-import { qrService } from '@/services/qr-service.js'
+import { useSSE } from '@/composables/useSSE'
 
 const router = useRouter()
 const route = useRoute()
@@ -47,12 +47,28 @@ const goBack = () => {
 
 const handleQrScan = async (qrCode) => {
   console.log('InventoryPage: QR-скан:', qrCode)
-  // Здесь будет поиск объекта и связывание со строкой книги
 }
 
 const handleScanError = (error) => {
   console.error('InventoryPage: ошибка сканирования:', error)
 }
+
+const checkAccessAndReload = async () => {
+  try {
+    book.value = await inventoryBookService.getBook(bookId)
+  } catch (error) {
+    if (error.message.includes('403') || error.message.includes('Нет доступа')) {
+      router.push('/')
+    }
+  }
+}
+
+// SSE — слушаем изменения книги
+useSSE((data) => {
+  if (data.type === 'inventory-book-changed' && data.data?.bookId === bookId) {
+    checkAccessAndReload()
+  }
+})
 
 onMounted(async () => {
   try {

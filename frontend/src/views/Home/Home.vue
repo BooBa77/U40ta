@@ -344,7 +344,7 @@ const handleObjectSaved = (savedObject) => {
  * Кнопка "Новая инвентаризация"
  */
 const handleNewInventory = () => {
-  editingBookId.value = null
+  editingBookId.value = 0
   showInventoryBookEditModal.value = true
 }
 

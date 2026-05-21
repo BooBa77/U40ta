@@ -68,7 +68,7 @@
               v-model="selectedRevisorIds"
               type="checkbox"
               :value="revisor.id"
-              :disabled="isSaving"
+              :disabled="isSaving || revisor.id === currentUserId"
             />
             <span class="batch-info">
               <span class="batch-name">{{ revisor.abr }} — {{ revisor.firstName }} {{ revisor.lastName }}</span>
@@ -135,6 +135,7 @@ const statementBatchMap = ref({})
 const isLoadingAccess = ref(false)
 const revisors = ref([])
 const selectedRevisorIds = ref([])
+const currentUserId = ref(null)
 
 // Утилиты
 const batchKey = (batch) => `${batch.emailFrom}|${batch.receivedAt}|${batch.zavod}|${batch.sklad}`
@@ -220,19 +221,17 @@ const loadRevisors = async () => {
   try {
     const token = localStorage.getItem('auth_token')
     
-    // Получаем ID текущего пользователя из токена
     const payloadBase64 = token.split('.')[1]
     const payloadJson = atob(payloadBase64)
     const payload = JSON.parse(payloadJson)
-    const currentUserId = payload.sub
+    currentUserId.value = payload.sub
     
     const response = await fetch('/api/users', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (response.ok) {
       const data = await response.json()
-      // Исключаем себя
-      revisors.value = data.filter(u => u.id !== currentUserId)
+      revisors.value = data // все пользователи, включая себя
     }
   } catch (error) {
     console.error('Ошибка загрузки ревизоров:', error)
@@ -389,6 +388,7 @@ const reset = () => {
   statementBatchMap.value = {}
   revisors.value = []
   selectedRevisorIds.value = []
+  currentUserId.value = null
 }
 
 // ============================================================================
@@ -397,12 +397,25 @@ const reset = () => {
 
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
+    // Получаем currentUserId сразу из токена
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      const payloadBase64 = token.split('.')[1]
+      const payloadJson = atob(payloadBase64)
+      const payload = JSON.parse(payloadJson)
+      currentUserId.value = payload.sub
+    }
+    
     loadRevisors()
     if (props.bookId > 0) {
       loadBookData()
       loadAccess()
     } else {
       loadBatches()
+      // При создании — создатель уже выбран
+      if (currentUserId.value) {
+        selectedRevisorIds.value = [currentUserId.value]
+      }
     }
   } else {
     reset()
