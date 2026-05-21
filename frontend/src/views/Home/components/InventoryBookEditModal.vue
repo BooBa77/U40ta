@@ -7,7 +7,7 @@
   >
     <!-- Поле названия книги -->
     <div class="field">
-      <label class="field-label">Придумайте название инвентаризационной описи</label>
+      <label class="field-label">Придумайте название описи</label>
       <input
         v-model="bookName"
         type="text"
