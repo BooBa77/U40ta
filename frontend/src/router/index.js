@@ -44,24 +44,12 @@ const routes = [
     component: () => import('@/views/Statement/StatementPage.vue'),
     meta: { requiresAuth: true }
   },
-/*
   {
-    path: '/inventory/:id',
-    name: 'Inventory',
+    path: '/inventory-book/:id',
+    name: 'InventoryBook',
     component: () => import('@/views/Inventory/InventoryPage.vue'),
     meta: { requiresAuth: true }
-  },
-  {
-    path: '/object/edit/:id',
-    name: 'ObjectEdit',
-    component: () => import('@/views/ObjectForm/ObjectForm.vue'),
-    meta: { requiresAuth: true },
-    props: (route) => ({
-      mode: 'edit',
-      id: route.params.id
-    })
   }
-*/
 ]
 
 const router = createRouter({

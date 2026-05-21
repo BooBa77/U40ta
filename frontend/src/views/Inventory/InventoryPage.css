@@ -1,0 +1,82 @@
+.inventory-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  color: #000000;
+  font-family: monospace;
+}
+
+/* ==================== ХЕДЕР ==================== */
+.inventory-header {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.back-button {
+  background: none;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.back-button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.inventory-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1f36;
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-spacer {
+  /* Занимает место справа для симметрии с кнопкой "Назад" */
+  width: 70px;
+}
+
+/* ==================== ОСНОВНОЙ КОНТЕНТ ==================== */
+.inventory-main {
+  flex: 1;
+  padding: 1rem;
+  padding-bottom: 80px; /* отступ под футер */
+}
+
+.placeholder-content {
+  text-align: center;
+  padding: 3rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ==================== ФУТЕР ==================== */
+.inventory-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem;
+  background-color: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  z-index: 100;
+}
