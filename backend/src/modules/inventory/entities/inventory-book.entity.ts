@@ -37,6 +37,6 @@ export class InventoryBook {
   /**
    * ID пользователя, создавшего книгу.
    */
-  @Column({ name: 'id_owner', type: 'bigint' })
+  @Column({ name: 'id_owner', type: 'int' })
   idOwner!: number;
 }

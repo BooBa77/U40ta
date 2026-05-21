@@ -55,6 +55,21 @@ export class InventoryStatementsService {
   }
 
   /**
+   * Получить строки inventory_statements по массиву ID.
+   * Используется InventoryBooksService для копирования строк в книгу.
+   * 
+   * @param ids - Массив ID строк inventory_statements
+   * @returns Массив найденных строк
+   */
+  async findByIds(ids: number[]): Promise<InventoryStatement[]> {
+    if (ids.length === 0) return [];
+    
+    return await this.repo.find({
+      where: ids.map(id => ({ id })),
+    });
+  }
+
+  /**
    * Получить все строки конкретного batch'а.
    * 
    * @param email - email ревизора

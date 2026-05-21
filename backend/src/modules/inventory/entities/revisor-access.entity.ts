@@ -15,13 +15,13 @@ export class RevisorAccess {
    * Ссылка на книгу.
    * FK к inventory_books.id с каскадным удалением.
    */
-  @PrimaryColumn({ name: 'id_book', type: 'bigint' })
+  @PrimaryColumn({ name: 'id_book', type: 'int' })
   idBook!: number;
 
   /**
    * ID пользователя-ревизора.
    * FK к users.id.
    */
-  @PrimaryColumn({ name: 'user_id', type: 'bigint' })
+  @PrimaryColumn({ name: 'user_id', type: 'int' })
   userId!: number;
 }

@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
+import { InventoryStatementsService } from './inventory-statements.service';
+import { InventoryStatement } from '../entities/inventory-statement.entity';
 import { InventoryBook } from '../entities/inventory-book.entity';
 import { InventoryBookItem } from '../entities/inventory-book-item.entity';
 import { RevisorAccessService } from './revisor-access.service';
@@ -23,6 +25,7 @@ export class InventoryBooksService {
     @InjectRepository(InventoryBookItem)
     private readonly itemRepo: Repository<InventoryBookItem>,
     private readonly revisorAccessService: RevisorAccessService,
+    private readonly inventoryStatementsService: InventoryStatementsService,
     private readonly appEventsService: AppEventsService,
   ) {}
 
@@ -134,9 +137,14 @@ export class InventoryBooksService {
   }
 
   /**
-   * Обновить книгу. Только создатель.
+   * Обновить книгу (название и/или состав строк).
+   * Только создатель.
    */
-  async updateBook(bookId: number, userId: number, updates: { name?: string }): Promise<InventoryBook> {
+  async updateBook(
+    bookId: number,
+    userId: number,
+    updates: { name?: string; itemIds?: number[] }
+  ): Promise<InventoryBook> {
     const book = await this.bookRepo.findOne({ where: { id: bookId } });
 
     if (!book) {
@@ -147,12 +155,81 @@ export class InventoryBooksService {
       throw new ForbiddenException('Только создатель может редактировать книгу');
     }
 
+    // Обновляем название
     if (updates.name !== undefined) {
       book.name = updates.name;
+      await this.bookRepo.save(book);
     }
 
-    const updated = await this.bookRepo.save(book);
-    this.logger.log(`Книга ${bookId} обновлена пользователем ${userId}`);
+    // Обновляем состав строк
+    if (updates.itemIds !== undefined) {
+      const itemIds = updates.itemIds;
+
+      // Получаем текущие строки книги
+      const currentItems = await this.itemRepo.find({ where: { idBook: bookId } });
+      const currentStatementIds = currentItems
+        .map(i => i.idInventoryStatement)
+        .filter((id): id is number => id !== null);
+
+      // Найти ID для удаления (есть в книге, но нет в новом списке)
+      const idsToDelete = currentStatementIds.filter(id => !itemIds.includes(id));
+
+      // Найти ID для добавления (есть в новом списке, но нет в книге)
+      const idsToAdd = itemIds.filter(id => !currentStatementIds.includes(id));
+
+      // Удаляем строки
+      if (idsToDelete.length > 0) {
+        const confirmedItems = currentItems.filter(
+          i => i.idInventoryStatement !== null &&
+              idsToDelete.includes(i.idInventoryStatement) &&
+              (i.isOkManual || i.isOkAuto)
+        );
+
+        if (confirmedItems.length > 0) {
+          this.logger.warn(
+            `Удаление ${confirmedItems.length} подтверждённых строк из книги ${bookId}`
+          );
+        }
+
+        await this.itemRepo.delete({
+          idBook: bookId,
+          idInventoryStatement: In(idsToDelete),
+        });
+
+        this.logger.log(`Удалено ${idsToDelete.length} строк из книги ${bookId}`);
+      }
+
+      // Добавляем новые строки
+      if (idsToAdd.length > 0) {
+        // Получаем строки из inventory_statements
+        const statements = await this.inventoryStatementsService.findByIds(idsToAdd);
+
+        if (statements.length === 0) {
+          this.logger.warn(`Не найдены строки inventory_statements для ID: ${idsToAdd.join(', ')}`);
+        } else {
+          const newItems = statements.map(s =>
+            this.itemRepo.create({
+              idBook: bookId,
+              idInventoryStatement: s.id,
+              zavod: s.zavod,
+              sklad: s.sklad,
+              invNumber: s.invNumber,
+              partyNumber: s.partyNumber,
+              buhName: s.buhName,
+            }),
+          );
+
+          await this.itemRepo.save(newItems);
+          this.logger.log(`Добавлено ${newItems.length} строк в книгу ${bookId}`);
+        }
+      }
+    }
+
+    const updated = await this.bookRepo.findOne({ where: { id: bookId } });
+
+    if (!updated) {
+      throw new NotFoundException(`Книга с ID ${bookId} не найдена после обновления`);
+    }
 
     this.appEventsService.notifyInventoryBookChanged(bookId);
 

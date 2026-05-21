@@ -315,6 +315,77 @@ export class InventoryBookService {
       throw error
     }
   }
+
+  // ============================================================================
+  // УПРАВЛЕНИЕ ДОСТУПОМ К КНИГЕ
+  // ============================================================================
+
+  /**
+   * Получить список ревизоров с доступом к книге.
+   * @param {string|number} bookId - ID книги
+   * @returns {Promise<Array>} Массив записей доступа
+   */
+  async getBookAccess(bookId) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      throw new Error('Управление доступом недоступно в офлайн-режиме')
+    }
+
+    try {
+      const data = await this.apiRequest(`/inventory/books/${id}/access`)
+      return data.access
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка получения доступа:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Добавить ревизора к книге.
+   * @param {string|number} bookId - ID книги
+   * @param {number} userId - ID пользователя
+   */
+  async addBookAccess(bookId, userId) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      throw new Error('Управление доступом недоступно в офлайн-режиме')
+    }
+
+    try {
+      await this.apiRequest(`/inventory/books/${id}/access`, {
+        method: 'POST',
+        body: { userId }
+      })
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка добавления доступа:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Удалить ревизора из книги.
+   * @param {string|number} bookId - ID книги
+   * @param {number} userId - ID пользователя
+   */
+  async removeBookAccess(bookId, userId) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      throw new Error('Управление доступом недоступно в офлайн-режиме')
+    }
+
+    try {
+      await this.apiRequest(`/inventory/books/${id}/access/${userId}`, {
+        method: 'DELETE'
+      })
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка удаления доступа:', error)
+      throw error
+    }
+  }  
+
 }
 
 // Экспортируем синглтон

@@ -12,6 +12,7 @@ import { InventoryStatementParser } from './services/inventory-statement-parser.
 import { InventoryStatementsService } from './services/inventory-statements.service';
 import { InventoryBooksService } from './services/inventory-books.service';
 import { RevisorAccessService } from './services/revisor-access.service';
+import { UsersModule } from '../users/users.module';
 
 /**
  * Модуль инвентаризации.
@@ -39,6 +40,7 @@ import { RevisorAccessService } from './services/revisor-access.service';
     EventEmitterModule,
     JwtAuthModule,
     AppEventsModule,
+    UsersModule,
   ],
   controllers: [InventoryController],
   providers: [

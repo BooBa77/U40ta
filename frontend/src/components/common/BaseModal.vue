@@ -254,6 +254,36 @@ const emitClose = () => {
   transform: none;
 }
 
+/* Apply — основное действие (более выразительная) */
+.modal-btn-apply {
+  background-color: #1a1f36;
+  color: rgb(255, 0, 0);
+  font-weight: 600;
+}
+
+.modal-btn-apply:hover:not(:disabled) {
+  background-color: #111827;
+}
+
+.modal-btn-apply:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Danger — удаление */
+.modal-btn-danger {
+  background-color: #ef4444;
+  color: white;
+}
+
+.modal-btn-danger:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+/* Spacer в футере */
+.footer-spacer {
+  flex: 1;
+}
+
 /* ============================================================================
    АНИМАЦИИ
    ========================================================================== */

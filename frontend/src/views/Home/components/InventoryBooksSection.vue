@@ -15,14 +15,10 @@
       <!-- Строки книг -->
       <template v-if="books.length > 0">
         <div class="section-list-row" v-for="book in books" :key="book.id">
-          <!-- Колонка 1: Кнопка "Открыть книгу" -->
+          <!-- Колонка 1: заглушка" -->
           <div class="section-list-cell">
-            <button 
-              class="section-list-action-btn" 
-              title="Открыть книгу"
-              @click="openBook(book.id)">
-              <img src="/images/email-file_to_db.png" alt="Открыть книгу">
-            </button>
+            
+
           </div>
           
           <!-- Колонка 2: Контент (название + дата) -->
@@ -34,11 +30,11 @@
           <!-- Колонка 3: Кнопка "Редактировать" (только онлайн) -->
           <div class="section-list-cell">
             <button 
-              v-if="!isFlightMode"
+              v-if="!isFlightMode && book.isOwner"
               class="section-list-action-btn" 
               title="Редактировать книгу"
               @click="editBook(book.id)">
-              <img src="/images/email-file_delete.png" alt="Редактировать">
+              <img src="/images/invBook_edit.png" alt="Редактировать">
             </button>
             <div v-else style="width: 26px; height: 26px;"></div>
           </div>

@@ -15,7 +15,10 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InventoryStatementsService } from './services/inventory-statements.service';
 import { InventoryBooksService } from './services/inventory-books.service';
+import { RevisorAccessService } from './services/revisor-access.service';
 import { InventoryStatement } from './entities/inventory-statement.entity';
+import { UpdateInventoryBookDto } from './dto/update-inventory-book.dto';
+import { UsersService } from '../users/users.service';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
 /**
@@ -35,7 +38,19 @@ export class InventoryController {
   constructor(
     private readonly inventoryStatementsService: InventoryStatementsService,
     private readonly inventoryBooksService: InventoryBooksService,
+    private readonly usersService: UsersService, // Для получения email пользователя
+    private readonly revisorAccessService: RevisorAccessService, // Для настройки общего доступа к книгам
   ) {}
+
+  /**
+   * Получить email текущего пользователя по userId из JWT.
+   * Возвращает null если пользователь не найден или email отсутствует.
+   */
+  private async getUserEmail(request: RequestWithUser): Promise<string | null> {
+    const userId = request.user.sub;
+    const user = await this.usersService.findById(userId);
+    return user?.eMail || null;
+  }  
 
   // ============================================================================
   // BATCH'И (ПАКЕТЫ СТРОК ИЗ EXCEL-ФАЙЛОВ)
@@ -49,7 +64,7 @@ export class InventoryController {
   async getBatches(
     @Req() request: RequestWithUser
   ): Promise<{ emailFrom: string; receivedAt: Date; zavod: number; sklad: string; docType: string; count: number }[]> {
-    const email = request.user.email;
+    const email = await this.getUserEmail(request);
     if (!email) {
       return [];
     }
@@ -69,7 +84,7 @@ export class InventoryController {
     @Query('zavod') zavod: number,
     @Query('sklad') sklad: string
   ): Promise<InventoryStatement[]> {
-    const email = request.user.email;
+    const email = await this.getUserEmail(request);
     if (!email) {
       return [];
     }
@@ -95,13 +110,14 @@ export class InventoryController {
     @Query('zavod') zavod: number,
     @Query('sklad') sklad: string
   ): Promise<{ success: boolean; message: string }> {
-    if (!request.user.email) {
-      return { success: false, message: 'Пользователь не аутентифицирован' };
+    const email = await this.getUserEmail(request);
+    if (!email) {
+      return { success: false, message: 'Пользователь не найден или email отсутствует' };
     }
 
     try {
       await this.inventoryStatementsService.deleteBatch(
-        request.user.email,
+        email,
         new Date(receivedAt),
         Number(zavod),
         sklad
@@ -185,7 +201,7 @@ export class InventoryController {
   async updateBook(
     @Req() request: RequestWithUser,
     @Param('id') id: number,
-    @Body() body: { name?: string }
+    @Body() body: UpdateInventoryBookDto
   ) {
     const userId = request.user.sub;
     const book = await this.inventoryBooksService.updateBook(id, userId, body);
@@ -206,4 +222,50 @@ export class InventoryController {
     await this.inventoryBooksService.deleteBook(id, userId);
     return { success: true, message: 'Книга удалена' };
   }
+
+  // ============================================================================
+  // ДОСТУП К КНИГАМ
+  // ============================================================================
+
+  /**
+   * Получить список ревизоров с доступом к книге.
+   * GET /api/inventory/books/:id/access
+   */
+  @Get('books/:id/access')
+  async getBookAccess(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number
+  ) {
+    const access = await this.revisorAccessService.getAccessForBook(id);
+    return { access };
+  }
+
+  /**
+   * Добавить ревизора к книге.
+   * POST /api/inventory/books/:id/access
+   */
+  @Post('books/:id/access')
+  async addBookAccess(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number,
+    @Body() body: { userId: number }
+  ) {
+    await this.revisorAccessService.addAccess(id, body.userId);
+    return { success: true };
+  }
+
+  /**
+   * Удалить ревизора из книги.
+   * DELETE /api/inventory/books/:id/access/:userId
+   */
+  @Delete('books/:id/access/:accessUserId')
+  @HttpCode(HttpStatus.OK)
+  async removeBookAccess(
+    @Param('id') id: number,
+    @Param('accessUserId') accessUserId: number
+  ) {
+    await this.revisorAccessService.removeAccess(id, accessUserId);
+    return { success: true };
+  }
+
 }

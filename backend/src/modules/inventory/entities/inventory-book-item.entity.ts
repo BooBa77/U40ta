@@ -20,14 +20,14 @@ export class InventoryBookItem {
    * Ссылка на книгу, к которой относится строка.
    * FK к inventory_books.id с каскадным удалением.
    */
-  @Column({ name: 'id_book', type: 'bigint' })
+  @Column({ name: 'id_book', type: 'int' })
   idBook!: number;
 
   /**
    * Ссылка на исходную строку inventory_statements.
    * Не FK — исходная строка может быть удалена.
    */
-  @Column({ name: 'id_inventory_statement', type: 'bigint', nullable: true })
+  @Column({ name: 'id_inventory_statement', type: 'int', nullable: true })
   idInventoryStatement!: number | null;
 
   // ---- Поля-снимки из inventory_statements ----
@@ -53,7 +53,7 @@ export class InventoryBookItem {
    * Ссылка на объект учёта (objects.id).
    * Может быть NULL, если объект не найден в системе.
    */
-  @Column({ name: 'id_object', type: 'bigint', nullable: true })
+  @Column({ name: 'id_object', type: 'int', nullable: true })
   idObject!: number | null;
 
   // ---- Поля-снимки из objects на момент проверки ----
@@ -87,7 +87,7 @@ export class InventoryBookItem {
   /**
    * ID пользователя, выполнившего ручное подтверждение.
    */
-  @Column({ name: 'id_user_ok_manual_checked', type: 'bigint', nullable: true })
+  @Column({ name: 'id_user_ok_manual_checked', type: 'int', nullable: true })
   idUserOkManualChecked!: number | null;
 
   /**

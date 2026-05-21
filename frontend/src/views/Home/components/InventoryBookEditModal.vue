@@ -1,13 +1,13 @@
 <template>
   <BaseModal
     :is-open="isOpen"
-    :title="isEditMode ? 'Редактирование книги' : 'Новая инвентаризация'"
+    :title="bookId > 0 ? 'Редактирование описи' : 'Новая инвентаризация'"
     width="600px"
     @close="$emit('close')"
   >
     <!-- Поле названия книги -->
     <div class="field">
-      <label class="field-label">Название книги</label>
+      <label class="field-label">Придумайте название инвентаризационной описи</label>
       <input
         v-model="bookName"
         type="text"
@@ -17,138 +17,147 @@
       />
     </div>
 
-    <!-- Список batch'ей (только при создании) -->
-    <div v-if="!isEditMode" class="batches-section">
-      <label class="field-label">Выберите ведомости</label>
+    <!-- Список batch'ей -->
+    <div class="batches-section">
+      <label class="field-label">
+        {{ bookId > 0 ? 'Состав описи' : 'Выберите ведомости' }}
+      </label>
 
-      <!-- Загрузка -->
-      <div v-if="isLoadingBatches" class="batches-empty">
-        Загрузка...
-      </div>
+      <div v-if="isLoadingBatches" class="batches-empty">Загрузка...</div>
+      <div v-else-if="batches.length === 0" class="batches-empty">Нет доступных ведомостей</div>
 
-      <!-- Нет batch'ей -->
-      <div v-else-if="batches.length === 0" class="batches-empty">
-        Нет доступных ведомостей
-      </div>
-
-      <!-- Скроллящийся список -->
       <div v-else class="batches-list">
-        <div
-          v-for="batch in batches"
-          :key="batchKey(batch)"
-          class="batch-row"
-        >
+        <div v-for="batch in batches" :key="batchKey(batch)" class="batch-row">
           <label class="batch-label">
             <input
-              v-model="selectedBatches"
+              v-model="selectedBatchKeys"
               type="checkbox"
               :value="batchKey(batch)"
               :disabled="isSaving"
+              @change="onBatchToggle(batch)"
             />
             <span class="batch-info">
               <span class="batch-date">{{ formatDate(batch.receivedAt) }}</span>
               <span class="batch-name">{{ batch.docType }} — {{ batch.sklad }}</span>
               <span class="batch-count">{{ batch.count }} строк</span>
+              <span v-if="bookId > 0 && hasConfirmedItems(batch)" class="batch-warning" title="Осторожно">⚠</span>
             </span>
           </label>
           <button
+            v-if="bookId === 0"
             class="batch-delete"
             title="Удалить ведомость"
             :disabled="isSaving"
             @click="deleteBatch(batch)"
-          >
-            🗑
-          </button>
+          >🗑</button>
         </div>
       </div>
     </div>
 
-    <!-- Кнопка удаления книги (только при редактировании) -->
-    <div v-if="isEditMode" class="danger-section">
+    <!-- Секция доступа -->
+    <div class="access-section">
+      <label class="field-label">Предоставить коллегам доступ к описи</label>
+
+      <div v-if="isLoadingAccess" class="batches-empty">Загрузка...</div>
+      <div v-else-if="revisors.length === 0" class="batches-empty">пока других ревизоров нет</div>
+
+      <div v-else class="batches-list">
+        <div v-for="revisor in revisors" :key="revisor.id" class="batch-row">
+          <label class="batch-label">
+            <input
+              v-model="selectedRevisorIds"
+              type="checkbox"
+              :value="revisor.id"
+              :disabled="isSaving"
+            />
+            <span class="batch-info">
+              <span class="batch-name">{{ revisor.abr }} — {{ revisor.firstName }} {{ revisor.lastName }}</span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
       <button
-        class="modal-btn modal-btn-danger"
+        v-if="bookId > 0"
+        class="bg-red-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
         :disabled="isSaving"
         @click="handleDeleteBook"
       >
         Удалить книгу
       </button>
-    </div>
 
-    <template #footer>
+      <div v-if="bookId > 0" class="flex-1"></div>
+
       <button
-        class="modal-btn modal-btn-outline"
+        v-if="bookId === 0"
+        class="border border-gray-300 text-gray-600 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
         @click="$emit('close')"
       >
-        {{ isEditMode ? 'Назад' : 'Отмена' }}
+        Отмена
       </button>
+
       <button
-        v-if="isEditMode"
-        class="modal-btn modal-btn-primary"
-        :disabled="isSaving || !bookName.trim()"
+        class="bg-gray-900 text-white font-semibold px-4 py-2 rounded-lg hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition"
+        :disabled="isSaving || !bookName.trim() || (bookId === 0 && selectedBatchKeys.length === 0)"
         @click="handleSave"
       >
-        {{ isSaving ? 'Сохранение...' : 'Сохранить' }}
-      </button>
-      <button
-        v-else
-        class="modal-btn modal-btn-primary"
-        :disabled="isSaving || !bookName.trim() || selectedBatches.length === 0"
-        @click="handleCreate"
-      >
-        {{ isSaving ? 'Создание...' : 'Создать' }}
+        {{ isSaving ? 'Сохранение...' : bookId > 0 ? 'Применить' : 'Создать' }}
       </button>
     </template>
   </BaseModal>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { inventoryStatementsService } from '@/services/inventory-statements.service'
 import { inventoryBookService } from '@/services/inventory-book.service'
 
 const props = defineProps({
-  isOpen: {
-    type: Boolean,
-    required: true
-  },
-  bookId: {
-    type: Number,
-    default: null
-  }
+  isOpen: { type: Boolean, required: true },
+  bookId: { type: Number, default: 0 }
 })
 
 const emit = defineEmits(['close', 'saved', 'deleted'])
-
-// Режимы
-const isEditMode = computed(() => props.bookId !== null)
 
 // Состояния
 const bookName = ref('')
 const isSaving = ref(false)
 const isLoadingBatches = ref(false)
 const batches = ref([])
-const selectedBatches = ref([])
+const selectedBatchKeys = ref([])
+const bookItems = ref([])
+const statementBatchMap = ref({})
 
-/**
- * Уникальный ключ batch'а
- */
-const batchKey = (batch) => {
-  return `${batch.emailFrom}|${batch.receivedAt}|${batch.zavod}|${batch.sklad}`
-}
+// Доступ
+const isLoadingAccess = ref(false)
+const revisors = ref([])
+const selectedRevisorIds = ref([])
 
-/**
- * Форматирование даты
- */
+// Утилиты
+const batchKey = (batch) => `${batch.emailFrom}|${batch.receivedAt}|${batch.zavod}|${batch.sklad}`
+
 const formatDate = (dateString) => {
   if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toLocaleDateString('ru-RU')
+  return new Date(dateString).toLocaleDateString('ru-RU')
 }
 
-/**
- * Загрузка batch'ей (только при создании)
- */
+const hasConfirmedItems = (batch) => {
+  if (props.bookId === 0) return false
+  return bookItems.value.some(
+    item =>
+      item.idInventoryStatement &&
+      statementBatchMap.value[item.idInventoryStatement] === batchKey(batch) &&
+      (item.isOkManual || item.isOkAuto)
+  )
+}
+
+// ============================================================================
+// ЗАГРУЗКА ДАННЫХ
+// ============================================================================
+
 const loadBatches = async () => {
   isLoadingBatches.value = true
   try {
@@ -161,113 +170,205 @@ const loadBatches = async () => {
   }
 }
 
-/**
- * Загрузка данных книги (при редактировании)
- */
-const loadBook = async () => {
-  if (!props.bookId) return
-  
+const loadBookData = async () => {
+  if (props.bookId === 0) return
+
+  isLoadingBatches.value = true
+
   try {
-    const book = await inventoryBookService.getBook(props.bookId)
+    const [book, items] = await Promise.all([
+      inventoryBookService.getBook(props.bookId),
+      inventoryBookService.getBookItems(props.bookId)
+    ])
+
     bookName.value = book.name || ''
+    bookItems.value = items
+
+    const statementIds = [...new Set(items.map(i => i.idInventoryStatement).filter(Boolean))]
+    const allBatches = await inventoryStatementsService.getBatches()
+    batches.value = allBatches
+
+    const map = {}
+    for (const batch of allBatches) {
+      try {
+        const batchItems = await inventoryStatementsService.getBatchItems(
+          batch.emailFrom, batch.receivedAt, batch.zavod, batch.sklad
+        )
+        for (const item of batchItems) {
+          map[item.id] = batchKey(batch)
+        }
+      } catch (e) { /* batch мог быть удалён */ }
+    }
+    statementBatchMap.value = map
+
+    selectedBatchKeys.value = []
+    for (const statementId of statementIds) {
+      const key = map[statementId]
+      if (key && !selectedBatchKeys.value.includes(key)) {
+        selectedBatchKeys.value.push(key)
+      }
+    }
   } catch (error) {
     console.error('Ошибка загрузки книги:', error)
+  } finally {
+    isLoadingBatches.value = false
   }
 }
 
-/**
- * Удаление batch'а
- */
+const loadRevisors = async () => {
+  isLoadingAccess.value = true
+  try {
+    const token = localStorage.getItem('auth_token')
+    
+    // Получаем ID текущего пользователя из токена
+    const payloadBase64 = token.split('.')[1]
+    const payloadJson = atob(payloadBase64)
+    const payload = JSON.parse(payloadJson)
+    const currentUserId = payload.sub
+    
+    const response = await fetch('/api/users', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (response.ok) {
+      const data = await response.json()
+      // Исключаем себя
+      revisors.value = data.filter(u => u.id !== currentUserId)
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки ревизоров:', error)
+    revisors.value = []
+  } finally {
+    isLoadingAccess.value = false
+  }
+}
+
+const loadAccess = async () => {
+  if (props.bookId === 0) return
+
+  try {
+    const access = await inventoryBookService.getBookAccess(props.bookId)
+    // Отмечаем чекбоксы для ревизоров с доступом
+    selectedRevisorIds.value = access.map(a => a.userId)
+  } catch (error) {
+    console.error('Ошибка загрузки доступа:', error)
+  }
+}
+
+// ============================================================================
+// ДЕЙСТВИЯ
+// ============================================================================
+
+const onBatchToggle = (batch) => {
+  if (props.bookId === 0) return
+
+  const key = batchKey(batch)
+  const isChecked = selectedBatchKeys.value.includes(key)
+
+  if (!isChecked && hasConfirmedItems(batch)) {
+    selectedBatchKeys.value.push(key) // возвращаем обратно
+    if (confirm(
+      'В этом пакете есть подтверждённые объекты. При исключении все наработки будут потеряны. Продолжить?'
+    )) {
+      selectedBatchKeys.value = selectedBatchKeys.value.filter(k => k !== key)
+    }
+  }
+}
+
 const deleteBatch = async (batch) => {
   if (!confirm('Удалить эту ведомость безвозвратно?')) return
-  
+
   try {
-    await inventoryStatementsService.deleteBatch(
-      batch.emailFrom,
-      batch.receivedAt,
-      batch.zavod,
-      batch.sklad
-    )
+    await inventoryStatementsService.deleteBatch(batch.emailFrom, batch.receivedAt, batch.zavod, batch.sklad)
     batches.value = batches.value.filter(b => batchKey(b) !== batchKey(batch))
-    // Убираем из выбранных, если был выбран
-    selectedBatches.value = selectedBatches.value.filter(k => k !== batchKey(batch))
+    selectedBatchKeys.value = selectedBatchKeys.value.filter(k => k !== batchKey(batch))
   } catch (error) {
     console.error('Ошибка удаления batch\'а:', error)
     alert('Не удалось удалить ведомость')
   }
 }
 
-/**
- * Создание книги
- */
-const handleCreate = async () => {
-  if (!bookName.value.trim() || selectedBatches.value.length === 0) return
-  
-  isSaving.value = true
-  
-  try {
-    // Загружаем строки выбранных batch'ей
-    const allItems = []
-    
-    for (const key of selectedBatches.value) {
-      const [emailFrom, receivedAt, zavod, sklad] = key.split('|')
-      const items = await inventoryStatementsService.getBatchItems(
-        emailFrom,
-        receivedAt,
-        Number(zavod),
-        sklad
-      )
-      
-      // Маппим строки в формат InventoryBookItem
-      const mappedItems = items.map(item => ({
-        idInventoryStatement: item.id,
-        zavod: item.zavod,
-        sklad: item.sklad,
-        invNumber: item.invNumber,
-        partyNumber: item.partyNumber,
-        buhName: item.buhName,
-      }))
-      
-      allItems.push(...mappedItems)
+const getStatementIdsFromBatches = async () => {
+  const ids = []
+  for (const key of selectedBatchKeys.value) {
+    const [emailFrom, receivedAt, zavod, sklad] = key.split('|')
+    try {
+      const items = await inventoryStatementsService.getBatchItems(emailFrom, receivedAt, Number(zavod), sklad)
+      ids.push(...items.map(i => i.id))
+    } catch (e) {
+      console.error('Ошибка получения строк batch\'а:', e)
     }
-    
-    await inventoryBookService.createBook(bookName.value.trim(), allItems)
-    emit('saved')
+  }
+  return ids
+}
+
+const handleSave = async () => {
+  if (!bookName.value.trim()) return
+  if (props.bookId === 0 && selectedBatchKeys.value.length === 0) return
+
+  isSaving.value = true
+
+  try {
+    let currentBookId = props.bookId
+
+    // Создание новой книги
+    if (currentBookId === 0) {
+      const allItems = []
+      for (const key of selectedBatchKeys.value) {
+        const [emailFrom, receivedAt, zavod, sklad] = key.split('|')
+        const items = await inventoryStatementsService.getBatchItems(emailFrom, receivedAt, Number(zavod), sklad)
+        allItems.push(...items.map(item => ({
+          idInventoryStatement: item.id,
+          zavod: item.zavod,
+          sklad: item.sklad,
+          invNumber: item.invNumber,
+          partyNumber: item.partyNumber,
+          buhName: item.buhName,
+        })))
+      }
+      const book = await inventoryBookService.createBook(bookName.value.trim(), allItems)
+      currentBookId = book.id
+    } else {
+      // Редактирование существующей
+      const statementIds = await getStatementIdsFromBatches()
+      await inventoryBookService.updateBook(currentBookId, {
+        name: bookName.value.trim(),
+        itemIds: statementIds
+      })
+    }
+
+    // Сохраняем доступ
+    const currentAccess = await inventoryBookService.getBookAccess(currentBookId)
+    const currentUserIds = currentAccess.map(a => a.userId)
+
+    // Добавить новых
+    for (const userId of selectedRevisorIds.value) {
+      if (!currentUserIds.includes(userId)) {
+        await inventoryBookService.addBookAccess(currentBookId, userId)
+      }
+    }
+
+    // Удалить снятых
+    for (const userId of currentUserIds) {
+      if (!selectedRevisorIds.value.includes(userId)) {
+        await inventoryBookService.removeBookAccess(currentBookId, userId)
+      }
+    }
+
+    emit('saved', currentBookId)
     emit('close')
   } catch (error) {
-    console.error('Ошибка создания книги:', error)
-    alert('Не удалось создать книгу')
+    console.error('Ошибка сохранения:', error)
+    alert('Не удалось сохранить')
   } finally {
     isSaving.value = false
   }
 }
 
-/**
- * Сохранение изменений книги
- */
-const handleSave = async () => {
-  if (!bookName.value.trim() || !props.bookId) return
-  
-  // Пока только название — позже добавим другие поля
-  isSaving.value = true
-  
-  try {
-    // TODO: добавить метод updateBook в сервис
-    alert('Сохранение будет реализовано позже')
-  } finally {
-    isSaving.value = false
-  }
-}
-
-/**
- * Удаление книги
- */
 const handleDeleteBook = async () => {
   if (!confirm('Удалить книгу безвозвратно? Это действие нельзя отменить.')) return
-  if (!props.bookId) return
-  
+  if (props.bookId === 0) return
+
   isSaving.value = true
-  
   try {
     await inventoryBookService.deleteBook(props.bookId)
     emit('deleted')
@@ -280,20 +381,26 @@ const handleDeleteBook = async () => {
   }
 }
 
-/**
- * Сброс состояний при закрытии
- */
 const reset = () => {
   bookName.value = ''
-  selectedBatches.value = []
+  selectedBatchKeys.value = []
   batches.value = []
+  bookItems.value = []
+  statementBatchMap.value = {}
+  revisors.value = []
+  selectedRevisorIds.value = []
 }
 
-// Следим за открытием модалки
+// ============================================================================
+// WATCH
+// ============================================================================
+
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    if (props.bookId) {
-      loadBook()
+    loadRevisors()
+    if (props.bookId > 0) {
+      loadBookData()
+      loadAccess()
     } else {
       loadBatches()
     }
@@ -304,157 +411,37 @@ watch(() => props.isOpen, (isOpen) => {
 </script>
 
 <style scoped>
-/* Поле ввода */
-.field {
-  margin-bottom: 16px;
-}
-
-.field-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
+.field { margin-bottom: 16px; }
+.field-label { display: block; font-size: 13px; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
 .field-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: inherit;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
+  width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+  font-size: 14px; font-family: inherit; transition: border-color 0.2s; box-sizing: border-box;
 }
+.field-input:focus { outline: none; border-color: #3b82f6; }
 
-.field-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-}
+.batches-section, .access-section { margin-top: 16px; }
+.batches-list { max-height: 250px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+.batches-empty { text-align: center; padding: 20px; color: #9ca3af; font-style: italic; }
 
-/* Секция batch'ей */
-.batches-section {
-  margin-top: 8px;
-}
-
-.batches-list {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-}
-
-.batches-empty {
-  text-align: center;
-  padding: 24px;
-  color: #9ca3af;
-  font-style: italic;
-}
-
-.batch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.batch-row:last-child {
-  border-bottom: none;
-}
-
-.batch-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  flex: 1;
-}
-
-.batch-info {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.batch-date {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.batch-name {
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.batch-count {
-  font-size: 12px;
-  color: #9ca3af;
-}
+.batch-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f3f4f6; }
+.batch-row:last-child { border-bottom: none; }
+.batch-label { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; }
+.batch-info { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.batch-date { font-size: 12px; color: #6b7280; }
+.batch-name { font-weight: 500; font-size: 13px; }
+.batch-count { font-size: 12px; color: #9ca3af; }
+.batch-warning { font-size: 14px; color: #f59e0b; cursor: help; }
 
 .batch-delete {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s;
+  background: none; border: none; font-size: 16px; cursor: pointer;
+  padding: 4px 8px; border-radius: 6px; transition: background-color 0.2s;
 }
+.batch-delete:hover:not(:disabled) { background-color: #fee2e2; }
+.batch-delete:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.batch-delete:hover:not(:disabled) {
-  background-color: #fee2e2;
-}
+.flex-1 { flex: 1; }
 
-.batch-delete:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Кнопка удаления книги */
-.danger-section {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.modal-btn-danger {
-  background-color: #ef4444;
-  color: white;
-  width: 100%;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  font-family: inherit;
-}
-
-.modal-btn-danger:hover:not(:disabled) {
-  background-color: #dc2626;
-}
-
-.modal-btn-danger:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Скроллбар для списка batch'ей */
-.batches-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.batches-list::-webkit-scrollbar-track {
-  background: #f1f3f5;
-  border-radius: 4px;
-}
-
-.batches-list::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
+.batches-list::-webkit-scrollbar { width: 4px; }
+.batches-list::-webkit-scrollbar-track { background: #f1f3f5; border-radius: 4px; }
+.batches-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 </style>
