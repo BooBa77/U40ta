@@ -56,10 +56,10 @@ export function useStatementAggregation(statements) {
     
     // Для актуальных: если смешанная, показываем дробь
     if (group.objectCount !== group.totalCount && group.noObjectCount !== group.totalCount) {
-      return ` (${group.objectCount}/${group.totalCount})`
+      return ` (${group.objectCount}/${group.totalCount} шт.)`
     }
     
-    return ` (${group.totalCount}шт.)`
+    return ` (${group.totalCount} шт.)`
   }
 
   /**

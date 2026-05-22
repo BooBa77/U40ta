@@ -1,5 +1,8 @@
 /**
- * Хук для загрузки данных ведомости с сортировкой по группам
+ * Хук для загрузки данных ведомости с сервера или из кэша
+ * Отвечает только за получение сырых данных, без обработки и группировки
+ * Вся логика агрегации, сортировки и определения цветов вынесена в useStatementAggregation
+ * 
  * @param {string|number} attachmentId - ID вложения email
  * @returns {Object} Состояния и методы для работы с данными ведомости
  */
@@ -12,68 +15,21 @@ export function useStatementData(attachmentId) {
   // Состояния
   const loading = ref(true)
   const error = ref(null)
-  const statements = ref([]) // УЖЕ отсортированные данные
+  const statements = ref([]) // Сырые данные без обработки
   const router = useRouter()
 
   /**
-   * Проверяет, активен ли режим полёта
+   * Проверяет, активен ли режим полёта (офлайн-режим)
+   * @returns {boolean} true если режим полёта включен
    */
   const isFlightMode = () => {
     return localStorage.getItem('u40ta_flight_mode') === 'true'
   }
 
   /**
-   * Определяет группу строки для сортировки и окраски
-   * @param {Object} row - строка ведомости
-   * @returns {number} номер группы (1-4)
-   */
-  const getRowGroup = (row) => {
-    const haveObject = row.have_object ?? row.haveObject
-    const isExcess = row.is_excess ?? row.isExcess
-    const isIgnore = row.is_ignore ?? row.isIgnore
-    
-    if (isIgnore === true) return 4
-    if (haveObject === false) return 1
-    if (isExcess === true) return 2
-    return 3
-  }
-
-  /**
-   * Сортирует statements по группам и наименованию
-   * @param {Array} statements - массив строк ведомости
-   * @returns {Array} отсортированный массив
-   */
-  const sortStatements = (statements) => {
-    return [...statements].sort((a, b) => {
-      const groupA = getRowGroup(a)
-      const groupB = getRowGroup(b)
-      
-      if (groupA !== groupB) {
-        return groupA - groupB
-      }
-      
-      const nameA = (a.buh_name ?? a.buhName ?? '').toLowerCase()
-      const nameB = (b.buh_name ?? b.buhName ?? '').toLowerCase()
-      
-      if (nameA !== nameB) {
-        return nameA.localeCompare(nameB)
-      }
-      
-      const invA = (a.inv_number ?? a.invNumber ?? '').toLowerCase()
-      const invB = (b.inv_number ?? b.invNumber ?? '').toLowerCase()
-      const partyA = (a.party_number ?? a.partyNumber ?? '').toLowerCase()
-      const partyB = (b.party_number ?? b.partyNumber ?? '').toLowerCase()
-      
-      if (invA !== invB) {
-        return invA.localeCompare(invB)
-      }
-      
-      return partyA.localeCompare(partyB)
-    })
-  }
-
-  /**
    * Загружает данные ведомости
+   * Получает сырые данные от сервиса без дополнительной обработки
+   * @returns {Promise<void>}
    */
   const loadData = async () => {
     loading.value = true
@@ -81,7 +37,8 @@ export function useStatementData(attachmentId) {
 
     try {
       const data = await statementService.fetchStatement(attachmentId)
-      statements.value = sortStatements(data)
+      // Сохраняем сырые данные - группировка и сортировка будут в useStatementAggregation
+      statements.value = data
     } catch (err) {
       error.value = err.message || 'Ошибка загрузки ведомости'
       console.error('[useStatementData] Ошибка:', err)
@@ -91,33 +48,39 @@ export function useStatementData(attachmentId) {
   }
 
   /**
-   * Перезагружает данные
+   * Перезагружает данные ведомости
+   * Вызывается после обновлений (изменение isActual, создание объекта и т.д.)
+   * @returns {Promise<void>}
    */
   const reload = () => {
-    loadData()
+    return loadData()
   }
 
   /**
-   * Обработчик SSE сообщений
+   * Обработчик SSE сообщений для real-time обновлений
+   * @param {Object} data - сообщение от SSE
+   * @param {string} data.type - тип события
+   * @param {Object} data.data - данные события
+   * @returns {void}
    */
   const handleSSEMessage = (data) => {
     switch (data.type) {
       case 'statement-updated':
-        // Проверяем ТОЛЬКО для обновлений
+        // Обновление данных ведомости
         if (data.data?.attachmentId !== Number(attachmentId)) return
         console.log(`SSE: Ведомость ${attachmentId} обновлена, перезагружаем`)
         reload()
         break
         
       case 'statement-active-changed':
-        // Проверяем ТОЛЬКО для смены активности
+        // Смена активной ведомости другим пользователем
         if (data.data?.attachmentId === Number(attachmentId)) return
         console.log(`SSE: Ведомость стала активной у другого пользователя`)
         router.push('/')
         break
         
       case 'statement-deleted':
-        // Проверяем ТОЛЬКО для удаления
+        // Удаление ведомости
         if (data.data?.attachmentId !== Number(attachmentId)) return
         console.log(`SSE: Ведомость ${attachmentId} удалена`)
         router.push('/')
@@ -126,7 +89,9 @@ export function useStatementData(attachmentId) {
   }
 
   // Подключаем SSE через композабл (автоподключение только если не в офлайн-режиме)
-  const { disconnect: disconnectSSE } = useSSE(handleSSEMessage, { autoConnect: !isFlightMode() })
+  const { disconnect: disconnectSSE } = useSSE(handleSSEMessage, { 
+    autoConnect: !isFlightMode() 
+  })
 
   // Автоматическая загрузка при инициализации
   loadData()
@@ -138,12 +103,11 @@ export function useStatementData(attachmentId) {
 
   return {
     // Состояния
-    loading,
-    error,
-    statements, // отсортированные данные
+    loading,      // Флаг загрузки
+    error,        // Ошибка загрузки
+    statements,   // Сырые данные ведомости (без обработки)
     
     // Методы
-    reload,
-    getRowGroup
+    reload        // Перезагрузка данных
   }
 }

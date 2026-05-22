@@ -1,5 +1,5 @@
 import { h } from 'vue'
-import QrScannerButton from '../../../components/QrScanner/ui/QrScannerButton.vue'
+import QrScannerButton from '../../../../components/QrScanner/ui/QrScannerButton.vue'
 
 export function useStatementColumns() {
   const columns = [
@@ -18,7 +18,7 @@ export function useStatementColumns() {
     },
     {
       id: 'is_ignore',
-      header: 'X',
+      header: '👁️',
       accessorKey: 'is_ignore',
       cell: ({ row }) => {
         const isChecked = row.original.is_ignore || row.original.isIgnore || false

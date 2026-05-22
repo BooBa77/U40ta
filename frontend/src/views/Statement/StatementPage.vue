@@ -89,7 +89,7 @@ import ObjectViewModal from './components/ObjectViewModal.vue'
 
 // Композаблы
 import { useStatementData } from './composables/useStatementData'
-import { useStatementColumns } from './composables/useStatementColumns'
+import { useStatementColumns } from './composables/table/useStatementColumns'
 import { useStatementAggregation } from './composables/table/useStatementAggregation'
 import { useSimpleFiltersManager } from './composables/useFiltersManager'
 import { useActualManager } from './composables/table/useActualManager'
