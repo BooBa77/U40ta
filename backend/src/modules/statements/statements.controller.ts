@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, UseGuards, ParseIntPipe, HttpCode, 
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { StatementService } from './services/statement.service';
 import { StatementObjectsService } from './services/statement-objects.service';
-import { UpdateIgnoreDto } from './dto/update-ignore.dto';
+import { UpdateActualDto } from './dto/update-actual.dto';
 import { UpdateHaveObjectDto } from './dto/update-have-object.dto';
 
 @Controller('statements')
@@ -90,13 +90,13 @@ export class StatementsController {
   }
 
   /**
-   * Обновление статуса игнорирования для группы строк
-   * POST /api/statements/ignore
+   * Обновление статуса актуальности/игнорирования для группы строк
+   * POST /api/statements/actual
    */
-  @Post('ignore')
-  async updateIgnoreStatus(@Body() dto: UpdateIgnoreDto) {
+  @Post('update-actual')
+  async updateActualStatus(@Body() dto: UpdateActualDto) {
     try {
-      const updated = await this.statementService.updateIgnoreStatus(dto);
+      const updated = await this.statementService.updateActualStatus(dto);
       
       return {
         success: true,

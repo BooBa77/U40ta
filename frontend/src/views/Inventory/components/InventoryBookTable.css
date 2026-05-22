@@ -1,0 +1,205 @@
+/* InventoryBookTable.css — стили таблицы инвентаризационной книги */
+
+.inventory-table {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background-color: white;
+}
+
+.inventory-table table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* ==================== ХЕДЕР ТАБЛИЦЫ ==================== */
+.table-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8fafc;
+}
+
+.table-header th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+/* Ширины колонок */
+.table-header th:first-child  { width: 50px; }  /* OK */
+.table-header th:nth-child(2) { width: 36px; }  /* X */
+.table-header th:nth-child(3) { width: auto; }  /* Инв. номер */
+.table-header th:last-child   { width: auto; }  /* Наименование */
+
+/* Кликабельные заголовки */
+.filterable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.filterable-header:hover {
+  background-color: #e2e8f0;
+}
+
+.filterable-header.filtered {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+/* ==================== СТРОКИ ТАБЛИЦЫ ==================== */
+tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+tbody tr:hover {
+  filter: brightness(0.95);
+}
+
+/* ==================== ЦВЕТА СТРОК ПО СТАТУСУ ==================== */
+.row-status-green {
+  background-color: #dcfce7;
+}
+
+.row-status-yellow {
+  background-color: #fef9c3;
+}
+
+.row-status-white {
+  background-color: #ffffff;
+}
+
+.row-status-red {
+  background-color: #fee2e2;
+}
+
+.row-status-red-gray {
+  background: linear-gradient(90deg, #fee2e2 50%, #f1f5f9 50%);
+}
+
+/* ==================== ЯЧЕЙКИ ==================== */
+tbody td {
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: #1e293b;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==================== СЧЁТЧИК OK ==================== */
+.counter-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.counter-green {
+  background-color: #16a34a;
+  color: white;
+}
+
+.counter-yellow {
+  background-color: #eab308;
+  color: #1e293b;
+}
+
+.counter-white {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+.counter-red {
+  background-color: #dc2626;
+  color: white;
+}
+
+.counter-red-gray {
+  background: linear-gradient(135deg, #dc2626 50%, #94a3b8 50%);
+  color: white;
+}
+
+/* ==================== ИНВ. НОМЕР + ПАРТИЯ ==================== */
+.inv-party-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inv-number {
+  font-weight: 500;
+  font-size: 0.8125rem;
+}
+
+.party-number {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.quantity {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+}
+
+/* ==================== ЧЕКБОКС ==================== */
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+/* ==================== СКРОЛЛБАР ==================== */
+.inventory-table::-webkit-scrollbar {
+  width: 4px;
+}
+
+.inventory-table::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.inventory-table::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.inventory-table::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ==================== МОБИЛЬНАЯ АДАПТАЦИЯ ==================== */
+@media (max-width: 768px) {
+  .table-header th {
+    padding: 8px 6px;
+    font-size: 0.6875rem;
+  }
+
+  tbody td {
+    padding: 6px;
+    font-size: 0.75rem;
+  }
+
+  .counter-cell {
+    width: 28px;
+    height: 28px;
+    font-size: 0.6875rem;
+  }
+}

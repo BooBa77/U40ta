@@ -34,8 +34,8 @@ export class ProcessedStatement {
   @Column({ name: 'have_object', type: 'boolean', default: false })
   haveObject!: boolean; // есть ли объект в системе
 
-  @Column({ name: 'is_ignore', type: 'boolean', default: false })
-  isIgnore!: boolean; // игнорировать ли эту строку
+  @Column({ name: 'is_actual', type: 'boolean', default: true })
+  isActual!: boolean;
 
   @Column({ name: 'is_excess', type: 'boolean', default: false })
   isExcess!: boolean; // дополнительная запись, не входящая в ведомость. 

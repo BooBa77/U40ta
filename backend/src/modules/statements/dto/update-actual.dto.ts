@@ -4,7 +4,7 @@ import { IsNumber, IsString, IsBoolean, IsOptional } from 'class-validator';
  * DTO для обновления статуса игнорирования
  * Используется в POST /api/statements/ignore
  */
-export class UpdateIgnoreDto {
+export class UpdateActualDto {
   @IsNumber()
   attachmentId!: number;
   
@@ -16,5 +16,5 @@ export class UpdateIgnoreDto {
   partyNumber?: string;
   
   @IsBoolean()
-  isIgnore!: boolean;
+  isActual!: boolean;
 }

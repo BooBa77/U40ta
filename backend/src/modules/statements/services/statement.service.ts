@@ -5,7 +5,7 @@ import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { StatementParserService } from './statement-parser.service';
 import { StatementObjectsService } from './statement-objects.service';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
-import { UpdateIgnoreDto } from '../dto/update-ignore.dto';
+import { UpdateActualDto } from '../dto/update-actual.dto';
 
 @Injectable()
 export class StatementService {
@@ -88,10 +88,10 @@ export class StatementService {
   }
 
   /**
-   * Обновляет статус игнорирования для группы строк
-   * POST /api/statements/ignore
+   * Обновляет статус актуальности/игнорирования для группы строк
+   * POST /api/statements/actual
    */
-  async updateIgnoreStatus(dto: UpdateIgnoreDto): Promise<ProcessedStatement[]> {
+  async updateActualStatus(dto: UpdateActualDto): Promise<ProcessedStatement[]> {
     const statements = await this.processedStatementRepo.find({
       where: {
         emailAttachmentId: dto.attachmentId,
@@ -106,22 +106,11 @@ export class StatementService {
     }
     
     for (const statement of statements) {
-      statement.isIgnore = dto.isIgnore;
+      statement.isActual = dto.isActual;
     }
     
     await this.processedStatementRepo.save(statements);
     
-    if (statements.length > 0) {
-      const first = statements[0];
-      if (first.zavod && first.sklad && first.docType) {
-        this.objectsService.updateHaveObjectsForStatement(
-          first.zavod,
-          first.sklad,
-          first.docType,
-        ).catch(err => console.error('StatementService: ошибка фонового обновления флагов:', err));
-      }
-    }
-    
     return statements;
-  }
+  }  
 }

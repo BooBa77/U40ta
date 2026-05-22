@@ -255,7 +255,7 @@ export class StatementParserService {
         statement.invNumber = invNumber;
         statement.partyNumber = partyNumber;
         statement.haveObject = false;
-        statement.isIgnore = false;
+        statement.isActual = true;
         statement.isExcess = false;
         
         statements.push(statement);
@@ -292,7 +292,7 @@ export class StatementParserService {
         statement.invNumber = invNumber;
         statement.partyNumber = '-';
         statement.haveObject = false;
-        statement.isIgnore = false;
+        statement.isActual = true;
         statement.isExcess = false;
         
         statements.push(statement);

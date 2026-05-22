@@ -64,11 +64,11 @@
         v-if="statementsLength > 0"
         :statements="tableStatements"
         :columns="columns"
-        :get-row-group="getRowGroup"
+        :get-row-group="getAggregatedRowGroup"
         :active-filters="activeFiltersValue"
         :has-party-or-quantity="hasPartyOrQuantity"
         @filter-click="handleFilterClick"
-        @ignore-change="ignoreManager.handleIgnoreChange"
+        @actual-change="actualManager.handleActualChange"
         @qr-scan="openObjectFormFromRowData"
         @row-click="handleRowClick"
       />
@@ -87,12 +87,12 @@ import FilterModal from './components/FilterModal.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import ObjectViewModal from './components/ObjectViewModal.vue'
 
-// Композиции
+// Композаблы
 import { useStatementData } from './composables/useStatementData'
 import { useStatementColumns } from './composables/useStatementColumns'
-import { useStatementProcessing } from './composables/useStatementProcessing'
+import { useStatementAggregation } from './composables/table/useStatementAggregation'
 import { useSimpleFiltersManager } from './composables/useFiltersManager'
-import { useIgnoreManager } from './composables/useIgnoreManager'
+import { useActualManager } from './composables/table/useActualManager'
 import { statementService } from '@/services/statement.service'
 
 const route = useRoute()
@@ -100,9 +100,9 @@ const router = useRouter()
 const attachmentId = route.params.id
 
 // === ДАННЫЕ ===
-const { loading, error, statements, reload, getRowGroup } = useStatementData(attachmentId)
-const { processedStatements, hasPartyOrQuantity } = useStatementProcessing(statements)
+const { loading, error, statements, reload } = useStatementData(attachmentId)
 const { columns } = useStatementColumns()
+const { aggregatedStatements, hasPartyOrQuantity, getRowGroup: getAggregatedRowGroup } = useStatementAggregation(statements)
 
 // === ПРОСТОЙ ФИЛЬТР ===
 const {
@@ -119,7 +119,7 @@ const {
   applyFilter,
   resetCurrentFilter,
   resetAllFilters
-} = useSimpleFiltersManager(attachmentId, processedStatements)
+} = useSimpleFiltersManager(attachmentId, aggregatedStatements)
 
 // === СОСТОЯНИЕ OBJECT FORM ===
 const objectFormIsOpen = ref(false)
@@ -145,7 +145,7 @@ const filterModalSelectedValues = computed(() => currentFilterValues.value)
 const filterModalIsLoading = computed(() => isLoadingOptions.value)
 const activeFiltersValue = computed(() => activeFilters.value)
 
-const statementsLength = computed(() => statements.value?.length || 0)
+const statementsLength = computed(() => tableStatements.value?.length || 0)
 const tableStatements = computed(() => filteredStatements.value)
 const statementTitle = computed(() => {
   if (!statements.value?.length) return ''
@@ -259,8 +259,8 @@ const handleFilterClick = (columnId) => {
   openFilterModal(columnId)
 }
 
-// === МЕНЕДЖЕРЫ ===
-const ignoreManager = useIgnoreManager(attachmentId, reload)
+// === МЕНЕДЖЕР АКТУАЛЬНОСТИ ===
+const actualManager = useActualManager(attachmentId, reload)
 
 </script>
 

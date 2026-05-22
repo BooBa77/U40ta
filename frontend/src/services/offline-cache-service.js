@@ -12,7 +12,7 @@ class OfflineCacheService {
       // Объекты (есть массовая загрузка и отдельные операции add/update)
       objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser',
       // Объекты обрабатываемых ведомостей (только массовая загрузка, без отдельных операций)
-      processed_statements: 'id, emailAttachmentId, zavod, sklad, docType, invNumber, partyNumber, buhName, haveObject, isIgnore, isExcess',
+      processed_statements: 'id, emailAttachmentId, zavod, sklad, docType, invNumber, partyNumber, buhName, haveObject, isActual, isExcess',
       // QR-коды (есть массовая загрузка и отдельные операции add/update)
       qr_codes: '++id, qrValue, objectId',
       // Фотографии (кэширования из БД нет, только накопление во время оффлайн-сеанса)
@@ -26,7 +26,7 @@ class OfflineCacheService {
       // Инвентаризационные книги (только массовая загрузка, без отдельных операций)
       inventory_books: 'id, createdAt, idOwner',
       // Строки инвентаризационных книг (только массовая загрузка, без отдельных операций)
-      inventory_book_items: 'id, idBook, zavod, sklad, invNumber, partyNumber, idObject, isIgnore, isOkManual, isOkAuto'
+      inventory_book_items: 'id, idBook, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto'
     })
   }
 
@@ -300,13 +300,13 @@ class OfflineCacheService {
   }
 
   /**
-   * Обновляет поле isIgnore для всех записей ведомости с указанным attachmentId и invNumber
+   * Обновляет поле isActual для всех записей ведомости с указанным attachmentId и invNumber
    * @param {number} attachmentId - ID вложения email
    * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isIgnore - Новое значение isIgnore
+   * @param {boolean} isActual - Новое значение isActual
    * @returns {Promise<void>}
    */
-  async updateProcessedStatementsIgnoreByInv(attachmentId, invNumber, isIgnore) {
+  async updateProcessedStatementsActualByInv(attachmentId, invNumber, isActual) {
     const targetAttachmentId = Number(attachmentId)
     
     const allStatements = await this.db.processed_statements.toArray()
@@ -323,12 +323,12 @@ class OfflineCacheService {
     }
     
     for (const statement of statementsToUpdate) {
-      statement.isIgnore = isIgnore
+      statement.isActual = isActual
       statement.updated_at = new Date().toISOString()
       await this.db.processed_statements.put(statement)
     }
     
-    console.log(`[OfflineCache] Обновлено ${statementsToUpdate.length} записей: isIgnore=${isIgnore}`)
+    console.log(`[OfflineCache] Обновлено ${statementsToUpdate.length} записей: isActual=${isActual}`)
   }
 
   /**

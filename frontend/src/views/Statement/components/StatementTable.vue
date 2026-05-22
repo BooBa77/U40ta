@@ -23,16 +23,14 @@
         <tr 
           v-for="row in table.getRowModel().rows"
           :key="row.id"
-          :class="[
-            `row-group-${getRowGroup(row.original)}`,
-            { 'group-hidden': row.original.hiddenByGroup }
-          ]"
+          :class="`row-group-${getRowGroup(row.original)}`"
           @click="handleRowClick(row)"
         >
           <td @click.stop>
             <!-- Показываем кнопку сканирования только если:
                  1. Нет объекта (have_object = false)
                  2. Есть камера на устройстве
+                 3. Строка актуальна (isActual = true)
             -->
             <QrScannerButton 
               v-if="shouldShowQrButton(row.original)"
@@ -41,17 +39,6 @@
               @error="handleQrError"
               @click.stop
             />
-            <!-- Показываем плейсхолдер если камера есть, но объект уже создан 
-            <div 
-              v-else-if="deviceHasCamera && (row.original.have_object || row.original.haveObject)"
-              class="object-exists-icon" 
-              title="Объект уже создан"
-              @click.stop
-            >
-              ✅
-            </div>
-            -->
-            <!-- Если камеры нет, ничего не показываем (пустая ячейка) -->
           </td>
           <td @click.stop>
             <input 
@@ -61,19 +48,16 @@
               @click.stop
             />
           </td>
-
           <td>
             <div class="inv-party-cell">
               <div class="inv-number">{{ getInvNumber(row.original) }}</div>
               <div class="party-number" v-if="hasPartyOrQuantity(row.original)">
-                <!-- Партия -->
-                <div v-if="getPartyNumber(row.original)" class="party-text">
-                  {{ getPartyNumber(row.original) }}
-                </div>
-                <!-- Количество на новой строке -->
-                <div v-if="row.original.groupCount > 1 && row.original.isGroupRepresentative" class="quantity-text">
-                  ({{ row.original.groupCount }} шт.)
-                </div>
+                <span v-if="row.original.showParty && row.original.partyNumber" class="party-text">
+                  {{ row.original.partyNumber }}
+                </span>
+                <span v-if="row.original.groupCount > 1" class="quantity-text">
+                  {{ row.original.displayQuantity }}
+                </span>
               </div>
             </div>
           </td>
@@ -122,23 +106,27 @@ const props = defineProps({
 
 const emit = defineEmits([
   'filter-click', 
-  'ignore-change', 
+  'actual-change', 
   'qr-scan',
-  'row-click'  // Новый эмит для клика по строке
+  'row-click'
 ])
 
 const tableContainer = ref(null)
-const { hasCamera } = useCamera() // Состояние камеры
+const { hasCamera } = useCamera()
 
-// Метод для проверки условий отображения кнопки QR
+/**
+ * Проверяет, нужно ли показывать кнопку QR-сканирования
+ * @param {Object} row - строка таблицы
+ * @returns {boolean}
+ */
 const shouldShowQrButton = (row) => {
-  // Не показываем для скрытых строк
-  if (row.hiddenByGroup) return false
+  // Не показываем для неактуальных строк
+  if (!row.isActual) return false
   
   // Проверяем наличие камеры
   if (!hasCamera.value) return false
   
-  // Проверяем, что объект не создан (have_object = false)
+  // Проверяем, что объект не создан
   const hasObject = row.have_object || row.haveObject || false
   return !hasObject
 }
@@ -165,39 +153,27 @@ const hasFilter = (columnId) => {
 
 /**
  * Обработчик клика по строке таблицы
- * Открывает LocViewModal с параметрами группы
+ * Открывает модалку со списком объектов группы
  */
 const handleRowClick = (row) => {
-  console.log('[StatementTable] Клик по строке:', row.original)
+  if (!row.original.isActual) return // Неактуальные строки не открываем
   
-  // Не эмитим событие для скрытых строк
-  if (row.original.hiddenByGroup) {
-    console.log('[StatementTable] Строка скрыта, пропускаем')
-    return
-  }
-  
-  // Извлекаем данные для передачи в модалку
   const rowData = row.original
   
-  // Формируем объект с параметрами группы
   const groupParams = {
-    invNumber: rowData.inv_number || rowData.invNumber,
-    partyNumber: rowData.party_number || rowData.partyNumber || null,
+    invNumber: rowData.invNumber,
+    partyNumber: rowData.partyNumber || null,
     zavod: rowData.zavod,
-    sklad: rowData.sklad
+    sklad: rowData.sklad,
+    originalRowIds: rowData.originalRowIds
   }
   
-  console.log('[StatementTable] Эмит row-click с параметрами:', groupParams)
   emit('row-click', groupParams)
 }
 
 const handleQrScan = (scannedData, rowData) => {
-  console.log('[StatementTable] QR отсканирован, передаём наверх')
-  
-  // Останавливаем всплытие, чтобы не сработал клик по строке
   event?.stopPropagation()
   
-  // ПРОСТО передаём событие наверх
   emit('qr-scan', {
     scannedData,
     rowData
@@ -208,35 +184,33 @@ const handleQrError = (error) => {
   console.error('Ошибка сканирования QR:', error)
 }
 
+/**
+ * Обработчик изменения чекбокса актуальности
+ */
 const handleCheckboxChange = (row, checked) => {
-  console.log('[StatementTable] Изменение чекбокса:', { row, checked })
-  
-  // Останавливаем всплытие, чтобы не сработал клик по строке
   event?.stopPropagation()
   
-  const inv = row.inv_number || row.invNumber
-  const party = row.party_number || row.partyNumber || ''
+  // Инвертируем: checked = true значит "неактуально" (isActual = false)
+  // или наоборот? Уточним логику
+  const isActual = !checked // Если чекбокс отмечен (игнорировать) -> isActual = false
   
-  emit('ignore-change', {
-    inv,
-    is_ignore: checked
+  emit('actual-change', {
+    invNumber: row.invNumber,
+    isActual: isActual
   })
 }
 
 const getCheckboxValue = (row) => {
-  return row.is_ignore || row.isIgnore || false
+  // Чекбокс отмечен, если строка НЕ актуальна
+  return !row.isActual
 }
 
 const getInvNumber = (row) => {
-  return row.inv_number || row.invNumber || '—'
-}
-
-const getPartyNumber = (row) => {
-  return row.party_number || row.partyNumber || ''
+  return row.invNumber || '—'
 }
 
 const getBuhName = (row) => {
-  return row.buh_name || row.buhName || '—'
+  return row.buhName || '—'
 }
 
 watch(() => props.statements, () => {

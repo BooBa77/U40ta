@@ -186,62 +186,71 @@ export class StatementService {
   }
 
   //============================================================================
-  // ОБНОВЛЕНИЕ СТАТУСА is_ignore (ДЛЯ ВСЕХ ПАРТИЙ)
+  // ОБНОВЛЕНИЕ СТАТУСА АКТУАЛЬНОСТИ (isActual) ДЛЯ ВСЕХ ЗАПИСЕЙ ГРУППЫ
   //============================================================================
 
   /**
-   * Обновляет статус is_ignore для всех записей с указанным inv_number в рамках ведомости
+   * Обновляет статус isActual для всех записей с указанным inv_number и party_number в рамках ведомости
+   * Устанавливает одинаковое значение для всей группы позиций
    * @param {number} attachmentId - ID вложения email
    * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isIgnore - Новое значение is_ignore
+   * @param {string} [partyNumber] - Номер партии (опционально, если не указан - обновляет все записи с данным invNumber)
+   * @param {boolean} isActual - Новое значение актуальности (true - актуально, false - неактуально)
    * @returns {Promise<boolean>} true если успешно
    */
-  async updateIgnoreStatus(attachmentId, invNumber, isIgnore) {
+  async updateActualStatus(attachmentId, invNumber, partyNumber, isActual) {
     const attachmentIdNum = Number(attachmentId)
 
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: обновление is_ignore для ${invNumber} в ведомости ${attachmentIdNum}`)
-      return this.updateIgnoreInCache(attachmentIdNum, invNumber, isIgnore)
+      console.log(`[StatementService] Офлайн-режим: обновление isActual для ${invNumber}|${partyNumber} в ведомости ${attachmentIdNum}`)
+      return this.updateActualInCache(attachmentIdNum, invNumber, partyNumber, isActual)
     }
 
-    console.log(`[StatementService] Онлайн-режим: обновление is_ignore для ${invNumber} в ведомости ${attachmentIdNum}`)
-    return this.updateIgnoreInApi(attachmentIdNum, invNumber, isIgnore)
+    console.log(`[StatementService] Онлайн-режим: обновление isActual для ${invNumber}|${partyNumber} в ведомости ${attachmentIdNum}`)
+    return this.updateActualInApi(attachmentIdNum, invNumber, partyNumber, isActual)
   }
 
   /**
-   * Обновляет is_ignore в кэше IndexedDB для всех записей с указанным inv_number
+   * Обновляет isActual в кэше IndexedDB для всех записей с указанным inv_number и party_number
    * @param {number} attachmentId - ID вложения email
    * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isIgnore - Новое значение
+   * @param {string} [partyNumber] - Номер партии
+   * @param {boolean} isActual - Новое значение актуальности
    * @returns {Promise<boolean>}
    */
-  async updateIgnoreInCache(attachmentId, invNumber, isIgnore) {
+  async updateActualInCache(attachmentId, invNumber, partyNumber, isActual) {
     try {
-      await offlineCache.updateProcessedStatementsIgnoreByInv(attachmentId, invNumber, isIgnore)
-      console.log(`[StatementService] Обновлены записи: attachmentId=${attachmentId}, invNumber=${invNumber}, is_ignore=${isIgnore}`)
+      await offlineCache.updateProcessedStatementsActualByInvParty(
+        attachmentId, 
+        invNumber, 
+        partyNumber, 
+        isActual
+      )
+      console.log(`[StatementService] Обновлены записи: attachmentId=${attachmentId}, invNumber=${invNumber}, partyNumber=${partyNumber}, isActual=${isActual}`)
       return true
     } catch (error) {
-      console.error('[StatementService] Ошибка обновления is_ignore в кэше:', error)
-      throw new Error('Не удалось обновить статус игнорирования в кэше')
+      console.error('[StatementService] Ошибка обновления isActual в кэше:', error)
+      throw new Error('Не удалось обновить статус актуальности в кэше')
     }
   }
 
   /**
-   * Обновляет is_ignore через API для всех записей с указанным inv_number
+   * Обновляет isActual через API для всех записей с указанным inv_number и party_number
    * @param {number} attachmentId - ID вложения email
    * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isIgnore - Новое значение
+   * @param {string} [partyNumber] - Номер партии
+   * @param {boolean} isActual - Новое значение актуальности
    * @returns {Promise<boolean>}
    */
-  async updateIgnoreInApi(attachmentId, invNumber, isIgnore) {
+  async updateActualInApi(attachmentId, invNumber, partyNumber, isActual) {
     try {
-      await this.apiRequest('/statements/ignore', {
+      await this.apiRequest('/statements/update-actual', {
         method: 'POST',
-        body: { attachmentId, invNumber, isIgnore }
+        body: { attachmentId, invNumber, partyNumber, isActual }
       })
       return true
     } catch (error) {
-      console.error('[StatementService] Ошибка обновления is_ignore через API:', error)
+      console.error('[StatementService] Ошибка обновления isActual через API:', error)
       throw error
     }
   }
