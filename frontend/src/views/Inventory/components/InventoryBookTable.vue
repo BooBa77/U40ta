@@ -24,9 +24,6 @@
             v-for="cell in row.getVisibleCells()"
             :key="cell.id"
           >
-            <component 
-              :is="flexRender(cell.column.columnDef.cell, cell.getContext())"
-            />
           </td>
         </tr>
       </tbody>
@@ -36,7 +33,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useVueTable, getCoreRowModel, flexRender } from '@tanstack/vue-table'
+import { useVueTable, getCoreRowModel } from '@tanstack/vue-table'
 
 const props = defineProps({
   items: {
