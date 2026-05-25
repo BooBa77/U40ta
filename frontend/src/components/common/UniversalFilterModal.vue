@@ -2,69 +2,70 @@
   <BaseModal
     :is-open="isOpen"
     :title="title"
-    :width="modalWidth"
-    :max-width="modalMaxWidth"
+    :width="width"
+    :max-width="maxWidth"
     @close="handleClose"
   >
-    <div class="filter-modal-content">
+    <div class="flex flex-col gap-4 min-h-[200px]">
       <!-- Поле поиска -->
-      <div class="search-section" v-if="showSearch">
+      <div v-if="showSearch">
         <input
           ref="searchInput"
           type="search"
           v-model="searchQuery"
           :placeholder="searchPlaceholder"
           class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-          enterkeyhint="search"
-          @keydown.enter="handleEnterKey"
           @input="handleSearchInput"
+          @keydown.enter="handleEnterKey"
         />
       </div>
       
-      <!-- Состояние загрузки -->
+      <!-- Загрузка -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center py-10 px-5 text-gray-500 gap-3">
         <div class="w-10 h-10 border-3 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
-        <p class="text-sm">Загрузка данных...</p>
+        <p class="text-sm">Загрузка...</p>
       </div>
       
-      <!-- Список чекбоксов -->
+      <!-- Список опций -->
       <div v-else class="flex flex-col gap-2 max-h-[300px] overflow-y-auto p-2 border border-gray-200 rounded-lg bg-gray-50">
+        
         <div 
           v-for="option in filteredOptions" 
-          :key="option.value"
-          class="flex items-start gap-3 p-3 rounded min-h-[44px] hover:bg-gray-100 transition select-none"
+          :key="getOptionValue(option)"
+          class="flex items-start gap-3 p-3 rounded min-h-[44px] hover:bg-gray-100 transition"
         >
           <input
             type="checkbox"
-            :id="'filter-option-' + option.value"
-            :checked="isOptionSelected(option.value)"
-            @change="toggleOption(option.value)"
+            :id="`filter-${getOptionValue(option)}`"
+            :checked="isSelected(getOptionValue(option))"
+            @change="toggleOption(getOptionValue(option))"
             class="w-4 h-4 accent-blue-500 flex-shrink-0 mt-1 cursor-pointer"
           />
           <label 
-            :for="'filter-option-' + option.value"
+            :for="`filter-${getOptionValue(option)}`"
             class="flex-1 flex items-start gap-3 text-sm text-gray-700 cursor-pointer min-w-0"
+            @click="toggleOption(getOptionValue(option))"
           >
-            <span class="flex-1 break-words whitespace-normal">{{ option.label }}</span>
-            <span class="text-xs text-gray-500 whitespace-nowrap flex-shrink-0 w-[50px] text-right" v-if="option.count">({{ option.count }})</span>
-          </label>          
-        </div>
+            <span class="flex-1 break-words whitespace-normal">{{ getOptionLabel(option) }}</span>
+            <span v-if="showCount && getOptionCount(option)" class="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
+              ({{ getOptionCount(option) }})
+            </span>
+          </label>
+        </div>        
         
-        <!-- Сообщение если ничего не найдено -->
         <div v-if="filteredOptions.length === 0 && searchQuery" class="text-center py-8 px-5 text-gray-500 italic text-sm">
           Ничего не найдено по запросу "{{ searchQuery }}"
         </div>
         
-        <!-- Сообщение если список пуст -->
         <div v-if="filteredOptions.length === 0 && !searchQuery && !isLoading" class="text-center py-8 px-5 text-gray-500 italic text-sm">
           Нет данных для фильтрации
         </div>
       </div>
       
       <!-- Кнопки массового выбора -->
-      <div class="flex gap-2 pt-2 border-t border-gray-200" v-if="!isLoading && filteredOptions.length > 0">
+      <div v-if="showBulkActions && !isLoading && filteredOptions.length > 0" class="flex gap-2 pt-2 border-t border-gray-200">
         <button @click="selectAllFiltered" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 transition">
-          Выбрать все видимые
+          Выбрать все
         </button>
         <button @click="deselectAll" class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 transition">
           Снять все
@@ -72,23 +73,17 @@
       </div>
     </div>
     
-    <!-- Футер с кнопками действий -->
+    <!-- Футер -->
     <template #footer>
       <button 
-        @click="handleReset" 
-        class="border border-gray-300 text-gray-600 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
-      >
-        Сбросить
-      </button>
-      <button 
-        @click="handleCancel" 
-        class="border border-gray-300 text-gray-600 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        @click="handleClose" 
+        class="border border-gray-300 text-gray-600 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition"
       >
         Отмена
       </button>
       <button 
         @click="handleApply" 
-        class="bg-gray-900 text-white font-semibold px-4 py-2 rounded-lg hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition"
+        class="bg-gray-900 text-white font-semibold px-4 py-2 rounded-lg hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed"
         :disabled="isLoading"
       >
         Применить
@@ -122,76 +117,74 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  searchPlaceholder: {
-    type: String,
-    default: 'Поиск в списке...'
-  },
-  modalWidth: {
-    type: String,
-    default: '500px'
-  },
-  modalMaxWidth: {
-    type: String,
-    default: '500px'
-  },
   showSearch: {
     type: Boolean,
     default: true
+  },
+  showCount: {
+    type: Boolean,
+    default: true
+  },
+  showBulkActions: {
+    type: Boolean,
+    default: true
+  },
+  searchPlaceholder: {
+    type: String,
+    default: 'Поиск...'
+  },
+  valueKey: {
+    type: String,
+    default: 'value'
+  },
+  labelKey: {
+    type: String,
+    default: 'label'
+  },
+  countKey: {
+    type: String,
+    default: 'count'
+  },
+  width: {
+    type: String,
+    default: '500px'
+  },
+  maxWidth: {
+    type: String,
+    default: '500px'
+  },
+  filterFn: {
+    type: Function,
+    default: (option, query, valueKey, labelKey) => {
+      const value = String(option[valueKey] || '').toLowerCase()
+      const label = String(option[labelKey] || '').toLowerCase()
+      const search = query.toLowerCase()
+      return value.includes(search) || label.includes(search)
+    }
   }
 })
 
-const emit = defineEmits(['close', 'apply', 'reset'])
+const emit = defineEmits(['apply', 'close', 'reset'])
 
 const searchQuery = ref('')
 const internalSelected = ref([])
-const originalSelected = ref([])
 const searchInput = ref(null)
 
+const getOptionValue = (option) => option[props.valueKey]
+const getOptionLabel = (option) => option[props.labelKey]
+const getOptionCount = (option) => option[props.countKey]
+
 const filteredOptions = computed(() => {
-  if (!searchQuery.value.trim()) {
+  if (!props.showSearch || !searchQuery.value.trim()) {
     return props.options
   }
   
-  const query = searchQuery.value.toLowerCase()
   return props.options.filter(option => 
-    String(option.label).toLowerCase().includes(query) ||
-    String(option.value).toLowerCase().includes(query)
+    props.filterFn(option, searchQuery.value, props.valueKey, props.labelKey)
   )
 })
 
-const focusSearchInput = () => {
-  if (searchInput.value) {
-    nextTick(() => {
-      searchInput.value.focus()
-    })
-  }
-}
-
-watch(() => props.selectedValues, (newValues) => {
-  let valuesToUse = newValues
-  if (newValues && typeof newValues === 'object' && 'value' in newValues) {
-    valuesToUse = newValues.value
-  }
-  
-  if (!valuesToUse || !Array.isArray(valuesToUse)) {
-    internalSelected.value = []
-    return
-  }
-  
-  internalSelected.value = [...valuesToUse]
-}, { immediate: true })
-
-const handleSearchInput = (event) => {
-  searchQuery.value = event.target.value
-}
-
-const handleEnterKey = () => {
-  searchInput.value?.blur()
-}
-
-const isOptionSelected = (value) => {
-  return internalSelected.value.includes(value)
-}
+const isSelected = (value) => internalSelected.value.includes(value)
 
 const toggleOption = (value) => {
   const index = internalSelected.value.indexOf(value)
@@ -203,21 +196,17 @@ const toggleOption = (value) => {
 }
 
 const selectAllFiltered = () => {
-  const filteredValues = filteredOptions.value.map(option => option.value)
+  const filteredValues = filteredOptions.value.map(getOptionValue)
   internalSelected.value = [...new Set([...internalSelected.value, ...filteredValues])]
 }
 
 const deselectAll = () => {
-  const filteredValues = filteredOptions.value.map(option => option.value)
-  internalSelected.value = internalSelected.value.filter(val => !filteredValues.includes(val))
+  const filteredValues = filteredOptions.value.map(getOptionValue)
+  internalSelected.value = internalSelected.value.filter(v => !filteredValues.includes(v))
 }
 
 const handleApply = () => {
-  const visibleSelectedValues = internalSelected.value.filter(value => 
-    filteredOptions.value.some(option => option.value === value)
-  )
-  
-  emit('apply', [...visibleSelectedValues])
+  emit('apply', [...internalSelected.value])
 }
 
 const handleReset = () => {
@@ -226,13 +215,21 @@ const handleReset = () => {
   emit('reset')
 }
 
-const handleCancel = () => {
-  internalSelected.value = [...originalSelected.value]
+const handleClose = () => {
   searchQuery.value = ''
   emit('close')
 }
 
-const handleClose = () => {
-  handleCancel()
-}
+watch(() => props.selectedValues, (newValues) => {
+  internalSelected.value = [...(newValues || [])]
+}, { immediate: true })
+
+watch(() => props.isOpen, (isOpen) => {
+  searchQuery.value = '' // Очистка поля
+  if (isOpen && props.showSearch) {
+    nextTick(() => {
+      searchInput.value?.focus()
+    })
+  }
+})
 </script>

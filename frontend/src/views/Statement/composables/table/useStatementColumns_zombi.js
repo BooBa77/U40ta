@@ -1,7 +1,14 @@
-import { h } from 'vue'
+import { ref, h } from 'vue'
 import QrScannerButton from '../../../../components/QrScanner/ui/QrScannerButton.vue'
 
 export function useStatementColumns() {
+  const columns = ref([
+    { id: 'test', header: 'TEST', accessorKey: 'id' }
+  ])
+  
+  return { columns }
+}
+export function useStatementColumns_() {
   const columns = [
     {
       id: 'qr_action',
@@ -17,23 +24,23 @@ export function useStatementColumns() {
       })
     },
     {
-      id: 'is_ignore',
-      header: '👁️',
-      accessorKey: 'is_ignore',
+      id: 'is_actual',
+      header: '111',
+      accessorKey: 'is_actual',
       cell: ({ row }) => {
-        const isChecked = row.original.is_ignore || row.original.isIgnore || false
+        const isChecked = row.original.is_actual || row.original.isActual || false
         return h('input', {
           type: 'checkbox',
           checked: isChecked,
           onChange: (event) => {
-            console.log('Изменили is_ignore для строки', row.original.id, 'на', event.target.checked)
+            console.log('Изменили is_actual для строки', row.original.id, 'на', event.target.checked)
           }
         })
       }
     },
     {
       id: 'inv_party_combined',
-      header: 'Инв. номер',
+      header: 'Инв. номер111',
       accessorFn: (row) => {
         const inv = row.inv_number || row.invNumber || ''
         const party = row.party_number || row.partyNumber || ''
@@ -73,7 +80,7 @@ export function useStatementColumns() {
     },
     {
       id: 'buh_name',
-      header: 'Наименование',
+      header: 'Наименование111',
       accessorKey: 'buh_name',
       cell: ({ getValue }) => {
         const value = getValue()

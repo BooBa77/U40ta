@@ -186,47 +186,39 @@ export class StatementService {
   }
 
   //============================================================================
-  // ОБНОВЛЕНИЕ СТАТУСА АКТУАЛЬНОСТИ (isActual) ДЛЯ ВСЕХ ЗАПИСЕЙ ГРУППЫ
+  // ОБНОВЛЕНИЕ СТАТУСА АКТУАЛЬНОСТИ (isActual)
   //============================================================================
 
   /**
-   * Обновляет статус isActual для всех записей с указанным inv_number и party_number в рамках ведомости
-   * Устанавливает одинаковое значение для всей группы позиций
+   * Обновляет статус isActual для всех записей с указанным inv_number в рамках ведомости
    * @param {number} attachmentId - ID вложения email
    * @param {string} invNumber - Инвентарный номер
-   * @param {string} [partyNumber] - Номер партии (опционально, если не указан - обновляет все записи с данным invNumber)
    * @param {boolean} isActual - Новое значение актуальности (true - актуально, false - неактуально)
    * @returns {Promise<boolean>} true если успешно
    */
-  async updateActualStatus(attachmentId, invNumber, partyNumber, isActual) {
+  async updateActualStatus(attachmentId, invNumber, isActual) {
     const attachmentIdNum = Number(attachmentId)
 
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: обновление isActual для ${invNumber}|${partyNumber} в ведомости ${attachmentIdNum}`)
-      return this.updateActualInCache(attachmentIdNum, invNumber, partyNumber, isActual)
+      console.log(`[StatementService] Офлайн-режим: обновление isActual для ${invNumber} в ведомости ${attachmentIdNum}`)
+      return this.updateActualInCache(attachmentIdNum, invNumber, isActual)
     }
 
-    console.log(`[StatementService] Онлайн-режим: обновление isActual для ${invNumber}|${partyNumber} в ведомости ${attachmentIdNum}`)
-    return this.updateActualInApi(attachmentIdNum, invNumber, partyNumber, isActual)
+    console.log(`[StatementService] Онлайн-режим: обновление isActual для ${invNumber} в ведомости ${attachmentIdNum}`)
+    return this.updateActualInApi(attachmentIdNum, invNumber, isActual)
   }
 
   /**
-   * Обновляет isActual в кэше IndexedDB для всех записей с указанным inv_number и party_number
+   * Обновляет isActual в кэше IndexedDB для всех записей с указанным inv_number
    * @param {number} attachmentId - ID вложения email
    * @param {string} invNumber - Инвентарный номер
-   * @param {string} [partyNumber] - Номер партии
    * @param {boolean} isActual - Новое значение актуальности
    * @returns {Promise<boolean>}
    */
-  async updateActualInCache(attachmentId, invNumber, partyNumber, isActual) {
+  async updateActualInCache(attachmentId, invNumber, isActual) {
     try {
-      await offlineCache.updateProcessedStatementsActualByInvParty(
-        attachmentId, 
-        invNumber, 
-        partyNumber, 
-        isActual
-      )
-      console.log(`[StatementService] Обновлены записи: attachmentId=${attachmentId}, invNumber=${invNumber}, partyNumber=${partyNumber}, isActual=${isActual}`)
+      await offlineCache.updateProcessedStatementsActualByInv(attachmentId, invNumber, isActual)
+      console.log(`[StatementService] Обновлены записи: attachmentId=${attachmentId}, invNumber=${invNumber}, isActual=${isActual}`)
       return true
     } catch (error) {
       console.error('[StatementService] Ошибка обновления isActual в кэше:', error)
@@ -235,18 +227,19 @@ export class StatementService {
   }
 
   /**
-   * Обновляет isActual через API для всех записей с указанным inv_number и party_number
+   * Обновляет isActual через API для всех записей с указанным inv_number
    * @param {number} attachmentId - ID вложения email
    * @param {string} invNumber - Инвентарный номер
-   * @param {string} [partyNumber] - Номер партии
    * @param {boolean} isActual - Новое значение актуальности
    * @returns {Promise<boolean>}
    */
-  async updateActualInApi(attachmentId, invNumber, partyNumber, isActual) {
+  async updateActualInApi(attachmentId, invNumber, isActual) {
     try {
+      console.log('[StatementService] Отправка запроса:', { attachmentId, invNumber, isActual })
+      
       await this.apiRequest('/statements/update-actual', {
         method: 'POST',
-        body: { attachmentId, invNumber, partyNumber, isActual }
+        body: { attachmentId, invNumber, isActual }
       })
       return true
     } catch (error) {

@@ -96,7 +96,6 @@ export class StatementService {
       where: {
         emailAttachmentId: dto.attachmentId,
         invNumber: dto.invNumber,
-        partyNumber: dto.partyNumber || '',
         isExcess: false,
       },
     });

@@ -1,6 +1,5 @@
 /**
  * Менеджер для работы с актуальностью строк ведомости (isActual)
- * Инвертированная версия useIgnoreManager
  * Обрабатывает изменение статуса актуальности для всей группы позиций
  */
 import { statementService } from '@/services/statement.service'
@@ -16,13 +15,12 @@ export function useActualManager(attachmentId, reloadCallback) {
    * @param {boolean} params.isActual - новое значение актуальности
    * @returns {Promise<void>}
    */
-  const handleActualChange = async ({ inv, party, isActual }) => {
+  const handleActualChange = async ({ invNumber, isActual }) => {
     try {
       // Вызываем сервис для обновления статуса актуальности
       await statementService.updateActualStatus(
         attachmentId,
-        inv,
-        party,
+        invNumber,
         isActual
       )
       

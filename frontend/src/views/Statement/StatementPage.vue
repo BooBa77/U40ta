@@ -1,18 +1,29 @@
 <template>
   <div class="statement-page">
-    <div class="header">
-      <button class="back-button" @click="handleBack">← Назад</button>
-      <h1>{{ statementTitle }}</h1>
+
+    <div class="header flex items-center justify-between gap-3 p-4 border-b border-gray-200 bg-white">
+      <button 
+        class="back-button border border-gray-300 text-gray-600 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition"
+        @click="handleBack"
+      >
+        ← Назад
+      </button>
+      
+      <h1 class="text-lg font-semibold text-gray-800 flex-1 text-center truncate">
+        {{ statementTitle }}
+      </h1>
+      
       <button 
         v-if="hasActiveFilters" 
         @click="resetAllFilters"
-        class="reset-filters-btn"
+        class="border border-gray-300 text-gray-600 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition whitespace-nowrap"
         title="Сбросить все фильтры"
       >
         Сбросить фильтры
       </button>
     </div>
     
+
     <!-- Загрузка -->
     <div v-if="loading" class="loading">
       Загрузка ведомости...
@@ -26,16 +37,15 @@
     
     <!-- Данные -->
     <div v-else class="content">
-      <!-- Модалка фильтра -->
-      <FilterModal
-        v-if="filterModalIsOpen"
-        :is-open="filterModalIsOpen"
-        :title="filterModalTitle"
-        :options="filterModalOptions"
-        :selected-values="filterModalSelectedValues"
-        :is-loading="filterModalIsLoading"
-        @close="closeFilterModal"
+      <!-- Универсальная модалка фильтра -->
+      <UniversalFilterModal
+        :is-open="filterModalState.isOpen"
+        :title="filterModalState.title"
+        :options="filterModalState.options"
+        :selected-values="filterModalState.selectedValues"
+        :is-loading="filterModalState.isLoading"
         @apply="applyFilter"
+        @close="closeFilterModal"
         @reset="resetCurrentFilter"
       />
 
@@ -61,11 +71,11 @@
 
       <!-- Таблица -->
       <StatementTable 
+        :key="JSON.stringify(activeFiltersForTable)"
         v-if="statementsLength > 0"
         :statements="tableStatements"
-        :columns="columns"
         :get-row-group="getAggregatedRowGroup"
-        :active-filters="activeFiltersValue"
+        :active-filters="activeFiltersForTable"
         :has-party-or-quantity="hasPartyOrQuantity"
         @filter-click="handleFilterClick"
         @actual-change="actualManager.handleActualChange"
@@ -80,18 +90,17 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatementTable from './components/StatementTable.vue'
-import FilterModal from './components/FilterModal.vue'
+import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import ObjectViewModal from './components/ObjectViewModal.vue'
 
 // Композаблы
 import { useStatementData } from './composables/useStatementData'
-import { useStatementColumns } from './composables/table/useStatementColumns'
 import { useStatementAggregation } from './composables/table/useStatementAggregation'
-import { useSimpleFiltersManager } from './composables/useFiltersManager'
+import { useTableFilter } from '@/composables/useTableFilter'
 import { useActualManager } from './composables/table/useActualManager'
 import { statementService } from '@/services/statement.service'
 
@@ -101,34 +110,42 @@ const attachmentId = route.params.id
 
 // === ДАННЫЕ ===
 const { loading, error, statements, reload } = useStatementData(attachmentId)
-const { columns } = useStatementColumns()
 const { aggregatedStatements, hasPartyOrQuantity, getRowGroup: getAggregatedRowGroup } = useStatementAggregation(statements)
 
-// === ПРОСТОЙ ФИЛЬТР ===
+// === КОНФИГУРАЦИЯ ФИЛЬТРОВ ===
+const filterColumns = [
+  {
+    id: 'inv_number',
+    title: 'Фильтр по инвентарному номеру',
+    getValue: (row) => row.invNumber
+  },
+  {
+    id: 'buh_name',
+    title: 'Фильтр по наименованию',
+    getValue: (row) => row.buhName
+  }
+]
+
+// === ФИЛЬТР ===
 const {
-  showFilterModal,
-  modalTitle,
-  filterOptions,
-  currentFilterValues,
-  isLoadingOptions,
-  activeFilters,
+  filterModalState,
   hasActiveFilters,
-  filteredStatements,
+  filteredData: tableFilteredData,
   openFilterModal,
-  closeFilterModal,
   applyFilter,
   resetCurrentFilter,
-  resetAllFilters
-} = useSimpleFiltersManager(attachmentId, aggregatedStatements)
+  resetAllFilters,
+  activeFilters
+} = useTableFilter(aggregatedStatements, filterColumns)
 
 // === СОСТОЯНИЕ OBJECT FORM ===
 const objectFormIsOpen = ref(false)
 const objectFormObjectId = ref(null)
-const objectFormStatementId = ref(null) // id записи в ведомости
+const objectFormStatementId = ref(null)
 const objectFormInitialData = ref({})
 const objectFormQrCode = ref(null)
 
-// === НОВОЕ СОСТОЯНИЕ ДЛЯ OBJECT VIEW ===
+// === СОСТОЯНИЕ ДЛЯ OBJECT VIEW ===
 const objectViewIsOpen = ref(false)
 const selectedGroup = ref({
   invNumber: '',
@@ -138,15 +155,22 @@ const selectedGroup = ref({
 })
 
 // === COMPUTED-ОБЕРТКИ ===
-const filterModalIsOpen = computed(() => showFilterModal.value)
-const filterModalTitle = computed(() => modalTitle.value)
-const filterModalOptions = computed(() => filterOptions.value)
-const filterModalSelectedValues = computed(() => currentFilterValues.value)
-const filterModalIsLoading = computed(() => isLoadingOptions.value)
-const activeFiltersValue = computed(() => activeFilters.value)
-
 const statementsLength = computed(() => tableStatements.value?.length || 0)
-const tableStatements = computed(() => filteredStatements.value)
+const tableStatements = computed(() => tableFilteredData.value)
+
+// Преобразуем activeFilters в формат, который ожидает таблица
+const activeFiltersForTable = computed(() => {
+  const result = {}
+  if (activeFilters.value.inv_number) {
+    result.inv_number = activeFilters.value.inv_number
+  }
+  if (activeFilters.value.buh_name) {
+    result.buh_name = activeFilters.value.buh_name
+  }
+  console.log('[StatementPage] activeFiltersForTable обновлён:', result)
+  return result
+})
+
 const statementTitle = computed(() => {
   if (!statements.value?.length) return ''
   const firstRow = statements.value[0]
@@ -157,7 +181,6 @@ const statementTitle = computed(() => {
 const handleRowClick = (groupParams) => {
   console.log('[StatementPage] Клик по строке, открываем ObjectViewModal с параметрами:', groupParams)
   
-  // Сохраняем параметры группы
   selectedGroup.value = {
     invNumber: groupParams.invNumber,
     partyNumber: groupParams.partyNumber,
@@ -165,18 +188,13 @@ const handleRowClick = (groupParams) => {
     sklad: groupParams.sklad
   }
   
-  // Открываем модалку
   objectViewIsOpen.value = true
 }
 
-/**
- * Закрытие ObjectViewModal
- */
 const handleObjectViewClose = () => {
   console.log('[StatementPage] Закрытие ObjectViewModal')
   objectViewIsOpen.value = false
   
-  // Сбрасываем выбранную группу (с задержкой, чтобы не мешать анимации)
   setTimeout(() => {
     selectedGroup.value = {
       invNumber: '',
@@ -204,15 +222,10 @@ const openObjectFormFromRowData = ({ scannedData, rowData }) => {
 const handleObjectFormSave = async (result) => {
   console.log('[STATEMENT-PAGE] Результат сохранения объекта:', result, objectFormStatementId.value)
   
-  // Закрываем модалку
   objectFormIsOpen.value = false
   resetObjectFormState()
 
-  console.log('Модалка закрыта', objectFormStatementId.value)
-
-  // Если объект изменился
   if (result.wasCreated) {
-    // Обновляем haveObject для записи ведомости
     if (objectFormStatementId.value) {
       try {
         console.log('[STATEMENT-PAGE] Устанавливаем haveObject=true для записи:', {
@@ -229,7 +242,6 @@ const handleObjectFormSave = async (result) => {
       }
     }
     
-    // Перезагружаем ведомость для отображения изменений
     reload()
   }
 }
@@ -255,8 +267,15 @@ const handleBack = () => {
 }
 
 const handleFilterClick = (columnId) => {
-  console.log('[STATEMENT-PAGE] Клик по фильтру для колонки:', columnId)
-  openFilterModal(columnId)
+  const mapping = {
+    'inv_party_combined': 'inv_number',
+    'buh_name': 'buh_name'
+  }
+  openFilterModal(mapping[columnId] || columnId)
+}
+
+const closeFilterModal = () => {
+  filterModalState.value.isOpen = false
 }
 
 // === МЕНЕДЖЕР АКТУАЛЬНОСТИ ===

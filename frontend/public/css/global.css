@@ -28,7 +28,18 @@
   --spacing: 16px;
   --spacing-lg: 24px;
 
+  /* Цвета групп строк таблицы */
+  .row-group-1 { background-color: #FFC7CE; color: #9C0006; }
+  .row-group-1:hover { background-color: #FFB6C1; }
 
+  .row-group-2 { background-color: #FFEB9C; color: #9C6500; }
+  .row-group-2:hover { background-color: #FFE484; }
+
+  .row-group-3 { background-color: #C6EFCE; color: #006100; }
+  .row-group-3:hover { background-color: #B7E4B5; }
+
+  .row-group-4 { background-color: #b3b3b3; color: #242424; }
+  .row-group-4:hover { background-color: #b3b3b3; }
 
   /* Большие кнопки главной страницы */
   .big-home-button {
