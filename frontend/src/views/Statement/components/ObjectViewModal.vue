@@ -8,36 +8,55 @@
     @close="handleClose"
   >
     <!-- Состояние загрузки -->
-    <div v-if="isLoading" class="loading-state">
+    <div v-if="isLoading" class="py-10 px-5 text-center text-gray-500">
       Загрузка данных...
     </div>
 
     <!-- Состояние ошибки -->
-    <div v-else-if="error" class="error-state">
+    <div v-else-if="error" class="py-10 px-5 text-center text-red-600">
       {{ error }}
-      <button @click="loadData" class="retry-button">Повторить</button>
+      <button 
+        @click="loadData" 
+        class="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition text-sm"
+      >
+        Повторить
+      </button>
     </div>
 
     <!-- Таблица с данными -->
-    <div v-else class="table-container">
-      <table class="location-table">
+    <div v-else class="max-h-[400px] overflow-y-auto border border-gray-200 rounded-lg my-4 max-sm:max-h-[300px] max-sm:my-3">
+      <table class="w-full border-collapse text-sm">
         <thead>
           <tr>
-            <th>№</th>
-            <th>Местоположение</th>
-            <th>Действие</th>
+            <th class="sticky top-0 z-10 bg-gray-50 px-2 py-3 text-left font-semibold text-gray-800 border-b-2 border-gray-200 w-[50px] text-center max-sm:w-10 max-sm:px-1.5 max-sm:py-2 max-sm:text-xs">
+              №
+            </th>
+            <th class="sticky top-0 z-10 bg-gray-50 px-2 py-3 text-left font-semibold text-gray-800 border-b-2 border-gray-200 min-w-[200px] max-sm:min-w-[150px] max-sm:px-1.5 max-sm:py-2 max-sm:text-xs">
+              Местоположение
+            </th>
+            <th class="sticky top-0 z-10 bg-gray-50 px-3 py-3 text-right font-semibold text-gray-800 border-b-2 border-gray-200 w-[100px] max-sm:w-20 max-sm:px-1.5 max-sm:py-2 max-sm:text-xs">
+              Действие
+            </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(item, index) in combinedItems" :key="item.id || item.statementId" class="location-row">
-            <td class="number-cell">{{ index + 1 }}</td>
-            <td class="location-cell">{{ getLocationDisplay(item) }}</td>
-            <td class="action-cell">
+          <tr 
+            v-for="(item, index) in combinedItems" 
+            :key="item.id || item.statementId" 
+            class="hover:bg-gray-50 transition-colors"
+          >
+            <td class="px-2 py-2.5 border-b border-gray-100 text-center text-gray-500 font-medium max-sm:px-1.5 max-sm:py-2">
+              {{ index + 1 }}
+            </td>
+            <td class="px-2 py-2.5 border-b border-gray-100 text-gray-600 max-sm:px-1.5 max-sm:py-2">
+              {{ getLocationDisplay(item) }}
+            </td>
+            <td class="px-3 py-2.5 border-b border-gray-100 text-right max-sm:px-1.5 max-sm:py-2">
               <!-- Для существующих объектов - кнопка Открыть -->
               <button 
                 v-if="item.isObject" 
                 @click="openObjectForm(item)"
-                class="action-button open-button"
+                class="px-3 py-1.5 bg-blue-500 text-white border border-blue-600 rounded text-xs font-medium hover:bg-blue-600 transition max-sm:px-2 max-sm:py-1 max-sm:text-[0.7rem]"
               >
                 Открыть
               </button>
@@ -53,7 +72,7 @@
           
           <!-- Пустое состояние -->
           <tr v-if="combinedItems.length === 0">
-            <td colspan="3" class="empty-cell">
+            <td colspan="3" class="text-center py-10 px-5 text-gray-400 italic">
               Нет данных для отображения
             </td>
           </tr>
@@ -90,6 +109,10 @@ const props = defineProps({
   invNumber: {
     type: String,
     required: true
+  },
+  partyNumber: {
+    type: String,
+    default: null
   },
   zavod: {
     type: [Number, String],
@@ -158,6 +181,7 @@ const combinedItems = computed(() => {
 const loadData = async () => {
   console.log('[LocViewModal] Загрузка данных для:', {
     inv: props.invNumber,
+    party: props.partyNumber,
     zavod: props.zavod,
     sklad: props.sklad
   })
@@ -170,11 +194,13 @@ const loadData = async () => {
     const [statements, objects] = await Promise.all([
       statementService.getStatementsByInv(
         props.invNumber,
+        props.partyNumber,
         props.zavod,
         props.sklad
       ),
       objectService.getObjectsByInv(
         props.invNumber,
+        props.partyNumber,
         props.zavod,
         props.sklad
       )
@@ -273,10 +299,6 @@ const handleObjectFormSave = async (result) => {
   // Если это была запись ведомости - обновляем статус в statement
   if (objectFormStatementId.value) {
     try {
-      console.log('[LocViewModal] Устанавливаем haveObject=true для записи:', {
-        attachmentId: props.attachmentId, 
-        statementId: objectFormStatementId.value
-      })
       await statementService.updateStatementHaveObject(
           objectFormStatementId.value,
           true
@@ -329,5 +351,3 @@ watch(() => props.isOpen, async (newVal) => {
   }
 }, { immediate: true })
 </script>
-
-<style scoped src="./ObjectViewModal.css"></style>

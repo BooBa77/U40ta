@@ -44,14 +44,13 @@
           <label 
             :for="`filter-${getOptionValue(option)}`"
             class="flex-1 flex items-start gap-3 text-sm text-gray-700 cursor-pointer min-w-0"
-            @click="toggleOption(getOptionValue(option))"
           >
             <span class="flex-1 break-words whitespace-normal">{{ getOptionLabel(option) }}</span>
             <span v-if="showCount && getOptionCount(option)" class="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
               ({{ getOptionCount(option) }})
             </span>
           </label>
-        </div>        
+        </div>
         
         <div v-if="filteredOptions.length === 0 && searchQuery" class="text-center py-8 px-5 text-gray-500 italic text-sm">
           Ничего не найдено по запросу "{{ searchQuery }}"

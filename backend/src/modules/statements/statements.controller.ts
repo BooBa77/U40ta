@@ -22,7 +22,8 @@ export class StatementsController {
   async findByInv(
     @Query('inv') inv: string,
     @Query('zavod') zavod?: string,
-    @Query('sklad') sklad?: string
+    @Query('sklad') sklad?: string,
+    @Query('party') party?: string
   ) {
     try {
       console.log(`[StatementsController] Поиск записей ведомости по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
@@ -41,7 +42,8 @@ export class StatementsController {
       const statements = await this.statementService.findByInv(
         inv.trim(),
         zavodValue,
-        skladValue
+        skladValue,
+        party?.trim() || undefined
       );
       
       return {

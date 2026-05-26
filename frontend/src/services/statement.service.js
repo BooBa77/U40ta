@@ -253,33 +253,35 @@ export class StatementService {
   //============================================================================
 
   /**
-   * Получает записи ведомости по инвентарному номеру (для ObjectViewModal)
-   * Возвращает все записи, независимо от haveObject
+   * Получает записи ведомости по инвентарному номеру и партии (для ObjectViewModal)
+   * Возвращает только записи с haveObject = false (объект ещё не создан)
    * @param {string} inv - Инвентарный номер
+   * @param {string} [partyNumber] - Партия объекта
    * @param {number} [zavod] - Номер завода (опционально)
    * @param {string} [sklad] - Код склада (опционально)
    * @returns {Promise<Array>} Массив записей ведомости
    */
-  async getStatementsByInv(inv, zavod, sklad) {
+  async getStatementsByInv(inv, partyNumber, zavod, sklad) {
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: поиск записей по inv=${inv}`)
-      return this.getStatementsByInvFromCache(inv, zavod, sklad)
+      console.log(`[StatementService] Офлайн-режим: поиск записей по inv=${inv}, party=${partyNumber}`)
+      return this.getStatementsByInvFromCache(inv, partyNumber, zavod, sklad)
     }
 
-    console.log(`[StatementService] Онлайн-режим: поиск записей по inv=${inv}`)
-    return this.getStatementsByInvFromApi(inv, zavod, sklad)
+    console.log(`[StatementService] Онлайн-режим: поиск записей по inv=${inv}, party=${partyNumber}`)
+    return this.getStatementsByInvFromApi(inv, partyNumber, zavod, sklad)
   }
 
   /**
    * Поиск записей ведомости в кэше IndexedDB
    * @param {string} inv - Инвентарный номер
+   * @param {string} [partyNumber] - Партия объекта
    * @param {number} [zavod] - Номер завода
    * @param {string} [sklad] - Код склада
    * @returns {Promise<Array>}
    */
-  async getStatementsByInvFromCache(inv, zavod, sklad) {
+  async getStatementsByInvFromCache(inv, partyNumber, zavod, sklad) {
     try {
-      const statements = await offlineCache.getProcessedStatementsByInv(inv, zavod, sklad)
+      const statements = await offlineCache.getProcessedStatementsByInv(inv, partyNumber, zavod, sklad)
       console.log(`[StatementService] Из кэша найдено записей: ${statements.length}`)
       return statements
     } catch (error) {
@@ -291,14 +293,19 @@ export class StatementService {
   /**
    * Поиск записей ведомости через API
    * @param {string} inv - Инвентарный номер
+   * @param {string} [partyNumber] - Партия объекта
    * @param {number} [zavod] - Номер завода
    * @param {string} [sklad] - Код склада
    * @returns {Promise<Array>}
    */
-  async getStatementsByInvFromApi(inv, zavod, sklad) {
+  async getStatementsByInvFromApi(inv, partyNumber, zavod, sklad) {
     try {
       const params = new URLSearchParams()
       params.append('inv', inv)
+      
+      if (partyNumber !== undefined && partyNumber !== null && partyNumber !== '') {
+        params.append('party', partyNumber)
+      }
       
       if (zavod !== undefined && zavod !== null) {
         params.append('zavod', zavod)

@@ -99,31 +99,34 @@ export class ObjectService {
   //============================================================================
 
   /**
-   * Менеджер: получает объекты по инвентарному номеру.
+   * Менеджер: получает объекты по инвентарному номеру и партии.
    * @param {string} inv — инвентарный номер.
+   * @param {string} [partyNumber] — партия объекта.
    * @param {number} [zavod] — номер завода.
    * @param {string} [sklad] — код склада.
    * @returns {Promise<Array>} массив объектов (camelCase).
    */
-  async getObjectsByInv(inv, zavod, sklad) {
+  async getObjectsByInv(inv, partyNumber, zavod, sklad) {
     const params = new URLSearchParams({ inv })
+    if (partyNumber != null) params.append('party', partyNumber)
     if (zavod != null) params.append('zavod', zavod)
     if (sklad != null) params.append('sklad', sklad)
 
     return this.isFlightMode()
-      ? this.getByInvFromCache(inv, zavod, sklad)
+      ? this.getByInvFromCache(inv, partyNumber, zavod, sklad)
       : this.getByInvFromApi(params)
   }
 
   /**
    * Исполнитель для офлайн: поиск объектов в IndexedDB.
-   * @param {string} inv
-   * @param {number} [zavod]
-   * @param {string} [sklad]
+   * @param {string} inv — инвентарный номер.
+   * @param {string} [partyNumber] — партия объекта.
+   * @param {number} [zavod] — номер завода.
+   * @param {string} [sklad] — код склада.
    * @returns {Promise<Array>} массив объектов в camelCase.
    */
-  async getByInvFromCache(inv, zavod, sklad) {
-    const dbObjects = await offlineCache.findObjectsByInv(inv, zavod, sklad)
+  async getByInvFromCache(inv, partyNumber, zavod, sklad) {
+    const dbObjects = await offlineCache.findObjectsByInv(inv, partyNumber, zavod, sklad)
     return dbObjects
   }
 

@@ -25,7 +25,8 @@ export class ObjectsController {
   async findByInvParty(
     @Query('inv') inv: string,
     @Query('zavod') zavod?: string,
-    @Query('sklad') sklad?: string
+    @Query('sklad') sklad?: string,
+    @Query('party') party?: string
   ) {
     try {
       console.log(`[ObjectsController] Запрос объектов по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
@@ -42,9 +43,10 @@ export class ObjectsController {
       const skladValue = sklad || undefined;
       
       const objects = await this.objectsService.findByInv(
-        inv.trim(), 
+        inv.trim(),
         zavodValue,
-        skladValue
+        skladValue,
+        party?.trim() || undefined, 
       );
       
       return {

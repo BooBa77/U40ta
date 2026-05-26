@@ -27,7 +27,8 @@ export class StatementService {
   async findByInv(
     invNumber: string,
     zavod?: number,
-    sklad?: string
+    sklad?: string,
+    partyNumber?: string
   ): Promise<ProcessedStatement[]> {
     const queryBuilder = this.processedStatementRepo
       .createQueryBuilder('statement')
@@ -42,8 +43,12 @@ export class StatementService {
       queryBuilder.andWhere('statement.sklad = :sklad', { sklad });
     }
 
+    if (partyNumber && partyNumber.trim() !== '') {
+      queryBuilder.andWhere('statement.partyNumber = :partyNumber', { partyNumber });
+    }
+
     return await queryBuilder.getMany();
-  }
+  }  
 
   /**
    * Основной метод: открывает/обрабатывает ведомость

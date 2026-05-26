@@ -29,22 +29,25 @@ export class ObjectsService {
   async findByInv(
     invNumber: string, 
     zavod?: number,
-    sklad?: string
+    sklad?: string,
+    partyNumber?: string
   ): Promise<InventoryObject[]> {
-    console.log(`[ObjectsService] Поиск объектов: inv=${invNumber}, zavod=${zavod}, sklad=${sklad}`);
+    console.log(`[ObjectsService] Поиск объектов: inv=${invNumber}, zavod=${zavod}, sklad=${sklad}, party=${partyNumber}`);
     
     const queryBuilder = this.objectRepository
       .createQueryBuilder('object')
       .where('object.inv_number = :invNumber', { invNumber });
     
-    // Фильтрация по заводу
     if (zavod !== undefined && !isNaN(zavod)) {
       queryBuilder.andWhere('object.zavod = :zavod', { zavod });
     }
     
-    // Фильтрация по складу
     if (sklad && sklad.trim() !== '') {
       queryBuilder.andWhere('object.sklad = :sklad', { sklad });
+    }
+
+    if (partyNumber && partyNumber.trim() !== '') {
+      queryBuilder.andWhere('object.party_number = :partyNumber', { partyNumber });
     }
     
     const objects = await queryBuilder.getMany();

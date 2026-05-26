@@ -51,7 +51,7 @@ export function useStatementAggregation(statements) {
    */
   const formatDisplayQuantity = (group, isActive) => {
     if (!isActive) {
-      return `(${group.totalCount})`
+      return `(${group.totalCount} шт.)`
     }
     
     // Для актуальных: если смешанная, показываем дробь

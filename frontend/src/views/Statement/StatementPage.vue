@@ -1,42 +1,47 @@
 <template>
-  <div class="statement-page">
+  <div class="h-screen flex flex-col p-5 bg-gray-50 overflow-hidden">
 
-    <div class="header flex items-center justify-between gap-3 p-4 border-b border-gray-200 bg-white">
+    <!-- Шапка -->
+    <header class="flex items-center justify-between gap-3 p-4 border-b border-gray-200 bg-white flex-shrink-0">
       <button 
-        class="back-button border border-gray-300 text-gray-600 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition"
+        class="border border-gray-300 text-gray-600 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition whitespace-nowrap"
         @click="handleBack"
       >
         ← Назад
       </button>
       
-      <h1 class="text-lg font-semibold text-gray-800 flex-1 text-center truncate">
+      <h1 class="text-lg font-semibold text-gray-800 flex-1 text-center truncate min-w-0">
         {{ statementTitle }}
       </h1>
       
       <button 
         v-if="hasActiveFilters" 
         @click="resetAllFilters"
-        class="border border-gray-300 text-gray-600 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition whitespace-nowrap"
+        class="border border-amber-400 bg-amber-50 text-amber-700 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-amber-100 transition whitespace-nowrap"
         title="Сбросить все фильтры"
       >
         Сбросить фильтры
       </button>
-    </div>
-    
+    </header>
 
     <!-- Загрузка -->
-    <div v-if="loading" class="loading">
+    <div v-if="loading" class="flex-1 flex flex-col justify-center items-center text-blue-500 text-lg">
       Загрузка ведомости...
     </div>
     
     <!-- Ошибка -->
-    <div v-else-if="error" class="error">
+    <div v-else-if="error" class="flex-1 flex flex-col justify-center items-center text-red-600 text-lg gap-4">
       {{ error }}
-      <button @click="reload">Повторить</button>
+      <button 
+        @click="reload"
+        class="px-5 py-2.5 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition"
+      >
+        Повторить
+      </button>
     </div>
     
     <!-- Данные -->
-    <div v-else class="content">
+    <div v-else class="flex-1 flex flex-col min-h-0">
       <!-- Универсальная модалка фильтра -->
       <UniversalFilterModal
         :is-open="filterModalState.isOpen"
@@ -59,7 +64,7 @@
         @cancel="handleObjectFormCancel"
       />
 
-      <!-- модалка ObjectViewModal -->
+      <!-- Модалка ObjectViewModal -->
       <ObjectViewModal
         :is-open="objectViewIsOpen"
         :inv-number="selectedGroup.invNumber"
@@ -82,7 +87,7 @@
         @qr-scan="openObjectFormFromRowData"
         @row-click="handleRowClick"
       />
-      <div v-else class="empty">
+      <div v-else class="flex-1 flex items-center justify-center bg-white border border-dashed border-gray-300 rounded-lg text-gray-400 text-lg">
         В ведомости нет данных
       </div>
     </div>
