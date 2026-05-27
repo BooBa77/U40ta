@@ -275,4 +275,30 @@ export class InventoryBooksService {
       throw new ForbiddenException(`Нет доступа к книге ${bookId}`);
     }
   }
+
+  /**
+   * Обновляет статус isActual для всех строк с указанным invNumber в книге
+   * @param bookId - ID книги
+   * @param invNumber - инвентарный номер
+   * @param isActual - новое значение актуальности
+   */
+  async updateActualStatus(
+    bookId: number,
+    invNumber: string,
+    isActual: boolean
+  ): Promise<void> {
+    await this.itemRepo.update(
+      {
+        idBook: bookId,
+        invNumber: invNumber,
+      },
+      {
+        isActual: isActual,
+      }
+    );
+    
+    this.logger.log(
+      `Книга ${bookId}: обновлён isActual=${isActual} для invNumber=${invNumber}`
+    );
+  }  
 }

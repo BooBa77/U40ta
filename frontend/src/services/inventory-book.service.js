@@ -386,6 +386,67 @@ export class InventoryBookService {
     }
   }  
 
+  // ============================================================================
+  // ИГНОРИРОВАНИЕ ОБЪЕКТОВ ПРИ ИНВЕНТАРИЗАЦИИ
+  // ============================================================================
+
+  /**
+   * Обновляет статус актуальности для всех строк с указанным invNumber в книге
+   * 
+   * @param {number} bookId - ID книги
+   * @param {string} invNumber - инвентарный номер
+   * @param {boolean} isActual - новое значение актуальности
+   * @returns {Promise<Object>} Результат операции { success: true }
+   */
+  async updateActualStatus(bookId, invNumber, isActual) {
+    if (this.isFlightMode()) {
+      console.log(`[InventoryBookService] Офлайн-режим: обновление isActual для ${invNumber} в книге ${bookId}`)
+      return this.updateActualStatusInCache(bookId, invNumber, isActual)
+    }
+
+    console.log(`[InventoryBookService] Онлайн-режим: обновление isActual для ${invNumber} в книге ${bookId}`)
+    return this.updateActualStatusInApi(bookId, invNumber, isActual)
+  }
+
+  /**
+   * Обновляет isActual в кэше IndexedDB
+   * 
+   * @param {number} bookId - ID книги
+   * @param {string} invNumber - инвентарный номер
+   * @param {boolean} isActual - новое значение
+   * @returns {Promise<Object>}
+   */
+  async updateActualStatusInCache(bookId, invNumber, isActual) {
+    try {
+      await offlineCache.updateInventoryBookItemsActual(bookId, invNumber, isActual)
+      console.log(`[InventoryBookService] Книга ${bookId}: обновлён isActual=${isActual} для invNumber=${invNumber}`)
+      return { success: true }
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка обновления isActual в кэше:', error)
+      throw new Error('Не удалось обновить статус актуальности в кэше')
+    }
+  }
+
+  /**
+   * Обновляет isActual через API
+   * 
+   * @param {number} bookId - ID книги
+   * @param {string} invNumber - инвентарный номер
+   * @param {boolean} isActual - новое значение
+   * @returns {Promise<Object>}
+   */
+  async updateActualStatusInApi(bookId, invNumber, isActual) {
+    try {
+      await this.apiRequest(`/inventory/books/${bookId}/items/update-actual`, {
+        method: 'POST',
+        body: { invNumber, isActual }
+      })
+      return { success: true }
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка обновления isActual через API:', error)
+      throw error
+    }
+  }  
 }
 
 // Экспортируем синглтон

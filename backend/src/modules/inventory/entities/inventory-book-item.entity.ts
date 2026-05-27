@@ -73,10 +73,10 @@ export class InventoryBookItem {
   // ---- Поля проверки ----
 
   /**
-   * Пропустить позицию (не участвует в инвентаризации).
+   * Позиция участвует в инвентаризации (при false пропускаем).
    */
-  @Column({ name: 'is_ignore', type: 'boolean', default: false })
-  isIgnore!: boolean;
+  @Column({ name: 'is_actual', type: 'boolean', default: true })
+  isActual!: boolean;
 
   /**
    * Ручное подтверждение наличия.

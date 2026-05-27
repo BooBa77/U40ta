@@ -268,4 +268,26 @@ export class InventoryController {
     return { success: true };
   }
 
+  /**
+   * Обновить статус актуальности для всех строк с указанным invNumber
+   * POST /api/inventory/books/:id/items/update-actual
+   */
+  @Post('books/:id/items/update-actual')
+  @HttpCode(HttpStatus.OK)
+  async updateItemActual(
+    @Req() request: RequestWithUser,
+    @Param('id') bookId: number,
+    @Body() body: { invNumber: string; isActual: boolean }
+  ): Promise<{ success: boolean }> {
+    const userId = request.user.sub;
+    
+    // Обновляем статус
+    await this.inventoryBooksService.updateActualStatus(
+      bookId,
+      body.invNumber,
+      body.isActual
+    );
+    
+    return { success: true };
+  }  
 }

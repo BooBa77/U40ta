@@ -6,6 +6,9 @@ import { InventoryObject } from 'src/modules/objects/entities/object.entity';
 import { ProcessedStatement } from 'src/modules/statements/entities/processed-statement.entity';
 import { QrCode } from 'src/modules/qr-codes/entities/qr-code.entity';
 import { MolAccess } from 'src/modules/users/entities/mol-access.entity';
+import { InventoryBook } from 'src/modules/inventory/entities/inventory-book.entity';
+import { InventoryBookItem } from 'src/modules/inventory/entities/inventory-book-item.entity';
+import { RevisorAccess } from 'src/modules/inventory/entities/revisor-access.entity';
 
 
 @Injectable()
@@ -25,6 +28,15 @@ export class OfflineCacheService {
     
     @InjectRepository(MolAccess)
     private molAccessRepository: Repository<MolAccess>,
+
+    @InjectRepository(InventoryBook)
+    private inventoryBookRepo: Repository<InventoryBook>,
+
+    @InjectRepository(InventoryBookItem)
+    private inventoryBookItemRepo: Repository<InventoryBookItem>,
+
+    @InjectRepository(RevisorAccess)
+    private revisorAccessRepo: Repository<RevisorAccess>,    
   ) {}
 
   /**
@@ -40,28 +52,49 @@ export class OfflineCacheService {
         select: ['zavod', 'sklad'],
       });
       
-      console.log(`OfflineCacheService: пользователь имеет доступ к ${userAccess.length} складам`);
+      // 2. Получаем ID книг, доступных ревизору
+      const revisorAccess = await this.revisorAccessRepo.find({
+        where: { userId: userId },
+        select: ['idBook'],
+      });
+      const bookIds = revisorAccess.map(ra => ra.idBook);
       
-      // 2. Получаем ВСЕ объекты
+      console.log(`OfflineCacheService: пользователь имеет доступ к ${bookIds.length} книгам`);
+      
+      // 3. Получаем ВСЕ объекты
       const objects = await this.objectsRepository.find({
         order: { id: 'ASC' },
       });
       
-      console.log(`OfflineCacheService: загружено ВСЕХ объектов: ${objects.length}`);
-      
-      // 3. Получаем ВСЕ QR-коды
+      // 4. Получаем ВСЕ QR-коды
       const qrCodes = await this.qrCodesRepository.find({
         order: { id: 'ASC' },
       });
       
-      console.log(`OfflineCacheService: загружено ВСЕХ QR-кодов: ${qrCodes.length}`);
-      
-      // 5. Фотографии не кэшируем. Может как-нибудь потом и явно не все
-      const photos: any = [];
+      // 5. Фотографии не кэшируем
+      const photos: any[] = [];
 
-      // 4. Получаем объекты ведомостей доступных складов
+      // 6. Получаем инвентаризационные книги и их строки
+      let inventoryBooks: InventoryBook[] = [];
+      let inventoryBookItems: InventoryBookItem[] = [];
+
+      if (bookIds.length > 0) {
+        inventoryBooks = await this.inventoryBookRepo.find({
+          where: { id: In(bookIds) },
+          order: { id: 'ASC' },
+        });
+        
+        inventoryBookItems = await this.inventoryBookItemRepo.find({
+          where: { idBook: In(bookIds) },
+          order: { id: 'ASC' },
+        });
+        
+        console.log(`OfflineCacheService: загружено книг: ${inventoryBooks.length}, строк: ${inventoryBookItems.length}`);
+      }
+
+      // 7. Получаем объекты ведомостей доступных складов
       let processedStatements: ProcessedStatement[] = [];
-      let emailAttachments: EmailAttachment[] = []; // Объявляем переменную здесь, вне блока if
+      let emailAttachments: EmailAttachment[] = [];
 
       if (userAccess.length > 0) {
         const whereConditions = userAccess.map(access => ({
@@ -74,39 +107,29 @@ export class OfflineCacheService {
           order: { id: 'ASC' },
         });
         
-        console.log(`OfflineCacheService: найдено ВСЕХ доступных объектов ведомостей: ${processedStatements.length}`);
-
-        // Собираем уникальные emailAttachmentId
         const emailAttachmentIds = [...new Set(
           processedStatements
             .filter(s => s.emailAttachmentId)
             .map(s => s.emailAttachmentId)
         )];
         
-        console.log(`OfflineCacheService: уникальных email_attachment_id: ${emailAttachmentIds.length}`);
-        
-        // Загружаем связанные email_attachments
         if (emailAttachmentIds.length > 0) {
           emailAttachments = await this.emailAttachmentsRepository.findBy({
             id: In(emailAttachmentIds)
-          });          
-
-          // Фильтруем: оставляем только те, у которых inProcess === true
+          });
           emailAttachments = emailAttachments.filter(att => att.inProcess === true);
-
-          console.log(`OfflineCacheService: загружено email_attachments: ${emailAttachments.length}`);
         }
-      } else {
-        console.log('OfflineCacheService: у пользователя нет доступа к складам');
       }
 
-      // 6. Формируем ответ
+      // 8. Формируем ответ
       return {
         objects: objects,
         processed_statements: processedStatements,
         email_attachments: emailAttachments,
         qr_codes: qrCodes,
         photos: photos,
+        inventory_books: inventoryBooks,
+        inventory_book_items: inventoryBookItems,
         meta: {
           userId,
           fetchedAt: new Date().toISOString(),
@@ -114,6 +137,8 @@ export class OfflineCacheService {
           totalStatements: processedStatements.length,
           totalObjects: objects.length,
           totalQrCodes: qrCodes.length,
+          totalInventoryBooks: inventoryBooks.length,
+          totalInventoryBookItems: inventoryBookItems.length,
         }
       };
     } catch (error) {

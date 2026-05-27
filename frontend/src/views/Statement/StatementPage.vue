@@ -287,7 +287,3 @@ const closeFilterModal = () => {
 const actualManager = useActualManager(attachmentId, reload)
 
 </script>
-
-<style scoped>
-@import './StatementPage.css';
-</style>

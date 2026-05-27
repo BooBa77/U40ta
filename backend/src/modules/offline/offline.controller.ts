@@ -40,6 +40,8 @@ export class OfflineController {
           processed_statements: [],
           qr_codes: [],
           photos: [],
+          inventory_books: [],
+          inventory_book_items: [],          
           meta: {
             userId: 0,
             fetchedAt: new Date().toISOString(),
@@ -48,6 +50,8 @@ export class OfflineController {
             totalQrCodes: 0,
             totalPhotos: 0,
             accessibleSklads: 0,
+            totalInventoryBooks: 0,
+            totalInventoryBookItems: 0,
           }
         },
         message: `Ошибка загрузки данных: ${error.message}`,

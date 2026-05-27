@@ -16,11 +16,15 @@ import { ObjectsModule } from '../objects/objects.module';
 import { StatementsModule } from '../statements/statements.module';
 import { QrCodesModule } from '../qr-codes/qr-codes.module';
 import { PhotosModule } from '../photos/photos.module';
+import { InventoryBook } from '../inventory/entities/inventory-book.entity';
+import { InventoryBookItem } from '../inventory/entities/inventory-book-item.entity';
+import { RevisorAccess } from '../inventory/entities/revisor-access.entity';
+import { InventoryModule } from '../inventory/inventory.module';
 import { AppEventsModule } from '../app-events/app-events.module';
 
 @Module({
   imports: [
-    // Регистрируем ВСЕ необходимые сущности
+    // Регистрируем необходимые сущности
     TypeOrmModule.forFeature([
       MolAccess,
       EmailAttachment,
@@ -28,6 +32,9 @@ import { AppEventsModule } from '../app-events/app-events.module';
       ProcessedStatement,
       QrCode,
       Photo,
+      InventoryBook,
+      InventoryBookItem,
+      RevisorAccess,      
     ]),
     
     // Импортируем внешние модули для доступа к их сервисам
@@ -37,7 +44,8 @@ import { AppEventsModule } from '../app-events/app-events.module';
     ObjectsModule,
     QrCodesModule,
     PhotosModule,
-    AppEventsModule
+    AppEventsModule,
+    InventoryModule,
   ],
   controllers: [OfflineController],
   providers: [

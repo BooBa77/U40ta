@@ -1,16 +1,18 @@
 <template>
-  <div class="qr-scanner-button-wrapper">
+  <div class="flex justify-center items-center w-full">
     <!-- Кнопка для открытия оверлея -->
     <button 
-      class="scan-btn" 
-      :class="[size, size === 'large' ? 'big-home-button' : '']"
       @click="showOverlay = true"
-      title="Сканировать камерой"
+      :class="[
+        'cursor-pointer transition-transform hover:scale-105 bg-none border-none p-0',
+        sizeClass
+      ]"
+      :title="title"
     >
       <img 
         :src="currentImage" 
         alt="Сканировать камерой" 
-        class="scan-icon"
+        class="w-full h-auto block"
       >
     </button>
     
@@ -30,15 +32,26 @@
 import { ref, computed } from 'vue'
 import QrScannerOverlay from './QrScannerOverlay.vue'
 
+/**
+ * @typedef {Object} Props
+ * @property {'small'|'medium'|'large'} size - Размер кнопки
+ * @property {Object} itemData - Данные для передачи в оверлей
+ * @property {string} title - Текст подсказки при наведении
+ */
+
 const props = defineProps({
   size: {
     type: String,
     default: 'small',
-    validator: (value) => ['small', 'large'].includes(value)
+    validator: (value) => ['small', 'medium', 'large'].includes(value)
   },
   itemData: {
     type: Object,
     default: () => ({})
+  },
+  title: {
+    type: String,
+    default: 'Сканировать камерой'
   }
 })
 
@@ -46,100 +59,52 @@ const emit = defineEmits(['scan', 'error'])
 
 const showOverlay = ref(false)
 
-// Убираем проверку камеры, всегда используем scancam режим
-// Home.vue сам решает показывать кнопку или нет
-const currentImage = computed(() => {
-  const size = props.size === 'large' ? 'big' : 'small'
-  return `/images/scancam_${size}.png` // Всегда scancam
+/**
+ * CSS-классы для разных размеров
+ */
+const sizeClass = computed(() => {
+  switch (props.size) {
+    case 'small':
+      return 'max-w-[120px]'
+    case 'medium':
+      return 'max-w-[180px]'
+    case 'large':
+      return 'max-w-[300px] w-full'
+    default:
+      return 'max-w-[120px]'
+  }
 })
 
-// Обработчики событий от оверлея
+/**
+ * Путь к изображению для кнопки
+ */
+const currentImage = computed(() => {
+  const sizeMap = {
+    small: 'small',
+    medium: 'medium',
+    large: 'big'
+  }
+  const sizeName = sizeMap[props.size] || 'small'
+  return `/images/scancam_${sizeName}.png`
+})
+
+/**
+ * Обработчик успешного сканирования
+ * @param {string} scannedData - отсканированные данные
+ */
 const handleScan = (scannedData) => {
   console.log('QR сканирован через оверлей:', scannedData)
   showOverlay.value = false
   emit('scan', scannedData)
 }
 
+/**
+ * Обработчик ошибки сканирования
+ * @param {Error} error - ошибка
+ */
 const handleError = (error) => {
   console.error('Ошибка сканирования:', error)
   showOverlay.value = false
   emit('error', error)
 }
 </script>
-
-<style scoped>
-/* Обертка для центрирования кнопки */
-.qr-scanner-button-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-}
-
-/* Кнопка сканирования */
-.scan-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-}
-
-/* Стиль для маленькой кнопки */
-.scan-btn.small {
-  padding: 0;
-  max-width: 120px;
-}
-
-/* Стиль для большой кнопки (используется на Home) */
-.scan-btn.large {
-  padding: 0;
-  max-width: 300px;
-  width: 100%;
-}
-
-/* Класс для большой кнопки на главной странице */
-.scan-btn.big-home-button {
-  max-width: 280px;
-  margin: 0 auto;
-}
-
-/* Иконка сканирования */
-.scan-icon {
-  height: auto;
-  display: block;
-  width: 100%;
-}
-
-/* Эффект при наведении */
-.scan-btn:hover {
-  transform: scale(1.05);
-}
-
-.scan-btn.small:hover {
-  transform: scale(1.03);
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .scan-btn.large {
-    max-width: 250px;
-  }
-  
-  .scan-btn.big-home-button {
-    max-width: 220px;
-  }
-}
-
-@media (max-width: 480px) {
-  .scan-btn.large {
-    max-width: 200px;
-  }
-  
-  .scan-btn.big-home-button {
-    max-width: 180px;
-  }
-}
-</style>

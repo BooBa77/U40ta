@@ -29,6 +29,9 @@
   --spacing-lg: 24px;
 
   /* Цвета групп строк таблицы */
+  .row-group-0 { background-color: #FFFFFF; color: #000000; }
+  .row-group-0:hover { background-color: #F5F5F5; }
+
   .row-group-1 { background-color: #FFC7CE; color: #9C0006; }
   .row-group-1:hover { background-color: #FFB6C1; }
 
@@ -41,6 +44,9 @@
   .row-group-4 { background-color: #b3b3b3; color: #242424; }
   .row-group-4:hover { background-color: #b3b3b3; }
 
+  .row-group-5 { background-color: #E6B8B8; color: #4A0000; }
+  .row-group-5:hover { background-color: #D9A6A6; }
+    
   /* Большие кнопки главной страницы */
   .big-home-button {
   background: white;

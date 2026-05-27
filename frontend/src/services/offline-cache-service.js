@@ -572,10 +572,6 @@ class OfflineCacheService {
     return await this.db.inventory_books.get(id)
   }
 
-  // ============================================================================
-  // РАБОТА СО СТРОКАМИ ИНВЕНТАРИЗАЦИОННЫХ КНИГ (inventory_book_items)
-  // ============================================================================
-
   /**
    * Получает все строки инвентаризационной книги по ID книги
    * @param {number} bookId - ID книги
@@ -592,6 +588,37 @@ class OfflineCacheService {
     
     console.log(`[OfflineCache] Получено строк для книги ${bookId}: ${filtered.length}`)
     return filtered
+  }
+
+  /**
+   * Обновляет поле isActual для всех строк книги с указанным invNumber
+   * @param {number} bookId - ID книги
+   * @param {string} invNumber - Инвентарный номер
+   * @param {boolean} isActual - Новое значение isActual
+   * @returns {Promise<void>}
+   */
+  async updateInventoryBookItemsActual(bookId, invNumber, isActual) {
+    const targetBookId = Number(bookId)
+    
+    const allItems = await this.db.inventory_book_items.toArray()
+    
+    const itemsToUpdate = allItems.filter(item => {
+      if (Number(item.idBook) !== targetBookId) return false
+      if (item.invNumber !== invNumber) return false
+      return true
+    })
+    
+    if (itemsToUpdate.length === 0) {
+      console.warn(`[OfflineCache] Не найдено строк для обновления: bookId=${bookId}, invNumber=${invNumber}`)
+      return
+    }
+    
+    for (const item of itemsToUpdate) {
+      item.isActual = isActual
+      await this.db.inventory_book_items.put(item)
+    }
+    
+    console.log(`[OfflineCache] Обновлено ${itemsToUpdate.length} строк в книге ${bookId}: invNumber=${invNumber}, isActual=${isActual}`)
   }
 }
 
