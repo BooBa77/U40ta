@@ -1,28 +1,7 @@
 <template>
   <div class="h-screen flex flex-col p-5 bg-gray-50 overflow-hidden">
 
-    <!-- Хедер -->
-    <header class="flex items-center justify-between gap-3 p-4 border-b border-gray-200 bg-white flex-shrink-0">
-      <button 
-        class="border border-gray-300 text-gray-600 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition whitespace-nowrap"
-        @click="goBack"
-      >
-        ← Назад
-      </button>
-      
-      <h1 class="text-lg font-semibold text-gray-800 flex-1 text-center truncate min-w-0">
-        {{ bookName }}
-      </h1>
-      
-      <button 
-        v-if="hasActiveFilters" 
-        @click="resetAllFilters"
-        class="border border-amber-400 bg-amber-50 text-amber-700 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-amber-100 transition whitespace-nowrap"
-        title="Сбросить все фильтры"
-      >
-        Сбросить фильтры
-      </button>
-    </header>
+    <!-- Хедер убрал для экономии места-->
 
     <!-- Загрузка -->
     <div v-if="loading" class="flex-1 flex flex-col justify-center items-center text-blue-500 text-lg">
@@ -86,14 +65,42 @@
       />      
     </div>
 
-    <!-- Футер с QR-сканером -->
-    <footer class="flex-shrink-0 bg-white border-t border-gray-200 p-4 flex justify-center">
-      <QrScannerButton
-        size="medium"
-        @scan="handleQrScan"
-        @error="handleScanError"
-      />
+    <!-- Футер: назад + сканер + сброс фильтров -->
+    <footer class="flex-shrink-0 bg-white border-t border-gray-200 p-3">
+      <div class="flex items-center justify-between gap-3">
+        <!-- Левая группа: назад (фиксированная ширина) -->
+        <div class="w-[100px]">
+          <button 
+            class="border border-gray-300 text-gray-600 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition whitespace-nowrap w-full"
+            @click="goBack"
+          >
+            ← Назад
+          </button>
+        </div>
+
+        <!-- Центр: сканер (центрируется абсолютно) -->
+        <div class="absolute left-1/2 transform -translate-x-1/2">
+          <QrScannerButton
+            size="medium"
+            @scan="handleQrScan"
+            @error="handleScanError"
+          />
+        </div>
+
+        <!-- Правая группа: сброс фильтров (фиксированная ширина, текст с переносом) -->
+        <div class="w-[120px] flex justify-end">
+          <button 
+            v-if="hasActiveFilters" 
+            @click="resetAllFilters"
+            class="border border-amber-400 bg-amber-50 text-amber-700 font-medium px-3 py-1.5 rounded-lg text-sm hover:bg-amber-100 transition text-center"
+            title="Сбросить все фильтры"
+          >
+            Сбросить фильтры
+          </button>
+        </div>
+      </div>
     </footer>
+
   </div>
 </template>
 
