@@ -65,9 +65,9 @@ const showOverlay = ref(false)
 const sizeClass = computed(() => {
   switch (props.size) {
     case 'small':
-      return 'max-w-[120px]'
+      return 'max-w-[50px]'
     case 'medium':
-      return 'max-w-[180px]'
+      return 'max-w-[80px]'
     case 'large':
       return 'max-w-[300px] w-full'
     default:

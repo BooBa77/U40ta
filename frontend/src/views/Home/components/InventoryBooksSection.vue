@@ -1,43 +1,41 @@
 <template>
-  <section class="inventory-books-section section-list">
-    <!-- Таблица книг -->
-    <div class="section-list-grid">
-      <!-- Состояние "нет книг" -->
-      <div class="section-list-empty" v-if="!books.length && !isLoading">
-        Инвентаризаций не ожидается
-      </div>
-      
-      <!-- Состояние загрузки -->
-      <div class="section-list-empty" v-if="isLoading">
-        Загрузка...
-      </div>
+  <section class="inventory-books-section max-w-[1000px] mx-auto px-4 w-full">
+    <!-- Состояние "нет книг" -->
+    <div v-if="!books.length && !isLoading" class="text-center py-12 text-gray-500 italic text-base">
+      Инвентаризаций не ожидается
+    </div>
+    
+    <!-- Состояние загрузки -->
+    <div v-if="isLoading" class="text-center py-12 text-gray-500 italic text-base">
+      Загрузка...
+    </div>
 
-      <!-- Строки книг -->
-      <template v-if="books.length > 0">
-        <div class="section-list-row" v-for="book in books" :key="book.id">
-          <!-- Колонка 1: заглушка" -->
-          <div class="section-list-cell">
-            
-
-          </div>
-          
-          <!-- Колонка 2: Контент (название + дата) -->
-          <div class="section-list-cell section-list-content" @click="openBook(book.id)">
-            <div class="book-name">{{ book.name }}</div>
-            <div class="section-list-date">{{ formatDate(book.createdAt) }}</div>
-          </div>
-          
-          <!-- Колонка 3: Кнопка "Редактировать" (только онлайн) -->
-          <div class="section-list-cell">
-            <button 
-              v-if="!isFlightMode && book.isOwner"
-              class="section-list-action-btn" 
-              title="Редактировать книгу"
-              @click="editBook(book.id)">
-              <img src="/images/invBook_edit.png" alt="Редактировать">
-            </button>
-            <div v-else style="width: 26px; height: 26px;"></div>
-          </div>
+    <!-- Строки книг (грид-таблица) -->
+    <div v-if="books.length > 0" class="grid grid-cols-[auto_1fr_auto] gap-4 items-center max-w-[1000px] mx-auto">
+      <template v-for="book in books" :key="book.id">
+        <!-- Колонка 1: заглушка -->
+        <div class="py-4 px-2"></div>
+        
+        <!-- Колонка 2: Контент (название + дата) -->
+        <div 
+          class="py-4 px-2 flex flex-col gap-1 border-b border-gray-100 cursor-pointer"
+          @click="openBook(book.id)"
+        >
+          <div class="font-bold text-red-700 text-base">{{ book.name }}</div>
+          <div class="text-gray-700 text-sm">{{ formatDate(book.createdAt) }}</div>
+        </div>
+        
+        <!-- Колонка 3: Кнопка "Редактировать" (только онлайн) -->
+        <div class="py-4 px-2 flex justify-end">
+          <button 
+            v-if="!isFlightMode && book.isOwner"
+            class="p-1.5 rounded transition-all hover:scale-110 hover:bg-gray-100"
+            title="Редактировать книгу"
+            @click="editBook(book.id)"
+          >
+            <img src="/images/invBook_edit.png" alt="Редактировать" class="w-[26px] h-[26px] block">
+          </button>
+          <div v-else class="w-[26px] h-[26px]"></div>
         </div>
       </template>
     </div>
@@ -57,10 +55,11 @@ const books = ref([]);
 const router = useRouter();
 const isFlightMode = ref(false);
 
-const emit = defineEmits(['edit-book']);
+const emit = defineEmits(['edit-inventory-book']);
 
 /**
  * Проверяет, активен ли режим полёта
+ * @returns {boolean}
  */
 const checkFlightMode = () => {
   return localStorage.getItem(FLIGHT_MODE_KEY) === 'true';
@@ -83,6 +82,8 @@ const loadBooks = async () => {
 
 /**
  * Форматирование даты для отображения
+ * @param {string} dateString
+ * @returns {string}
  */
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -92,6 +93,7 @@ const formatDate = (dateString) => {
 
 /**
  * Открытие книги — переход на страницу /inventory-book/[id]
+ * @param {number} bookId
  */
 const openBook = (bookId) => {
   router.push(`/inventory-book/${bookId}`);
@@ -99,13 +101,15 @@ const openBook = (bookId) => {
 
 /**
  * Редактирование книги — открывает модалку в Home
+ * @param {number} bookId
  */
 const editBook = (bookId) => {
-  emit('edit-book', bookId);
+  emit('edit-inventory-book', bookId);
 };
 
 /**
  * Обработчик SSE сообщений
+ * @param {Object} data
  */
 const handleSSEMessage = (data) => {
   console.log('InventoryBooksSection: получено SSE-событие:', data);
@@ -121,6 +125,7 @@ useSSE(handleSSEMessage, { autoConnect: !checkFlightMode() });
 
 /**
  * Обработчик изменения Flight Mode
+ * @param {CustomEvent} event
  */
 const handleFlightModeChange = (event) => {
   isFlightMode.value = event.detail.isFlightMode;
@@ -158,7 +163,3 @@ onUnmounted(() => {
   window.removeEventListener('flight-mode-changed', handleFlightModeChange);
 });
 </script>
-
-<style scoped>
-@import './SectionList.css';
-</style>

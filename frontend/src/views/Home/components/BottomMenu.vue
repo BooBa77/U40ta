@@ -1,40 +1,47 @@
 <template>
-  <nav class="bottom-menu" v-if="isAuthenticated">
+  <nav v-if="isAuthenticated" class="fixed bottom-0 left-0 right-0 flex justify-between items-center p-2 bg-white border-t border-gray-900 z-100 h-12">
     <!-- Левая кнопка: Новая инвентаризация (только для ревизора, только онлайн) -->
     <button
       v-if="isRevisor && !isFlightMode"
-      class="bottom-menu-button left"
+      class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-left"
       @click="$emit('new-inventory')"
     >
       Новая инвентаризация
     </button>
-    <div v-else class="bottom-menu-spacer"></div>
+    <div v-else class="w-32"></div>
 
     <!-- Центральная кнопка: Инструменты (только для МОЛ) -->
     <button
       v-if="hasAccessToStatements"
-      class="bottom-menu-button center"
+      class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-center"
       @click="$emit('tools')"
     >
-      Инструменты
+      МОЛ
     </button>
-    <div v-else class="bottom-menu-spacer"></div>
+    <div v-else class="w-32"></div>
 
     <!-- Правая кнопка: Установить PWA (только онлайн) -->
     <button
       v-if="showInstall && !isFlightMode"
-      class="bottom-menu-button right"
+      class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-right"
       @click="install"
     >
-      Установить PWA
+      PWA
     </button>
-    <div v-else class="bottom-menu-spacer"></div>
+    <div v-else class="w-32"></div>
   </nav>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { usePwaInstall } from '@/composables/usePwaInstall'
+
+/**
+ * @typedef {Object} Props
+ * @property {boolean} isRevisor - имеет ли пользователь роль ревизора
+ * @property {boolean} hasAccessToStatements - имеет ли доступ к ведомостям (МОЛ)
+ * @property {boolean} isFlightMode - включён ли режим полёта (офлайн)
+ */
 
 const props = defineProps({
   isRevisor: {
@@ -51,61 +58,20 @@ const props = defineProps({
   }
 })
 
+/**
+ * События компонента
+ * @event new-inventory - создание новой инвентаризационной книги (ревизор)
+ * @event tools - открытие инструментов (МОЛ)
+ */
 defineEmits(['new-inventory', 'tools'])
 
 const { showInstall, install } = usePwaInstall()
 
+/**
+ * Проверка авторизации пользователя
+ * @returns {boolean} true если токен авторизации присутствует
+ */
 const isAuthenticated = computed(() => {
   return !!localStorage.getItem('auth_token')
 })
 </script>
-
-<style scoped>
-.bottom-menu {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  background-color: #ffffff;
-  border-top: 1px solid #000000;
-  z-index: 100;
-  height: 48px;
-}
-
-.bottom-menu-button {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid #000000;
-  background: #ffffff;
-  color: #000000;
-  font-family: monospace;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.bottom-menu-button:hover {
-  background: #000000;
-  color: #ffffff;
-}
-
-.bottom-menu-button.left {
-  text-align: left;
-}
-
-.bottom-menu-button.center {
-  text-align: center;
-}
-
-.bottom-menu-button.right {
-  text-align: right;
-}
-
-.bottom-menu-spacer {
-  /* Занимает место, когда кнопка скрыта */
-}
-</style>

@@ -167,9 +167,8 @@ export class InventoryStatementParser {
    * Парсит строки ОСВ (оборотно-сальдовая ведомость).
    * 
    * Колонки: Завод, Склад, КрТекстМатериала, Материал, Партия, Запас на конец периода.
-   * Каждая строка с непустым Материалом (инв.номером) создаёт запись.
-   * Количество из колонки "Запас на конец периода" игнорируется —
-   * каждая строка Excel = одна строка в inventory_statements.
+   * Каждая строка Excel создаёт столько записей в inventory_statements,
+   * сколько указано в колонке "Запас на конец периода".
    */
   private parseOsvRows(
     data: any[]
@@ -210,11 +209,25 @@ export class InventoryStatementParser {
         continue;
       }
 
-      rows.push({ zavod, sklad, invNumber, partyNumber, buhName });
+      // Получаем количество из колонки "Запас на конец периода"
+      let quantity = 1;
+      const quantityValue = row['Запас на конец периода'];
+      if (quantityValue !== undefined && quantityValue !== null) {
+        const num = Number(quantityValue);
+        if (!isNaN(num) && num > 0) {
+          quantity = Math.floor(num);
+        }
+      }
+
+      // Создаём нужное количество записей
+      for (let i = 0; i < quantity; i++) {
+        rows.push({ zavod, sklad, invNumber, partyNumber, buhName });
+      }
     }
 
     return rows;
   }
+
 
   /**
    * Парсит строки ОС (основные средства).

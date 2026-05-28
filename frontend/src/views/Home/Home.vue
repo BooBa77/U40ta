@@ -1,50 +1,55 @@
 <template>
-  <div class="home-page">
-    <!-- Хедер: аббревиатура и переключатель полета (если есть доступ) -->
-    <header class="home-header">
-      <div class="user-abr" v-if="userAbr">{{ userAbr }}</div>
+  <div class="h-screen flex flex-col bg-gray-50">
+    <!-- Хедер -->
+    <header class="flex justify-between items-center p-4 bg-white border-b border-gray-200 flex-shrink-0">
+      <div v-if="userAbr" class="text-gray-700 font-medium">
+        {{ userAbr }}
+      </div>
+      <div v-else class="w-10"></div>
       <FlightModeToggle v-if="hasAccessToStatements || isRevisor" />
     </header>
 
-    <main class="home-main">
-      <!-- Секция QR-сканирования - занимает центр экрана -->
-      <section class="qr-scanner-section">
-        <div v-if="hasCamera === true" class="qr-button-wrapper">
-          <QrScannerButton 
-            size="large" 
-            @scan="handleQrScan"
-            @error="handleScanError"
-          />
+    <main class="flex-1 flex flex-col overflow-y-auto">
+      <!-- Секция QR-сканирования - компактная, не растягивается -->
+      <section class="py-5 flex justify-center flex-shrink-0">
+        <div v-if="hasCamera === true" class="flex justify-center w-full">
+          <div class="w-1/3 max-w-[200px] min-w-[120px]">
+            <QrScannerButton 
+              size="large" 
+              @scan="handleQrScan"
+              @error="handleScanError"
+            />
+          </div>
         </div>
-        <div v-else-if="hasCamera === false" class="no-camera-message">
+        <div v-else-if="hasCamera === false" class="text-gray-500 text-center p-5">
           Камера не доступна на этом устройстве
         </div>
-        <div v-else class="no-camera-message">
+        <div v-else class="text-gray-500 text-center p-5">
           Проверка доступности камеры...
         </div>
       </section>
 
       <!-- Секция инвентаризационных книг (для ревизора) -->
       <InventoryBooksSection 
-        v-if="isRevisor"
-        @edit-book="handleEditBook"
+        v-if="showInventorySection"
+        @edit-inventory-book="handleEditInventoryBook"
       />
 
       <!-- Секция почтовых вложений (для МОЛ) -->
       <EmailAttachmentsSection v-if="hasAccessToStatements" />
       
       <!-- Сообщение для гостей без доступа -->
-      <div v-if="accessChecked && !hasAccessToStatements && !isRevisor" class="no-access-message">
+      <div v-if="accessChecked && !hasAccessToStatements && !isRevisor" class="text-center text-gray-500 py-10 px-5">
         <p>Доступ отсутствует.</p>
         <p>Обратитесь к администратору для получения прав.</p>
       </div>
       
       <!-- Состояние загрузки проверки доступа -->
-      <div v-if="!accessChecked" class="no-access-message">
+      <div v-if="!accessChecked" class="text-center text-gray-500 py-10 px-5">
         Проверка прав доступа...
       </div>
 
-      <!-- Модальное окно ObjectForm для редактирования найденного объекта -->
+      <!-- Модальное окно ObjectForm -->
       <ObjectFormModal
         v-if="showObjectForm"
         :is-open="showObjectForm" 
@@ -54,25 +59,25 @@
         @save="handleObjectSaved"
       />
 
-      <!-- Модальное окно InventoryBookEditModal (создание/редактирование книги) -->
+      <!-- Модальное окно InventoryBookEditModal -->
       <InventoryBookEditModal
         :is-open="showInventoryBookEditModal"
-        :book-id="editingBookId"
+        :book-id="editingInventoryBookId"
         @close="closeInventoryBookEditModal"
       />
 
-      <!-- Информационное модальное окно для сообщений -->
-      <div v-if="showInfoModal" class="info-modal-overlay" @click="closeInfoModal">
-        <div class="info-modal-content" @click.stop>
-          <div class="info-modal-header">
-            <h3>{{ infoModalTitle }}</h3>
-            <button class="info-modal-close" @click="closeInfoModal">&times;</button>
+      <!-- Информационное модальное окно -->
+      <div v-if="showInfoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="closeInfoModal">
+        <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4" @click.stop>
+          <div class="flex justify-between items-center p-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">{{ infoModalTitle }}</h3>
+            <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="closeInfoModal">&times;</button>
           </div>
-          <div class="info-modal-body">
+          <div class="p-4 text-gray-600">
             {{ infoModalMessage }}
           </div>
-          <div class="info-modal-footer">
-            <button class="info-modal-button" @click="closeInfoModal">
+          <div class="flex justify-end p-4 border-t border-gray-200">
+            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition" @click="closeInfoModal">
               Закрыть
             </button>
           </div>
@@ -92,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
@@ -106,6 +111,7 @@ import { objectService } from '@/services/object-service.js'
 import { useCamera } from '@/composables/useCamera'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useSSE } from '@/composables/useSSE'
+import { offlineCache } from '@/services/offline-cache-service'
 
 const router = useRouter()
 const route = useRoute()
@@ -129,10 +135,11 @@ let infoModalTimeout = null
 
 // Оффлайн режим
 const isFlightMode = ref(false)
+const hasInventoryBooksInCache = ref(false)
 
 // Модалка создания/редактирования инвентаризационной книги
 const showInventoryBookEditModal = ref(false)
-const editingBookId = ref(null)
+const editingInventoryBookId = ref(null)
 
 /**
  * Проверяет, активен ли режим полёта
@@ -336,30 +343,11 @@ const handleObjectSaved = (savedObject) => {
   showInfoMessage('Успешно', 'Объект успешно сохранен.')
 }
 
-// ============================================================================
-// НИЖНЕЕ МЕНЮ — ОБРАБОТЧИКИ
-// ============================================================================
-
-/**
- * Кнопка "Новая инвентаризация"
- */
-const handleNewInventory = () => {
-  editingBookId.value = 0
-  showInventoryBookEditModal.value = true
-}
-
-/**
- * Кнопка "Инструменты" (МОЛ) — заглушка
- */
-const handleTools = () => {
-  showInfoMessage('Инструменты', 'Раздел в разработке')
-}
-
 /**
  * Редактирование книги (из InventoryBooksSection)
  */
-const handleEditBook = (bookId) => {
-  editingBookId.value = bookId
+const handleEditInventoryBook = (inventoryBookId) => {
+  editingInventoryBookId.value = inventoryBookId
   showInventoryBookEditModal.value = true
 }
 
@@ -368,18 +356,60 @@ const handleEditBook = (bookId) => {
  */
 const closeInventoryBookEditModal = () => {
   showInventoryBookEditModal.value = false
-  editingBookId.value = null
+  editingInventoryBookId.value = null
 }
 
 /**
  * Обработчик изменения состояния оффлайн режима
  */
-const handleFlightModeChange = (event) => {
+const handleFlightModeChange = async (event) => {
   isFlightMode.value = event.detail.isFlightMode
+  
+  if (isFlightMode.value) {
+    await checkInventoryBooksInCache()
+  }
   
   fetchUserAbr()
   checkAccessToStatements()
   fetchIsRevisor()
+}
+
+// Проверка наличия инвентаризационных книг в кэше
+const checkInventoryBooksInCache = async () => {
+  try {
+    const inventoryBooks = await offlineCache.getAllInventoryBooks()
+    hasInventoryBooksInCache.value = inventoryBooks.length > 0
+  } catch (error) {
+    console.error('[Home] Ошибка проверки книг в кэше:', error)
+    hasInventoryBooksInCache.value = false
+  }
+}
+
+// Итоговый флаг показа секции книг
+const showInventorySection = computed(() => {
+  if (isFlightMode.value) {
+    return hasInventoryBooksInCache.value
+  }
+  return isRevisor.value
+})
+
+// ============================================================================
+// НИЖНЕЕ МЕНЮ — ОБРАБОТЧИКИ
+// ============================================================================
+
+/**
+ * Кнопка "Новая инвентаризация"
+ */
+const handleNewInventory = () => {
+  editingInventoryBookId.value = 0
+  showInventoryBookEditModal.value = true
+}
+
+/**
+ * Кнопка "Инструменты" (МОЛ) — заглушка
+ */
+const handleTools = () => {
+  showInfoMessage('Инструменты', 'Раздел в разработке')
 }
 
 /**
@@ -392,7 +422,11 @@ onMounted(() => {
     fetchIsRevisor()
     
     isFlightMode.value = checkFlightMode()
-    
+
+    if (isFlightMode.value) {
+      checkInventoryBooksInCache()
+    }
+
     window.addEventListener('flight-mode-changed', handleFlightModeChange)
     
     window.addEventListener('storage', (event) => {
@@ -420,7 +454,3 @@ onUnmounted(() => {
   window.removeEventListener('flight-mode-changed', handleFlightModeChange)
 })
 </script>
-
-<style scoped>
-@import './Home.css';
-</style>

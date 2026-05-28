@@ -75,18 +75,15 @@
       />
 
       <!-- Таблица -->
+
       <InventoryBookTable 
-        v-if="aggregatedItems.length > 0"
         :items="filteredItems"
         :get-row-class="getRowClass"
         :active-filters="activeFiltersForTable"
         @filter-click="handleFilterClick"
         @actual-change="actualManager.handleActualChange"
         @row-click="handleRowClick"
-      />
-      <div v-else class="flex-1 flex items-center justify-center bg-white border border-dashed border-gray-300 rounded-lg text-gray-400 text-lg">
-        В книге нет данных
-      </div>
+      />      
     </div>
 
     <!-- Футер с QR-сканером -->

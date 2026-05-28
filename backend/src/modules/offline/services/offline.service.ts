@@ -17,7 +17,7 @@ export class OfflineService {
    * Работает даже с пустыми таблицами
    */
   async getOfflineData(userId): Promise<any> {
-    console.log(`OfflineService: получение данных для офлайн-режима (userId: ${userId})`);
+    console.log(`OfflineService: получение данных для офлайн-режима (userId: ${userId}`);
     
     try {
       const data = await this.offlineCacheService.getAllData(userId);
@@ -27,6 +27,8 @@ export class OfflineService {
       const statementsCount = data?.processed_statements?.length || 0;
       const objectsCount = data?.objects?.length || 0;
       const qrCodesCount = data?.qr_codes?.length || 0;
+      const inventoryBooksCount = data?.inventory_books?.length || 0;
+      const inventoryBookItemsCount = data?.inventory_book_items?.length || 0;
       
       this.logsService.log('offline_mode', userId, {
         action: 'offline_mode_entered',
@@ -35,19 +37,25 @@ export class OfflineService {
         totalStatements: data?.meta?.totalStatements || 0,
         totalObjects: data?.meta?.totalObjects || 0,
         totalQrCodes: data?.meta?.totalQrCodes || 0,
+        totalInventoryBooks: inventoryBooksCount,
+        totalInventoryBookItems: inventoryBookItemsCount,
       });      
       
       console.log(`OfflineService: данные получены`);
       console.log(`  - Файлов ведомостей: ${emailAttachmentsCount}`);
-      console.log(`  - Объектов в ведомостях : ${statementsCount}`);
+      console.log(`  - Объектов в ведомостях: ${statementsCount}`);
       console.log(`  - Объектов: ${objectsCount}`);
       console.log(`  - QR-кодов: ${qrCodesCount}`);
+      console.log(`  - Инвентаризационных книг: ${inventoryBooksCount}`);
+      console.log(`  - Строк инвентаризационных книг: ${inventoryBookItemsCount}`);
       
       return {
         email_attachments: data?.email_attachments || [],
         processed_statements: data?.processed_statements || [],
         objects: data?.objects || [],
         qr_codes: data?.qr_codes || [],
+        inventory_books: data?.inventory_books || [],
+        inventory_book_items: data?.inventory_book_items || [],
         meta: data?.meta || { userId }
       };
       
@@ -67,6 +75,8 @@ export class OfflineService {
         processed_statements: [],
         objects: [],
         qr_codes: [],
+        inventory_books: [],
+        inventory_book_items: [],
         meta: { 
           userId, 
           fetchedAt: new Date().toISOString(),
@@ -74,6 +84,8 @@ export class OfflineService {
           totalStatements: 0,
           totalObjects: 0,
           totalQrCodes: 0,
+          totalInventoryBooks: 0,
+          totalInventoryBookItems: 0,
         }
       };
     }

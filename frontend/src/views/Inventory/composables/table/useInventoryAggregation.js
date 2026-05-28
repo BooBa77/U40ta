@@ -25,15 +25,52 @@ export function useInventoryAggregation(rawItems) {
   }
 
   /**
-   * Текст счётчика для ячейки
-   * @param {Object} group — сгруппированные данные
+   * Форматирует отображение количества
+   * @param {Object} group - сгруппированные данные
    * @returns {string}
    */
-  const getCounterText = (group) => {
-    const { okCount, totalCount } = group
-    if (okCount === totalCount) return String(okCount)
-    if (okCount > 0) return `${okCount}/${totalCount}`
-    return String(totalCount)
+  const formatDisplayQuantity = (group) => {
+    const { totalCount, okCount } = group
+    
+    // Если количество 1 — не показываем
+    if (totalCount === 1) {
+      return ''
+    }
+    
+    // Если все подтверждены
+    if (okCount === totalCount) {
+      return ` (${totalCount} шт.)`
+    }
+    
+    // Если часть подтверждена
+    if (okCount > 0) {
+      return ` (${okCount}/${totalCount} шт.)`
+    }
+    
+    // Ни одной не подтверждено
+    return ` (${totalCount} шт.)`
+  }
+
+  /**
+   * Форматирует отображение типа документа
+   * @param {Object} group - сгруппированные данные
+   * @returns {string}
+   */
+  const formatDocTypeDisplay = (group) => {
+    const firstItem = group.items[0]
+    if (!firstItem) return ''
+    
+    // ОС — всегда "ОС"
+    if (firstItem.docType === 'ОС') {
+      return 'ОС'
+    }
+    
+    // ОСВ — показываем zavod/sklad
+    if (firstItem.zavod && firstItem.sklad) {
+      return `${firstItem.zavod}/${firstItem.sklad}`
+    }
+    
+    return ''
   }
 
   /**
@@ -80,7 +117,7 @@ export function useInventoryAggregation(rawItems) {
           partyNumber: item.partyNumber,
           sklad: item.sklad,
           buhName: item.buhName,
-          isActual: item.isActual !== false, // true по умолчанию
+          isActual: item.isActual !== false,
           items: [],
           totalCount: 0,
           okCount: 0,
@@ -105,7 +142,8 @@ export function useInventoryAggregation(rawItems) {
     const result = Array.from(groups.values()).map(group => ({
       ...group,
       status: getGroupStatus(group),
-      counterText: getCounterText(group),
+      displayQuantity: formatDisplayQuantity(group),
+      docTypeDisplay: formatDocTypeDisplay(group),
     }))
 
     // Сортировка: серые (неактуальные) вниз, внутри групп по наименованию
