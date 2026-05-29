@@ -431,6 +431,23 @@ class OfflineCacheService {
     return objects
   }
 
+  /**
+   * Находит объекты в кэше по заводу и складу
+   * @param {number} zavod - номер завода
+   * @param {string} sklad - код склада
+   * @returns {Promise<Array>} Массив объектов
+   */
+  async findObjectsByZavodSklad(zavod, sklad) {
+    const allObjects = await this.db.objects.toArray()
+    
+    const filtered = allObjects.filter(obj => {
+      return obj.zavod === zavod && obj.sklad === sklad
+    })
+    
+    console.log(`[OfflineCache] Найдено объектов для zavod=${zavod}, sklad=${sklad}: ${filtered.length}`)
+    return filtered
+  }
+
   // ============================================================================
   // РАБОТА С QR-КОДАМИ
   // ============================================================================

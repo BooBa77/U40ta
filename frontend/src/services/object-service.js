@@ -162,6 +162,22 @@ export class ObjectService {
     return data.objects || []
   }  
 
+  /**
+   * Получает все объекты для указанного завода и склада
+   * @param {number} zavod - номер завода
+   * @param {string} sklad - код склада
+   * @returns {Promise<Array>} Массив объектов
+   */
+  async getObjectsBySklad(zavod, sklad) {
+    if (this.isFlightMode()) {
+      // В офлайн-режиме берём из кэша
+      return offlineCache.findObjectsByZavodSklad(zavod, sklad)
+    }
+    
+    const data = await this.apiRequest(`/objects/sklad?zavod=${zavod}&sklad=${encodeURIComponent(sklad)}`)
+    return data.objects || []
+  }
+
   //============================================================================
   // ПОЛУЧЕНИЕ МЕСТОПОЛОЖЕНИЙ
   //============================================================================

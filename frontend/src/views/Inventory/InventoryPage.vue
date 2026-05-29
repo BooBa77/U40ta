@@ -56,13 +56,14 @@
       <!-- Таблица -->
 
       <InventoryBookTable 
+        :key="JSON.stringify(activeFiltersForTable)"
         :items="filteredItems"
         :get-row-class="getRowClass"
         :active-filters="activeFiltersForTable"
         @filter-click="handleFilterClick"
         @actual-change="actualManager.handleActualChange"
         @row-click="handleRowClick"
-      />      
+      />
     </div>
 
     <!-- Футер: назад + сканер + сброс фильтров -->

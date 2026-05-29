@@ -1,60 +1,84 @@
 <template>
-  <BaseModal
-    :is-open="isOpen"
-    :show-header="false"
-    :width="'100vw'"
-    :max-width="'100vw'"
-    @close="handleClose"
-  >
-    <div class="photo-viewer">
-      <button class="close-btn" @click="handleClose">×</button>
+  <Transition name="modal">
+    <div v-if="isOpen" class="fixed inset-0 z-[1000] bg-black flex items-center justify-center overflow-hidden">
       
-      <div class="photo-container" @click="handleNext">
+      <!-- Кнопка закрытия -->
+      <button 
+        class="fixed top-5 right-5 w-11 h-11 rounded-full 
+               bg-black/50 text-white text-2xl
+               flex items-center justify-center
+               backdrop-blur-sm z-[10001]
+               active:bg-black/80"
+        @click="handleClose"
+      >
+        ×
+      </button>
+      
+      <!-- Контейнер фото -->
+      <div 
+        class="w-full h-full flex items-center justify-center touch-pan-y"
+        @click="handleNext"
+      >
         <img 
           v-if="currentPhotoUrl"
           :src="currentPhotoUrl"
           :key="currentPhotoUrl"
-          class="full-photo"
+          class="max-w-full max-h-full object-contain select-none"
           alt="Фото"
           @load="onImageLoaded"
           @error="onImageError"
         />
-        <div v-else-if="isLoadingFullPhoto" class="loading-placeholder">
+        <div v-else-if="isLoadingFullPhoto" class="text-white/70">
           Загрузка...
         </div>
-        <div v-else class="loading-placeholder">
+        <div v-else class="text-white/70">
           Нет фото
         </div>
       </div>
       
+      <!-- Кнопки навигации -->
       <button 
         v-if="hasMultiplePhotos"
-        class="nav-btn prev-btn" 
+        class="fixed left-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full
+               bg-black/50 text-white text-3xl
+               flex items-center justify-center
+               backdrop-blur-sm z-[10001]
+               active:bg-black/80"
         @click.stop="handlePrev"
       >
         ‹
       </button>
       <button 
         v-if="hasMultiplePhotos"
-        class="nav-btn next-btn" 
+        class="fixed right-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full
+               bg-black/50 text-white text-3xl
+               flex items-center justify-center
+               backdrop-blur-sm z-[10001]
+               active:bg-black/80"
         @click.stop="handleNext"
       >
         ›
       </button>
       
-      <div class="sn-container">
-        <div class="sn-wrapper">
-          <label class="sn-label">Серийный номер</label>
-          <div class="sn-input-group">
+      <!-- Контейнер поля SN -->
+      <div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[10001] w-[90%] max-w-[400px]">
+        <div class="bg-black/80 backdrop-blur-md rounded-xl p-3 border border-white/20">
+          <label class="block text-white/70 text-xs mb-1.5 tracking-wide">Серийный номер</label>
+          <div class="flex gap-2.5 items-center">
             <input 
               v-model="localSn"
               type="text"
-              class="sn-input"
+              class="flex-1 px-3 py-2.5 border border-white/30 rounded-lg
+                     bg-white/15 text-white text-sm
+                     placeholder:text-white/50
+                     focus:border-blue-500 focus:bg-white/25"
               placeholder="Введите серийный номер"
               @keyup.enter="saveAndClose"
             />
             <button 
-              class="sn-ok-btn" 
+              class="px-5 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium
+                     active:bg-blue-600
+                     disabled:bg-gray-500 disabled:opacity-60"
               @click="saveAndClose"
               :disabled="localSn === props.currentSn"
             >
@@ -63,13 +87,13 @@
           </div>
         </div>
       </div>
+
     </div>
-  </BaseModal>
+  </Transition>
 </template>
 
 <script setup>
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
-import BaseModal from '@/components/common/BaseModal.vue'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -99,7 +123,6 @@ let currentObjectUrl = null
 
 const revokeCurrentUrl = () => {
   if (currentObjectUrl) {
-    console.log('[PhotoViewer] revoke URL:', currentObjectUrl)
     URL.revokeObjectURL(currentObjectUrl)
     currentObjectUrl = null
   }
@@ -107,7 +130,6 @@ const revokeCurrentUrl = () => {
 
 const onImageError = (error) => {
   console.error('[PhotoViewer] Ошибка загрузки изображения:', error)
-  console.log('[PhotoViewer] currentPhotoUrl:', currentPhotoUrl.value)
 }
 
 const onImageLoaded = () => {
@@ -115,68 +137,37 @@ const onImageLoaded = () => {
 }
 
 const loadCurrentPhoto = async () => {
-  console.log('[PhotoViewer] loadCurrentPhoto START')
-  console.log('[PhotoViewer] photos.length:', props.photos.length)
-  console.log('[PhotoViewer] currentIndex:', currentIndex.value)
-  
   revokeCurrentUrl()
   currentPhotoUrl.value = null
   
-  if (!props.photos.length) {
-    console.log('[PhotoViewer] Нет фото, выхожу')
-    return
-  }
+  if (!props.photos.length) return
   
   const photo = props.photos[currentIndex.value]
-  console.log('[PhotoViewer] photo object:', photo)
-  console.log('[PhotoViewer] photo keys:', Object.keys(photo))
-  
-  if (!photo) {
-    console.log('[PhotoViewer] photo не найден, выхожу')
-    return
-  }
+  if (!photo) return
   
   isLoadingFullPhoto.value = true
 
   try {
     let url = null
     
-    // Новое фото с камеры (ещё не сохранённое на сервере)
-    // У таких фото есть поле _maxBlob с Blob'ом полноразмерного изображения
     if (photo._maxBlob) {
-      console.log('[PhotoViewer] Ветка: новое фото с камеры, создаю ObjectURL из _maxBlob')
       url = URL.createObjectURL(photo._maxBlob)
-      console.log('[PhotoViewer] Создан ObjectURL:', url)
     }
-    // Фото с сервера или из кэша — используем единый интерфейс getFullUrl
     else if (typeof photo.getFullUrl === 'function') {
-      console.log('[PhotoViewer] Ветка: вызов getFullUrl()')
       url = await photo.getFullUrl()
-      console.log('[PhotoViewer] getFullUrl() вернул:', url)
     }
-    // Fallback для старых форматов (на всякий случай)
     else if (photo.max) {
-      console.log('[PhotoViewer] Ветка: fallback, photo.max:', photo.max)
       url = photo.max
-    }
-    else {
-      console.log('[PhotoViewer] Нет подходящего источника для фото')
-      console.log('[PhotoViewer] Доступные поля:', Object.keys(photo))
     }
     
     if (url) {
       currentPhotoUrl.value = url
-      // Запоминаем только blob URL, чтобы потом освободить
       currentObjectUrl = url.startsWith('blob:') ? url : null
-      console.log('[PhotoViewer] currentPhotoUrl установлен:', currentPhotoUrl.value)
-    } else {
-      console.log('[PhotoViewer] url пустой, фото не будет отображаться')
     }
   } catch (error) {
     console.error('[PhotoViewer] Ошибка в loadCurrentPhoto:', error)
   } finally {
     isLoadingFullPhoto.value = false
-    console.log('[PhotoViewer] loadCurrentPhoto END')
   }  
 }
 
@@ -185,13 +176,11 @@ const hasMultiplePhotos = computed(() => props.photos.length > 1)
 const handlePrev = () => {
   if (!hasMultiplePhotos.value) return
   currentIndex.value = (currentIndex.value - 1 + props.photos.length) % props.photos.length
-  console.log('[PhotoViewer] handlePrev, новый индекс:', currentIndex.value)
 }
 
 const handleNext = () => {
   if (!hasMultiplePhotos.value) return
   currentIndex.value = (currentIndex.value + 1) % props.photos.length
-  console.log('[PhotoViewer] handleNext, новый индекс:', currentIndex.value)
 }
 
 const saveAndClose = () => {
@@ -206,16 +195,10 @@ const handleClose = () => {
 }
 
 watch(currentIndex, () => {
-  console.log('[PhotoViewer] watch currentIndex, загружаем фото')
   loadCurrentPhoto()
 })
 
 watch(() => [props.isOpen, props.photos, props.initialIndex], async ([isOpen, photos, initialIndex]) => {
-  console.log('[PhotoViewer] watch props изменился')
-  console.log('[PhotoViewer] isOpen:', isOpen)
-  console.log('[PhotoViewer] photos.length:', photos?.length)
-  console.log('[PhotoViewer] initialIndex:', initialIndex)
-  
   if (isOpen) {
     currentIndex.value = initialIndex
     localSn.value = props.currentSn
@@ -226,9 +209,19 @@ watch(() => [props.isOpen, props.photos, props.initialIndex], async ([isOpen, ph
 }, { immediate: true, deep: true })
 
 onBeforeUnmount(() => {
-  console.log('[PhotoViewer] onBeforeUnmount, очищаю')
   revokeCurrentUrl()
 })
 </script>
 
-<style scoped src="./PhotoViewerModal.css"></style>
+<style scoped>
+/* Только анимация, всё остальное в Tailwind */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+</style>

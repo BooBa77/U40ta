@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query, Req, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { ObjectsService } from './services/objects.service';
 import { CreateObjectDto } from './dto/create-object.dto';
 import { UpdateObjectDto } from './dto/update-object.dto';
+import { InventoryObject } from './entities/object.entity';
 
 // Интерфейс для типизации пользователя в запросе
 interface RequestWithUser extends ExpressRequest {
@@ -105,6 +106,37 @@ export class ObjectsController {
     return { success: true, objects, count: objects.length };
   }
 
+  /**
+   * Получить все объекты для указанного завода и склада
+   * GET /api/objects/sklad
+   */
+  @Get('sklad')
+  async getObjectsBySklad(
+    @Req() request: RequestWithUser,
+    @Query('zavod') zavod: string,
+    @Query('sklad') sklad: string
+  ): Promise<{ success: boolean; objects: InventoryObject[] }> {
+        
+    console.log(`[ObjectsController] GET /objects/sklad - raw zavod: "${zavod}", typeof: ${typeof zavod}, sklad: "${sklad}"`)
+    const zavodNum = parseInt(zavod, 10)
+    console.log(`[ObjectsController] zavodNum: ${zavodNum}, isNaN: ${isNaN(zavodNum)}`)
+
+    if (isNaN(zavodNum)) {
+      throw new BadRequestException('zavod должен быть числом')
+    }
+    
+    if (!sklad) {
+      throw new BadRequestException('sklad обязателен')
+    }
+    
+    const objects = await this.objectsService.findBySklad(zavodNum, sklad)
+    
+    return {
+      success: true,
+      objects
+    }
+  } 
+  
   /**
    * Получение объекта по ID
    * GET /api/objects/:id

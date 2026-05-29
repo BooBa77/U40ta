@@ -1,83 +1,75 @@
 <template>
-  <div class="overflow-x-auto flex-1 min-h-0 border border-gray-200 rounded-lg bg-white">
-    <table class="w-full border-collapse text-sm">
+  <div class="statement-table flex-1 min-h-[300px] max-h-full border border-gray-200 rounded-lg bg-white overflow-auto relative">
+    <table class="w-full border-collapse table-fixed min-w-[350px]">
       <thead class="sticky top-0 z-10 bg-gray-50">
         <tr>
-          <!-- Чекбокс isActual -->
-          <th class="w-10 px-2 py-3 text-center font-semibold text-gray-800 border-b-2 border-gray-200">
+          <th 
+            class="w-10 px-2 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200"
+          >
             <span class="sr-only">Актуально</span>
           </th>
-          
-          <!-- Инв. номер + партия + кол-во-->
           <th 
-            class="px-3 py-3 text-left font-semibold text-gray-800 border-b-2 border-gray-200 min-w-[200px] cursor-pointer hover:bg-gray-100 transition"
-            :class="{ 'bg-amber-50': hasFilter('inv_party_combined') }"
             @click="handleHeaderClick('inv_party_combined')"
+            :class="[
+              'px-3 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200 cursor-pointer hover:bg-gray-100 transition',
+              { 'bg-yellow-50 border-l-2 border-l-yellow-500 border-r-2 border-r-yellow-500': hasFilter('inv_party_combined') }
+            ]"
+            style="min-width: 100px; max-width: 300px; width: 150px;"
           >
             Инв. номер
             <span v-if="hasFilter('inv_party_combined')" class="ml-1 text-amber-600">●</span>
           </th>
-          
-          <!-- Наименование -->
           <th 
-            class="px-3 py-3 text-left font-semibold text-gray-800 border-b-2 border-gray-200 cursor-pointer hover:bg-gray-100 transition"
-            :class="{ 'bg-amber-50': hasFilter('buh_name') }"
             @click="handleHeaderClick('buh_name')"
+            :class="[
+              'px-3 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200 cursor-pointer hover:bg-gray-100 transition',
+              { 'bg-yellow-50 border-l-2 border-l-yellow-500 border-r-2 border-r-yellow-500': hasFilter('buh_name') }
+            ]"
           >
             Наименование
             <span v-if="hasFilter('buh_name')" class="ml-1 text-amber-600">●</span>
           </th>
         </tr>
       </thead>
-      
       <tbody>
         <tr 
-          v-for="(row, index) in items" 
-          :key="`${row.invNumber}_${row.partyNumber || ''}_${index}`"
-          :class="[getRowClass(row), 'cursor-pointer hover:opacity-90 transition']"
+          v-for="(row, index) in items"
+          :key="index"
+          :class="getRowClass(row)"
+          class="cursor-pointer transition-colors"
           @click="handleRowClick(row)"
         >
-          <!-- Чекбокс isActual -->
-          <td class="w-10 px-2 py-3 text-center border-b border-gray-100">
+          <td class="px-2 py-2 border-b border-gray-100 text-center align-middle" @click.stop>
             <input 
-              type="checkbox"
-              :checked="row.isActual !== false"
-              @click.stop
-              @change="handleActualChange(row)"
-              class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+              type="checkbox" 
+              :checked="row.isActual"
+              @change="handleActualChange(row, $event.target.checked)"
+              class="w-4 h-4 accent-blue-500 cursor-pointer"
             />
           </td>
-
-          <!-- Инв. номер + партия + количество -->
-          <td class="px-3 py-3 border-b border-gray-100">
-            <div v-if="row.docTypeDisplay" class="text-xs text-gray-400 mb-0.5">
-              {{ row.docTypeDisplay }}
-            </div>
-            <div class="font-medium">{{ row.invNumber }}</div>
-            <div v-if="row.partyNumber || row.displayQuantity" class="text-xs text-gray-500 mt-0.5">
-              <span v-if="row.partyNumber" class="party-text">
-                {{ row.partyNumber }}
-              </span>
-              <span v-if="row.displayQuantity" class="quantity-text text-xs font-semibold text-black ml-1">
-                {{ row.displayQuantity }}
-              </span>
+          <td class="px-3 py-2 border-b border-gray-100 align-middle">
+            <div class="inv-party-cell leading-tight">
+              <div class="inv-number font-medium mb-0.5">{{ row.invNumber || '—' }}</div>
+              <div class="party-number text-xs text-gray-500">
+                <span v-if="row.showParty && row.partyNumber" class="party-text">
+                  {{ row.partyNumber }}
+                </span>
+                <span v-if="row.displayQuantity" class="quantity-text text-xs font-semibold text-black ml-1">
+                  {{ row.displayQuantity }}
+                </span>
+              </div>
             </div>
           </td>
-          
-          <!-- Наименование -->
-          <td class="px-3 py-3 border-b border-gray-100 text-gray-600">
+          <td class="px-3 py-2 border-b border-gray-100 text-sm text-gray-600 align-middle">
             {{ row.buhName || '—' }}
-          </td>
-        </tr>
-        
-        <!-- Пустое состояние -->
-        <tr v-if="items.length === 0">
-          <td colspan="3" class="text-center py-10 px-5 text-gray-400 italic">
-            Нет данных для отображения
           </td>
         </tr>
       </tbody>
     </table>
+    
+    <div v-if="!items.length" class="text-center py-10 text-gray-500 text-sm">
+      Нет данных для отображения
+    </div>
   </div>
 </template>
 
@@ -88,53 +80,132 @@
  */
 
 const props = defineProps({
+  /**
+   * Агрегированные строки книги
+   * @type {import('vue').PropType<Array<Object>>}
+   */
   items: {
     type: Array,
     required: true,
     default: () => []
   },
+  /**
+   * Функция для получения CSS-класса строки
+   * @type {import('vue').PropType<Function>}
+   * @param {Object} row - агрегированная строка
+   * @returns {string} CSS-класс
+   */
   getRowClass: {
     type: Function,
     required: true
   },
+  /**
+   * Активные фильтры для подсветки заголовков
+   * @type {import('vue').PropType<Object>}
+   */
   activeFilters: {
     type: Object,
     default: () => ({})
-  }
+  },
 })
 
 const emit = defineEmits([
+  /** @param {string} columnId - ID колонки для фильтрации */
   'filter-click',
+  /** @param {Object} params - { invNumber, isActual } */
   'actual-change',
+  /** @param {Object} groupParams - параметры выбранной группы */
   'row-click'
 ])
 
+/**
+ * Проверяет, активен ли фильтр для колонки
+ * @param {string} columnId - ID колонки
+ * @returns {boolean}
+ */
 const hasFilter = (columnId) => {
+  const filters = props.activeFilters
+
   if (columnId === 'inv_party_combined') {
-    return props.activeFilters.inv_number && props.activeFilters.inv_number.length > 0
+    return filters?.inv_number?.length > 0
   }
-  return props.activeFilters[columnId] && props.activeFilters[columnId].length > 0
+  if (columnId === 'buh_name') {
+    return filters?.buh_name?.length > 0
+  }
+  return false
 }
 
+/**
+ * Обработчик клика по заголовку
+ * @param {string} columnId - ID колонки
+ */
 const handleHeaderClick = (columnId) => {
-  if (columnId === 'inv_party_combined' || columnId === 'buh_name') {
-    emit('filter-click', columnId)
-  }
+  emit('filter-click', columnId)
 }
 
-const handleActualChange = (row) => {
-  emit('actual-change', {
+/**
+ * Обработчик клика по строке
+ * @param {Object} row - агрегированная строка
+ */
+const handleRowClick = (row) => {
+  if (!row.isActual) return
+
+  emit('row-click', {
     invNumber: row.invNumber,
-    isActual: !row.isActual
+    partyNumber: row.partyNumber || null,
+    zavod: row.items?.[0]?.zavod || 0,
+    sklad: row.sklad,
+    items: row.items
   })
 }
 
-const handleRowClick = (row) => {
-  emit('row-click', {
+/**
+ * Обработчик изменения чекбокса актуальности
+ * @param {Object} row - агрегированная строка
+ * @param {boolean} checked - новое состояние чекбокса
+ */
+const handleActualChange = (row, checked) => {
+  emit('actual-change', {
     invNumber: row.invNumber,
-    partyNumber: row.partyNumber,
-    zavod: row.items?.[0]?.zavod || 0,
-    sklad: row.sklad
+    isActual: checked
   })
 }
 </script>
+
+<style>
+.statement-table {
+  @media (max-width: 768px) {
+    height: calc(100vh - 160px);
+  }
+}
+
+.inv-number {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.party-number {
+  font-size: 0.8em;
+  color: #6b7280;
+}
+
+.quantity-text {
+  font-weight: 600;
+  color: #000000;
+}
+
+@media (max-width: 768px) {
+  .inv-number {
+    font-size: 0.85em;
+  }
+
+  .party-number {
+    font-size: 0.75em;
+  }
+
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+}
+</style>

@@ -57,6 +57,24 @@ export class ObjectsService {
   }
 
   /**
+   * Находит все объекты по заводу и складу
+   * @param zavod - номер завода
+   * @param sklad - код склада
+   * @returns Массив объектов
+   */
+  async findBySklad(zavod: number, sklad: string): Promise<InventoryObject[]> {
+    return await this.objectRepository.find({
+      where: {
+        zavod: zavod,
+        sklad: sklad
+      },
+      order: {
+        invNumber: 'ASC'
+      }
+    })
+  }
+
+  /**
    * Получение уникальных комбинаций place_ter, place_pos, place_cab, place_user
    * Возвращает массив объектов с полями ter, pos, cab, user
    * ter - обязательно не NULL и не пустое

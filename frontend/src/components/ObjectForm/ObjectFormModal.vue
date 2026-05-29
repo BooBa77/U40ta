@@ -1,171 +1,201 @@
 <template>
-  <BaseModal
-    :is-open="isOpen"
-    :show-header="false"
-    :width="'100vw'"
-    :max-width="'100vw'"
-    @close="handleCancel"
-  >
-    <div class="object-form-content">
-      <!-- 1. Нередактируемые данные -->
-      <div class="readonly-data">
-        <div class="readonly-item buh-name">{{ objectData.buhName || '—' }}</div>
-        <div class="readonly-item inv-number">{{ objectData.invNumber || '—' }}</div>
-        <div class="readonly-item sklad" v-if="objectData.sklad || objectData.zavod">
-          Склад - {{ objectData.sklad }}/{{ objectData.zavod }}
-        </div>
-      </div>
-
-      <!-- 2. Местоположение (4 уровня) -->
-      <div class="places-section">
-        <!-- Территория -->
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="territory"
-            placeholder="Территория"
-            class="input-field"
-            list="territory-options"
-            :disabled="isSaving || placesLoading"
-          />
-          <datalist id="territory-options">
-            <option v-for="opt in territoryOptions" :key="opt" :value="opt" />
-          </datalist>
-        </div>
-
-        <!-- Здание -->
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="position"
-            placeholder="Здание"
-            class="input-field"
-            list="position-options"
-            :disabled="isSaving || placesLoading || !isPositionEnabled"
-          />
-          <datalist id="position-options" v-if="isPositionEnabled">
-            <option v-for="opt in positionOptions" :key="opt" :value="opt" />
-          </datalist>
-        </div>
-
-        <!-- Кабинет -->
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="cabinet"
-            placeholder="Кабинет"
-            class="input-field"
-            list="cabinet-options"
-            :disabled="isSaving || placesLoading || !isCabinetEnabled"
-          />
-          <datalist id="cabinet-options" v-if="isCabinetEnabled">
-            <option v-for="opt in cabinetOptions" :key="opt" :value="opt" />
-          </datalist>
-        </div>
-
-        <!-- Пользователь -->
-        <div class="form-field">
-          <input
-            type="text"
-            v-model="user"
-            placeholder="Пользователь"
-            class="input-field"
-            list="user-options"
-            :disabled="isSaving || placesLoading || !isUserEnabled"
-          />
-          <datalist id="user-options" v-if="isUserEnabled">
-            <option v-for="opt in userOptions" :key="opt" :value="opt" />
-          </datalist>
-        </div>
-
-        <!-- Индикатор загрузки местоположений -->
-        <div v-if="placesLoading" class="places-loading">
-          Загрузка вариантов...
-        </div>
-        <div v-if="placesError" class="places-error">
-          {{ placesError }}
-        </div>
-      </div>
-
-      <!-- 3. Серийный номер -->
-      <div class="form-field">
-        <input
-          type="text"
-          v-model="objectData.sn"
-          placeholder="Серийный номер"
-          class="input-field"
-          :disabled="isSaving"
-        />
-      </div>
-
-      <!-- 4. Кнопки действий и карусель фото -->
-      <div class="media-section">
-        <div class="actions-buttons-vertical">
-          <button 
-            v-if="hasCamera"
-            class="btn-action" 
-            @click="handleQrScan" 
-            :disabled="isSaving"
-          >
-            Добавить QR-код
-          </button>
-
-          <button 
-            v-if="hasCamera"
-            class="btn-action" 
-            @click="handlePhotoCapture" 
-            :disabled="isSaving"
-          >
-            Добавить фото
-          </button>
-        </div>
-
-        <div v-if="photos && photos.length > 0" class="photos-carousel">
-          <div 
-            v-for="(photo, index) in photos" 
-            :key="index" 
-            class="photo-thumb"
-            :class="{ 'photo-deleted': photo.isDeleted }"
-            @click="handlePhotoClick(index)"
-          >
-            <img :src="photo.minUrl" alt="Фото" />
-            <button 
-              v-if="!photo.isDeleted"
-              class="photo-remove" 
-              @click.stop="handlePhotoDeleteClick(index)"
-              :disabled="isSaving"
+  <Transition name="modal">
+    <div v-if="isOpen" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50" @click.self="handleCancel">
+      <div class="modal-container bg-white w-full h-full flex flex-col">
+        
+        <!-- Контент -->
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+          <!-- 1. Нередактируемые данные -->
+          <div class="leading-[1.3]">
+            <div class="text-[15px] font-medium text-gray-800 mb-0.5">
+              {{ objectData.buhName || '—' }}
+            </div>
+            <div class="text-sm text-gray-500 mb-0.5">
+              {{ objectData.invNumber || '—' }}
+            </div>
+            <div 
+              v-if="objectData.sklad || objectData.zavod" 
+              class="text-[13px] text-gray-400"
             >
-              ×
-            </button>
+              Склад - {{ objectData.sklad }}/{{ objectData.zavod }}
+            </div>
           </div>
-        </div>          
-      </div>
 
-      <!-- 5. Комментарий -->
-      <div class="form-field">
-        <textarea
-          v-model="comment"
-          placeholder="Комментарий"
-          class="textarea-field"
-          rows="3"
-          :disabled="isSaving"
-        />
-      </div>
+          <!-- 2. Местоположение (4 уровня) -->
+          <div class="flex flex-col gap-3 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+            <!-- Территория -->
+            <div>
+              <input
+                type="text"
+                v-model="territory"
+                placeholder="Территория"
+                class="input-base"
+                list="territory-options"
+                :disabled="isSaving || placesLoading"
+              />
+              <datalist id="territory-options">
+                <option v-for="opt in territoryOptions" :key="opt" :value="opt" />
+              </datalist>
+            </div>
 
-      <div v-if="errorMessage" class="error-message">
-        {{ errorMessage }}
+            <!-- Здание -->
+            <div>
+              <input
+                type="text"
+                v-model="position"
+                placeholder="Здание"
+                class="input-base"
+                list="position-options"
+                :disabled="isSaving || placesLoading || !isPositionEnabled"
+              />
+              <datalist v-if="isPositionEnabled" id="position-options">
+                <option v-for="opt in positionOptions" :key="opt" :value="opt" />
+              </datalist>
+            </div>
+
+            <!-- Кабинет -->
+            <div>
+              <input
+                type="text"
+                v-model="cabinet"
+                placeholder="Кабинет"
+                class="input-base"
+                list="cabinet-options"
+                :disabled="isSaving || placesLoading || !isCabinetEnabled"
+              />
+              <datalist v-if="isCabinetEnabled" id="cabinet-options">
+                <option v-for="opt in cabinetOptions" :key="opt" :value="opt" />
+              </datalist>
+            </div>
+
+            <!-- Пользователь -->
+            <div>
+              <input
+                type="text"
+                v-model="user"
+                placeholder="Пользователь"
+                class="input-base"
+                list="user-options"
+                :disabled="isSaving || placesLoading || !isUserEnabled"
+              />
+              <datalist v-if="isUserEnabled" id="user-options">
+                <option v-for="opt in userOptions" :key="opt" :value="opt" />
+              </datalist>
+            </div>
+
+            <!-- Индикаторы -->
+            <div v-if="placesLoading" class="text-[13px] text-gray-500 italic py-1">Загрузка вариантов...</div>
+            <div v-if="placesError" class="text-[13px] text-red-600 py-1">{{ placesError }}</div>
+          </div>
+
+          <!-- 3. Серийный номер -->
+          <div>
+            <input
+              type="text"
+              v-model="objectData.sn"
+              placeholder="Серийный номер"
+              class="input-base"
+              :disabled="isSaving"
+            />
+          </div>
+
+          <!-- 4. Кнопки действий и карусель фото -->
+          <div class="flex flex-col gap-3 min-h-[60px]">
+            <div v-if="hasCamera" class="flex gap-2">
+              <button 
+                class="flex-1 py-2.5 bg-blue-500 text-white rounded-md text-sm font-medium
+                       active:bg-blue-600 disabled:bg-blue-300"
+                @click="handleQrScan" 
+                :disabled="isSaving"
+              >
+                Добавить QR-код
+              </button>
+              <button 
+                class="flex-1 py-2.5 bg-blue-500 text-white rounded-md text-sm font-medium
+                       active:bg-blue-600 disabled:bg-blue-300"
+                @click="handlePhotoCapture" 
+                :disabled="isSaving"
+              >
+                Добавить фото
+              </button>
+            </div>
+
+            <!-- Карусель -->
+            <div 
+              v-if="photos && photos.length > 0" 
+              class="flex gap-2 overflow-x-auto py-1 items-center min-h-[70px]"
+            >
+              <div 
+                v-for="(photo, index) in photos" 
+                :key="index" 
+                class="relative w-[60px] h-[60px] rounded-lg overflow-hidden shrink-0 
+                       border-2 border-gray-200 bg-gray-50 active:border-blue-500"
+                :class="{ 'photo-deleted': photo.isDeleted }"
+                @click="handlePhotoClick(index)"
+              >
+                <img :src="photo.minUrl" alt="Фото" class="w-full h-full object-cover" />
+                <button 
+                  v-if="!photo.isDeleted"
+                  class="absolute top-0.5 right-0.5 w-[22px] h-[22px] rounded-full
+                         bg-red-500 text-white border-2 border-white
+                         text-lg font-bold leading-none
+                         flex items-center justify-center p-0
+                         shadow-[0_2px_4px_rgba(0,0,0,0.3)] z-10
+                         active:bg-red-600 disabled:bg-gray-400"
+                  @click.stop="handlePhotoDeleteClick(index)"
+                  :disabled="isSaving"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div v-else class="text-[13px] text-gray-400 italic py-2">Нет фото</div>
+          </div>
+
+          <!-- 5. Комментарий -->
+          <div>
+            <textarea
+              v-model="comment"
+              placeholder="Комментарий"
+              class="input-base resize-y min-h-[70px] leading-relaxed"
+              rows="3"
+              :disabled="isSaving"
+            />
+          </div>
+
+          <!-- Ошибка -->
+          <div 
+            v-if="errorMessage" 
+            class="text-sm text-red-600 p-3 bg-red-50 rounded-lg border-l-4 border-red-600"
+          >
+            {{ errorMessage }}
+          </div>
+        </div>
+
+        <!-- Футер -->
+        <div class="flex gap-2 p-3 border-t border-gray-200 bg-white">
+          <button 
+            @click="handleCancel"
+            class="flex-1 py-3 px-4 bg-white text-gray-700 border border-gray-300 rounded-md
+                   text-base font-medium active:bg-gray-50 disabled:opacity-50"
+            :disabled="isSaving"
+          >
+            Отмена
+          </button>
+          <button 
+            @click="handleSave"
+            class="flex-1 py-3 px-4 bg-blue-500 text-white border border-blue-500 rounded-md
+                   text-base font-medium active:bg-blue-600 disabled:opacity-50"
+            :disabled="isSaving"
+          >
+            {{ isSaving ? 'Сохранение...' : 'Сохранить' }}
+          </button>
+        </div>
+
       </div>
     </div>
+  </Transition>
 
-    <template #footer>
-      <button @click="handleCancel" class="modal-btn modal-btn-secondary" :disabled="isSaving">
-        Отмена
-      </button>
-      <button @click="handleSave" class="modal-btn modal-btn-primary" :disabled="isSaving">
-        {{ isSaving ? 'Сохранение...' : 'Сохранить' }}
-      </button>
-    </template>
-  </BaseModal>
   <PhotoViewerModal
     :is-open="isPhotoViewerOpen"
     :photos="availablePhotos"
@@ -178,9 +208,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import BaseModal from '@/components/common/BaseModal.vue'
 import { objectService } from '@/services/object-service.js'
-import { qrService } from '@/services/qr-service.js'
 import { logsService } from '@/services/logs-service.js'
 import { useObjectPhotos } from './composables/useObjectPhotos'
 import { useObjectQrCodes } from './composables/useObjectQrCodes'
@@ -202,10 +230,9 @@ const isSaving = ref(false)
 const errorMessage = ref('')
 const comment = ref('')
 const { hasCamera, takePhoto } = useCamera()
-// Состояние просмотрщика
 const isPhotoViewerOpen = ref(false)
 const photoViewerStartIndex = ref(0)
-// Данные объекта
+
 const objectData = ref({
   id: null,
   invNumber: '',
@@ -216,7 +243,6 @@ const objectData = ref({
   sn: ''
 })
 
-// Местоположение
 const {
   territory,
   position,
@@ -237,7 +263,6 @@ const {
   resetPlaces
 } = useObjectPlaces()
 
-// QR-менеджер
 const {
   pendingQrCodes,
   scanQrCode,
@@ -246,7 +271,7 @@ const {
 } = useObjectQrCodes(objectData, {
   onCancel: () => handleCancel()
 })
-// Photo-менеджер
+
 const {
   photos,
   loadPhotos,
@@ -256,13 +281,11 @@ const {
   resetPhotos
 } = useObjectPhotos()
 
-// Исходные данные для отслеживания изменений
 const originalData = ref({
   sn: '',
   places: ''
 })
 
-// Форматирование местоположения в строку
 const formatPlacesToString = (places) => {
   const parts = [
     places.placeTer,
@@ -273,22 +296,16 @@ const formatPlacesToString = (places) => {
   return parts.join(' / ')
 }
 
-// Захват текущих данных как "оригинал"
 const captureOriginalData = () => {
   const placesForSave = getPlacesForSave()
-  console.log('[captureOriginalData] getPlacesForSave():', placesForSave)
-  
   const placesString = formatPlacesToString(placesForSave)
-  console.log('[captureOriginalData] formatPlacesToString результат:', placesString)
   
   originalData.value = {
     sn: objectData.value.sn || '',
     places: placesString
   }
-  console.log('[captureOriginalData] originalData:', originalData.value)
 }
 
-// Загрузка существующего объекта
 const loadObject = async (id) => {
   try {
     const object = await objectService.getObject(id)
@@ -301,12 +318,8 @@ const loadObject = async (id) => {
       partyNumber: object.partyNumber || '',
       sn: object.sn || ''
     }
-    console.log('[loadObject] Полный объект с сервера:', JSON.stringify(object, null, 2))
 
-    // Устанавливаем местоположение из объекта
     setPlacesFromObject(object)
-
-    // Захватываем исходные данные ПОСЛЕ установки всех значений
     captureOriginalData()
     
   } catch (error) {
@@ -315,7 +328,6 @@ const loadObject = async (id) => {
   }
 }
 
-// Инициализация из строки ведомости
 const initFromRowData = (data) => {
   objectData.value = {
     id: null,
@@ -327,11 +339,9 @@ const initFromRowData = (data) => {
     sn: data.sn || ''
   }
   
-  // Для нового объекта местоположение пустое, но всё равно захватываем
   captureOriginalData()
 }
 
-// Сброс формы
 const resetForm = () => {
   objectData.value = {
     id: null,
@@ -345,12 +355,11 @@ const resetForm = () => {
   comment.value = ''
   errorMessage.value = ''
   isSaving.value = false
-  resetPlaces()  // сбрасываем местоположение
+  resetPlaces()
   resetQr()
   resetPhotos()
 }
 
-// Обработчики
 const handleCancel = () => {
   resetForm()
   emit('cancel', { wasCreated: false })
@@ -371,18 +380,15 @@ const handlePhotoCapture = async () => {
   }
 }
 
-// Обработчик клика по крестику - только пометка на удаление
 const handlePhotoDeleteClick = (index) => {
   if (isSaving.value) return
-  toggleDeleteMark(index)  // ставим пометку на удаление
+  toggleDeleteMark(index)
 }
 
-// Доступные фото (непомеченные на удаление)
 const availablePhotos = computed(() => 
   photos.value.filter(p => !p.isDeleted)
 )
 
-// Обработчик клика по миниатюре
 const handlePhotoClick = (index) => {
   if (isSaving.value) return
   
@@ -391,14 +397,12 @@ const handlePhotoClick = (index) => {
   if (photo.isDeleted) {
     toggleDeleteMark(index)
   } else {
-    // Находим индекс в отфильтрованном списке по ссылке на объект
     const availableIndex = availablePhotos.value.findIndex(p => p === photo)
     photoViewerStartIndex.value = availableIndex >= 0 ? availableIndex : 0
     isPhotoViewerOpen.value = true
   }
 }
 
-// Формирование сообщения об изменении SN
 const getSnChangeMessage = () => {
   const oldSn = originalData.value.sn
   const newSn = objectData.value.sn || ''
@@ -409,7 +413,6 @@ const getSnChangeMessage = () => {
   return `изменён s/n на ${newSn}`
 }
 
-// Формирование сообщения об изменении местоположения
 const getPlacesChangeMessage = () => {
   const oldPlaces = originalData.value.places
   const newPlaces = formatPlacesToString(getPlacesForSave())
@@ -432,24 +435,14 @@ const handleSave = async () => {
 
     const { toAdd: photosToAdd, toDelete: photosToDelete } = await prepareForSave()
 
-    console.log('DEBUG: objectToSave', objectToSave)
-    console.log('DEBUG: pendingQrCodes', Array.from(pendingQrCodes.value))
-    console.log('DEBUG: photosToAdd', photosToAdd)
-    console.log('DEBUG: photosToDelete', photosToDelete)
-    
-    console.log('[handleSave] Перед saveObject')
-
     const savedObject = await objectService.saveObject({
       objectData: objectToSave,
       qrCodes: Array.from(pendingQrCodes.value),
       photosToAdd: photosToAdd,
       photosToDelete: photosToDelete
     })
-    
-    console.log('savedObject = ', savedObject)
 
     const savedId = savedObject.object?.id || savedObject.id
-
     const wasCreated = !objectData.value.id && savedId
     objectData.value.id = savedId
 
@@ -509,22 +502,15 @@ const handleSave = async () => {
   }
 }
 
-// Открытие модалки
 watch(() => props.isOpen, async (isOpen) => {
-  console.log('[ObjectFormModal] isOpen changed:', isOpen, 'objectId:', props.objectId)
-  
   if (isOpen) {
     resetForm()
-    
-    // Загружаем комбинации местоположений (всегда, независимо от режима)
     await loadPlaceCombinations()
     
     if (props.objectId) {
-      console.log('[ObjectFormModal] Редактирование существующего, objectId:', props.objectId)
       await loadObject(props.objectId)
       await loadPhotos(props.objectId)
     } else {
-      console.log('[ObjectFormModal] Создание нового из initialData:', props.initialData)
       initFromRowData(props.initialData)
       await processInitialQrCode(props.initialQrCode)
     }
@@ -532,4 +518,48 @@ watch(() => props.isOpen, async (isOpen) => {
 }, { immediate: true })
 </script>
 
-<style scoped src="./ObjectFormModal.css"></style>
+<style scoped>
+/* Базовые стили для input */
+.input-base {
+  @apply w-full px-3 py-2.5 border border-gray-300 rounded-md text-[15px] 
+         bg-white disabled:bg-gray-100 disabled:text-gray-400;
+}
+
+/* Стрелка для datalist */
+input[list] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+/* Перечёркивание для помеченных фото */
+.photo-deleted::after {
+  content: '✕';
+  @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+         text-[32px] text-red-500 font-bold
+         [text-shadow:0_0_2px_white] pointer-events-none;
+}
+
+/* Анимация появления/исчезновения модалки */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active .modal-container,
+.modal-leave-active .modal-container {
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+
+.modal-enter-from .modal-container,
+.modal-leave-to .modal-container {
+  transform: scale(0.95) translateY(-5px);
+}
+</style>
