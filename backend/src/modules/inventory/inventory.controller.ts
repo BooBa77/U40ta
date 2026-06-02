@@ -269,6 +269,46 @@ export class InventoryController {
   }
 
   /**
+   * Подтвердить наличие для строк книги.
+   * POST /api/inventory/books/:id/items/confirm
+   */
+  @Post('books/:id/items/confirm')
+  @HttpCode(HttpStatus.OK)
+  async confirmItems(
+    @Req() request: RequestWithUser,
+    @Param('id') bookId: number,
+    @Body() body: {
+      itemIds: number[];
+      isOkManual?: boolean;
+      isOkAuto?: boolean;
+      rem?: string | null;
+      idObject?: number | null;
+      placeTer?: string | null;
+      placePos?: string | null;
+      placeCab?: string | null;
+      placeUser?: string | null;
+    }
+  ): Promise<{ success: boolean; confirmedCount: number }> {
+    const userId = request.user.sub;
+
+    return await this.inventoryBooksService.confirmItems(
+      bookId,
+      body.itemIds,
+      userId,
+      {
+        isOkManual: body.isOkManual,
+        isOkAuto: body.isOkAuto,
+        rem: body.rem,
+        idObject: body.idObject,
+        placeTer: body.placeTer,
+        placePos: body.placePos,
+        placeCab: body.placeCab,
+        placeUser: body.placeUser,
+      }
+    );
+  }  
+
+  /**
    * Обновить статус актуальности для всех строк с указанным invNumber
    * POST /api/inventory/books/:id/items/update-actual
    */

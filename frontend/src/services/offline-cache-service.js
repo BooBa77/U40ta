@@ -5,31 +5,18 @@ class OfflineCacheService {
   constructor() {
     this.db = new Dexie('u40ta_offline_db')
     
-    // Схема базы данных (camelCase для единообразия с бэкендом)
-    this.db.version(2).stores({
-      // Файлы ведомостей (только массовая загрузка, без отдельных операций)
+    // Версия 5: актуальная схема со всеми таблицами и полями
+    this.db.version(5).stores({
       email_attachments: 'id, filename, emailFrom, receivedAt, docType, zavod, sklad, inProcess, isInventory',
-      // Объекты (есть массовая загрузка и отдельные операции add/update)
       objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser',
-      // Объекты обрабатываемых ведомостей (только массовая загрузка, без отдельных операций)
       processed_statements: 'id, emailAttachmentId, zavod, sklad, docType, invNumber, partyNumber, buhName, haveObject, isActual, isExcess',
-      // QR-коды (есть массовая загрузка и отдельные операции add/update)
       qr_codes: '++id, qrValue, objectId',
-      // Фотографии (кэширования из БД нет, только накопление во время оффлайн-сеанса)
-      photos: '++id, objectId' ,
-      // Логи (кэширования из БД нет, только накопление во время оффлайн-сеанса)
-      logs: '++id, source, time, content'
-    })
-
-    // Версия 3: добавлены таблицы инвентаризационных книг
-    this.db.version(3).stores({
-      // Инвентаризационные книги (только массовая загрузка, без отдельных операций)
+      photos: '++id, objectId',
+      logs: '++id, source, time, content',
       inventory_books: 'id, createdAt, idOwner',
-      // Строки инвентаризационных книг (только массовая загрузка, без отдельных операций)
-      inventory_book_items: 'id, idBook, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto'
+      inventory_book_items: 'id, idBook, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto, dateOkManualChecked, dateOkAutoChecked, placeTer, placePos, placeCab, placeUser, rem'
     })
   }
-
 
   // ============================================================================
   // ПЕРЕКЛЮЧЕНИЕ РЕЖИМА ПОЛЁТА

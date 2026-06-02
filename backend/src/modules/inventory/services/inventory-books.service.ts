@@ -300,5 +300,73 @@ export class InventoryBooksService {
     this.logger.log(
       `Книга ${bookId}: обновлён isActual=${isActual} для invNumber=${invNumber}`
     );
+  }
+
+  /**
+   * Подтверждает наличие для указанных строк книги.
+   * Заполняет поля isOkManual/isOkAuto, даты, комментарий и снимок местоположения.
+   * 
+   * @param bookId - ID книги
+   * @param itemIds - ID строк для подтверждения
+   * @param userId - ID пользователя
+   * @param data - данные подтверждения
+   */
+  async confirmItems(
+    bookId: number,
+    itemIds: number[],
+    userId: number,
+    data: {
+      isOkManual?: boolean;
+      isOkAuto?: boolean;
+      rem?: string | null;
+      idObject?: number | null;
+      placeTer?: string | null;
+      placePos?: string | null;
+      placeCab?: string | null;
+      placeUser?: string | null;
+    }
+  ): Promise<{ success: boolean; confirmedCount: number }> {
+    const updateData: Partial<InventoryBookItem> = {};
+
+    if (data.isOkManual !== undefined) {
+      updateData.isOkManual = data.isOkManual;
+      updateData.idUserOkManualChecked = data.isOkManual ? userId : null;
+      updateData.dateOkManualChecked = data.isOkManual ? new Date() : null;
+    }
+
+    if (data.isOkAuto !== undefined) {
+      updateData.isOkAuto = data.isOkAuto;
+      updateData.idUserOkAutoChecked = data.isOkAuto ? userId : null;
+      updateData.dateOkAutoChecked = data.isOkAuto ? new Date() : null;
+    }
+
+    if (data.rem !== undefined) {
+      updateData.rem = data.rem;
+    }
+
+    if (data.idObject !== undefined) {
+      updateData.idObject = data.idObject;
+    }
+
+    if (data.placeTer !== undefined) {
+      updateData.placeTer = data.placeTer;
+      updateData.placePos = data.placePos;
+      updateData.placeCab = data.placeCab;
+      updateData.placeUser = data.placeUser;
+    }
+
+    const result = await this.itemRepo.update(
+      { idBook: bookId, id: In(itemIds) },
+      updateData
+    );
+
+    const confirmedCount = result.affected ?? 0;
+
+    this.logger.log(
+      `Книга ${bookId}: подтверждено ${confirmedCount} строк, userId=${userId}, ` +
+      `isOkManual=${data.isOkManual}, isOkAuto=${data.isOkAuto}`
+    );
+
+    return { success: true, confirmedCount };
   }  
 }

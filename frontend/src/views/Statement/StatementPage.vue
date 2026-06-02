@@ -64,14 +64,14 @@
         @cancel="handleObjectFormCancel"
       />
 
-      <!-- Модалка ObjectViewModal -->
-      <ObjectViewModal
-        :is-open="objectViewIsOpen"
-        :inv-number="selectedGroup.invNumber"
-        :party-number="selectedGroup.partyNumber"
-        :zavod="selectedGroup.zavod"
-        :sklad="selectedGroup.sklad"
-        @close="handleObjectViewClose"
+      <!-- Модалка InvListModal -->
+      <InvListModal
+        :is-open="invListIsOpen"
+        :inv-number="selectedItem.invNumber"
+        :party-number="selectedItem.partyNumber"
+        :zavod="selectedItem.zavod"
+        :sklad="selectedItem.sklad"
+        @close="handleInvListClose"
       />
 
       <!-- Таблица -->
@@ -100,7 +100,7 @@ import { useRoute, useRouter } from 'vue-router'
 import StatementTable from './components/StatementTable.vue'
 import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
-import ObjectViewModal from './components/ObjectViewModal.vue'
+import InvListModal from './components/InvListModal.vue'
 
 // Композаблы
 import { useStatementData } from './composables/useStatementData'
@@ -151,8 +151,8 @@ const objectFormInitialData = ref({})
 const objectFormQrCode = ref(null)
 
 // === СОСТОЯНИЕ ДЛЯ OBJECT VIEW ===
-const objectViewIsOpen = ref(false)
-const selectedGroup = ref({
+const invListIsOpen = ref(false)
+const selectedItem = ref({
   invNumber: '',
   partyNumber: null,
   zavod: '',
@@ -184,24 +184,24 @@ const statementTitle = computed(() => {
 
 // === ОБРАБОТЧИК КЛИКА ПО СТРОКЕ ТАБЛИЦЫ ===
 const handleRowClick = (groupParams) => {
-  console.log('[StatementPage] Клик по строке, открываем ObjectViewModal с параметрами:', groupParams)
+  console.log('[StatementPage] Клик по строке, открываем InvListModal с параметрами:', groupParams)
   
-  selectedGroup.value = {
+  selectedItem.value = {
     invNumber: groupParams.invNumber,
     partyNumber: groupParams.partyNumber,
     zavod: groupParams.zavod,
     sklad: groupParams.sklad
   }
   
-  objectViewIsOpen.value = true
+  invListIsOpen.value = true
 }
 
-const handleObjectViewClose = () => {
-  console.log('[StatementPage] Закрытие ObjectViewModal')
-  objectViewIsOpen.value = false
+const handleInvListClose = () => {
+  console.log('[StatementPage] Закрытие InvListModal')
+  invListIsOpen.value = false
   
   setTimeout(() => {
-    selectedGroup.value = {
+    selectedItem.value = {
       invNumber: '',
       partyNumber: null,
       zavod: '',

@@ -446,6 +446,71 @@ export class InventoryBookService {
       console.error('[InventoryBookService] Ошибка обновления isActual через API:', error)
       throw error
     }
+  }
+  
+  // ============================================================================
+  // ПОДТВЕРЖДЕНИЕ НАЛИЧИЯ
+  // ============================================================================
+
+  /**
+   * Менеджер: подтверждает наличие для указанных строк книги.
+   * @param {number} bookId - ID книги
+   * @param {Array<number>} itemIds - ID строк для подтверждения
+   * @param {Object} data - данные подтверждения
+   * @param {boolean} [data.isOkManual] - ручное подтверждение
+   * @param {boolean} [data.isOkAuto] - авто подтверждение
+   * @param {string} [data.rem] - комментарий
+   * @param {number} [data.idObject] - ID объекта
+   * @param {string} [data.placeTer] - территория
+   * @param {string} [data.placePos] - здание
+   * @param {string} [data.placeCab] - кабинет
+   * @param {string} [data.placeUser] - пользователь
+   * @param {string} [data.dateOkManualChecked] - дата ручного подтверждения
+   * @param {string} [data.dateOkAutoChecked] - дата авто подтверждения
+   * @returns {Promise<Object>} результат { success, confirmedCount }
+   */
+  async confirmItems(bookId, itemIds, data) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      console.log(`[InventoryBookService] Офлайн-режим: подтверждение ${itemIds.length} строк в книге ${id}`)
+      return this.confirmItemsInCache(id, itemIds, data)
+    }
+
+    console.log(`[InventoryBookService] Онлайн-режим: подтверждение ${itemIds.length} строк в книге ${id}`)
+    return this.confirmItemsInApi(id, itemIds, data)
+  }
+
+  /**
+   * Исполнитель для API.
+   */
+  async confirmItemsInApi(bookId, itemIds, data) {
+    try {
+      const result = await this.apiRequest(`/inventory/books/${bookId}/items/confirm`, {
+        method: 'POST',
+        body: {
+          itemIds,
+          ...data
+        }
+      })
+      return result
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка подтверждения через API:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Исполнитель для кэша.
+   */
+  async confirmItemsInCache(bookId, itemIds, data) {
+    try {
+      await offlineCache.confirmInventoryBookItems(bookId, itemIds, data)
+      return { success: true, confirmedCount: itemIds.length }
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка подтверждения в кэше:', error)
+      throw new Error('Не удалось подтвердить строки в кэше')
+    }
   }  
 }
 

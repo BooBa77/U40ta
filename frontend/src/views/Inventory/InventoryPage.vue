@@ -33,24 +33,16 @@
         @reset="resetCurrentFilter"
       />
 
-      <!-- Модалка ObjectForm -->
-      <ObjectFormModal
-        :is-open="objectFormIsOpen"
-        :object-id="objectFormObjectId"
-        :initial-data="objectFormInitialData"
-        :initial-qr-code="objectFormQrCode"
-        @save="handleObjectFormSave"
-        @cancel="handleObjectFormCancel"
-      />
-
-      <!-- Модалка детализации группы (пока старая, позже заменим на InventoryViewModal) -->
-      <ObjectViewModal
-        :is-open="objectViewIsOpen"
-        :inv-number="selectedGroup.invNumber"
-        :party-number="selectedGroup.partyNumber"
-        :zavod="selectedGroup.zavod"
-        :sklad="selectedGroup.sklad"
-        @close="handleObjectViewClose"
+      <!-- Модалка детализации группы -->
+      <InvListModal
+        :is-open="invListIsOpen"
+        :inv-number="selectedItem.invNumber"
+        :party-number="selectedItem.partyNumber"
+        :zavod="selectedItem.zavod"
+        :sklad="selectedItem.sklad"
+        :id-book="bookId"
+        @close="handleInvListClose"
+        @saved="reload"
       />
 
       <!-- Таблица -->
@@ -110,8 +102,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
-import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
-import ObjectViewModal from '@/views/Statement/components/ObjectViewModal.vue'
+import InvListModal from '@/views/Inventory/components/InvListModal.vue'
 import InventoryBookTable from './components/InventoryBookTable.vue'
 
 // Композаблы
@@ -171,15 +162,9 @@ const {
   activeFilters
 } = useTableFilter(aggregatedItems, filterColumns)
 
-// === СОСТОЯНИЕ OBJECT FORM ===
-const objectFormIsOpen = ref(false)
-const objectFormObjectId = ref(null)
-const objectFormInitialData = ref({})
-const objectFormQrCode = ref(null)
-
 // === СОСТОЯНИЕ ДЛЯ OBJECT VIEW ===
-const objectViewIsOpen = ref(false)
-const selectedGroup = ref({
+const invListIsOpen = ref(false)
+const selectedItem = ref({
   invNumber: '',
   partyNumber: null,
   zavod: 0,
@@ -219,21 +204,21 @@ const closeFilterModal = () => {
 const handleRowClick = (groupParams) => {
   console.log('[InventoryPage] Клик по строке, открываем ObjectViewModal')
   
-  selectedGroup.value = {
+  selectedItem.value = {
     invNumber: groupParams.invNumber,
     partyNumber: groupParams.partyNumber,
     zavod: groupParams.zavod,
     sklad: groupParams.sklad
   }
   
-  objectViewIsOpen.value = true
+  invListIsOpen.value = true
 }
 
-const handleObjectViewClose = () => {
-  objectViewIsOpen.value = false
+const handleInvListClose = () => {
+  invListIsOpen.value = false
   
   setTimeout(() => {
-    selectedGroup.value = {
+    selectedItem.value = {
       invNumber: '',
       partyNumber: null,
       zavod: 0,
@@ -252,14 +237,4 @@ const handleScanError = (error) => {
   console.error('[InventoryPage] Ошибка сканирования:', error)
 }
 
-// === ОБРАБОТЧИКИ OBJECT FORM ===
-const handleObjectFormSave = async (result) => {
-  console.log('[InventoryPage] Результат сохранения объекта:', result)
-  objectFormIsOpen.value = false
-  await reload()
-}
-
-const handleObjectFormCancel = () => {
-  objectFormIsOpen.value = false
-}
 </script>
