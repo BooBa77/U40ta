@@ -38,7 +38,7 @@
           class="cursor-pointer transition-colors"
           @click="handleRowClick(row)"
         >
-          <td class="px-2 py-2 border-b border-gray-100 text-center align-middle" @click.stop>
+          <td class="w-8 px-2 py-2 border-b border-gray-100 text-center align-middle" @click.stop>
             <input 
               type="checkbox" 
               :checked="row.isActual"

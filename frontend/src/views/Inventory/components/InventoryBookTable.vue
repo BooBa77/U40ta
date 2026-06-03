@@ -15,7 +15,7 @@
               'px-3 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200 cursor-pointer hover:bg-gray-100 transition',
               { 'bg-yellow-50 border-l-2 border-l-yellow-500 border-r-2 border-r-yellow-500': hasFilter('inv_party_combined') }
             ]"
-            style="min-width: 100px; max-width: 300px; width: 100px;"
+            style="min-width: 120px; max-width: 120px; width: 120px;"
           >
             Инв. номер
             <span v-if="hasFilter('inv_party_combined')" class="ml-1 text-amber-600">●</span>
@@ -40,7 +40,7 @@
           class="cursor-pointer transition-colors"
           @click="handleRowClick(row)"
         >
-          <td class="px-2 py-2 border-b border-gray-100 text-center align-middle" @click.stop>
+          <td class="w-8 px-2 py-2 border-b border-gray-100 text-center align-middle" @click.stop>
             <input 
               type="checkbox" 
               :checked="row.isActual"
