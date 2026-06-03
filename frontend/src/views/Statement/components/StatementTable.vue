@@ -4,9 +4,10 @@
       <thead class="sticky top-0 z-10 bg-gray-50">
         <tr>
           <th 
-            class="w-10 px-2 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200"
+            class="w-8 px-2 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200"
           >
             👁️
+            <span class="sr-only">Актуально</span>
           </th>
           <th 
             @click="handleHeaderClick('inv_party_combined')"

@@ -62,7 +62,7 @@ export class InventoryBooksService {
    * @throws ForbiddenException если нет доступа
    * @throws NotFoundException если книга не найдена
    */
-  async getBook(bookId: number, userId: number): Promise<InventoryBook> {
+  async getBook(bookId: number, userId: number): Promise<InventoryBook & { isOwner: boolean }> {
     await this.checkAccess(bookId, userId);
 
     const book = await this.bookRepo.findOne({ where: { id: bookId } });
@@ -71,7 +71,7 @@ export class InventoryBooksService {
       throw new NotFoundException(`Книга с ID ${bookId} не найдена`);
     }
 
-    return book;
+    return { ...book, isOwner: book.idOwner === userId };
   }
 
   /**

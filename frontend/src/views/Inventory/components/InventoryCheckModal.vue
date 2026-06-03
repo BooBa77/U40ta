@@ -5,7 +5,7 @@
         
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           <h3 class="text-lg font-semibold text-gray-900">
-            {{ mode === 'auto' ? 'Подтверждение по QR-коду' : 'Подтверждение наличия' }}
+            {{ modalTitle }}
           </h3>
           <button 
             class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 text-2xl
@@ -23,6 +23,7 @@
           <div class="p-3 bg-gray-50 rounded-lg text-sm flex flex-col gap-1.5">
             <div><span class="text-gray-500">Инв. №:</span> {{ invNumber }}</div>
             <div v-if="partyNumber"><span class="text-gray-500">Партия:</span> {{ partyNumber }}</div>
+            <div v-if="sn && mode === 'auto'"><span class="text-gray-500">SN:</span> {{ sn }}</div>
             <div><span class="text-gray-500">Склад / Завод:</span> {{ sklad }} / {{ zavod }}</div>
             
             <div v-if="locationDisplay">
@@ -43,6 +44,11 @@
               <span v-else-if="idUserOkManualChecked"> #{{ idUserOkManualChecked }}</span>
               {{ formatDate(dateOkManualChecked) }}
             </div>
+
+            <!-- Сообщение для невалидного режима -->
+            <div v-if="mode === 'invalid'" class="text-red-600 mt-2">
+              Данный объект не входит в инвентаризационную ведомость
+            </div>
           </div>
 
           <!-- Существующий комментарий -->
@@ -51,8 +57,8 @@
             <div class="p-3 bg-gray-50 rounded-lg text-sm text-gray-600 whitespace-pre-wrap max-h-[120px] overflow-y-auto">{{ existingRem }}</div>
           </div>
 
-          <!-- Количество -->
-          <div v-if="maxCount > 1" class="flex flex-col gap-2">
+          <!-- Количество (только если не invalid, maxCount > 1, и пачка ещё не подтверждена) -->
+          <div v-if="mode !== 'invalid' && maxCount > 1 && !isOkManual" class="flex flex-col gap-2">
             <label class="text-sm font-medium text-gray-700">Количество</label>
             <div class="flex items-center gap-2">
               <input 
@@ -68,8 +74,13 @@
             <p class="text-xs text-gray-500">Всего записей: {{ maxCount }}</p>
           </div>
 
-          <!-- Новый комментарий -->
-          <div class="flex flex-col gap-2">
+          <!-- Отображаем количество записей даже если поле ввода скрыто -->
+          <div v-if="mode !== 'invalid' && maxCount > 1 && isOkManual" class="flex flex-col gap-1">
+            <p class="text-sm text-gray-500">Всего записей в пачке: {{ maxCount }}</p>
+          </div>
+
+          <!-- Новый комментарий (только если не invalid) -->
+          <div v-if="mode !== 'invalid'" class="flex flex-col gap-2">
             <label class="text-sm font-medium text-gray-700">Новый комментарий</label>
             <textarea
               v-model="newComment"
@@ -89,31 +100,35 @@
         <div v-else class="overflow-y-auto flex-1 p-5 flex items-center justify-center text-gray-500">Загрузка...</div>
 
         <!-- Футер -->
-        <div class="flex gap-2 p-3 border-t border-gray-100 bg-gray-50 shrink-0">
-          <button 
-            @click="handleCancel"
-            class="flex-1 py-3 px-4 bg-white text-gray-700 border border-gray-300 rounded-md text-base font-medium active:bg-gray-50"
-            :disabled="isSaving"
-          >
-            Отмена
-          </button>
+        <div class="flex flex-col gap-2 p-3 border-t border-gray-100 bg-gray-50 shrink-0">
+          <!-- Верхняя строка: Назад и Подтвердить -->
+          <div class="flex gap-2">
+            <button 
+              @click="handleCancel"
+              class="flex-1 py-3 px-4 bg-white text-gray-700 border border-gray-300 rounded-md text-base font-medium active:bg-gray-50"
+              :disabled="isSaving"
+            >
+              Назад
+            </button>
+            
+            <button 
+              v-if="mode === 'manual' || mode === 'auto'"
+              @click="handleSave"
+              class="flex-1 py-3 px-4 bg-blue-500 text-white border border-blue-500 rounded-md text-base font-medium active:bg-blue-600 disabled:opacity-50"
+              :disabled="isSaving || quantity < 1 || quantity > maxCount"
+            >
+              {{ isSaving ? 'Сохранение...' : 'Подтвердить' }}
+            </button>
+          </div>
           
+          <!-- Нижняя строка: Отменить ручное подтверждение (только для владельца) -->
           <button 
             v-if="isOkManual && isOwner"
             @click="handleCancelManual"
-            class="flex-1 py-3 px-4 bg-red-500 text-white border border-red-600 rounded-md text-base font-medium active:bg-red-600 disabled:opacity-50"
+            class="w-full py-3 px-4 bg-red-500 text-white border border-red-600 rounded-md text-base font-medium active:bg-red-600 disabled:opacity-50"
             :disabled="isSaving"
           >
             Отменить ручное подтверждение
-          </button>
-          
-          <button 
-            v-else
-            @click="handleSave"
-            class="flex-1 py-3 px-4 bg-blue-500 text-white border border-blue-500 rounded-md text-base font-medium active:bg-blue-600 disabled:opacity-50"
-            :disabled="isSaving || quantity < 1"
-          >
-            {{ isSaving ? 'Сохранение...' : 'Подтвердить' }}
           </button>
         </div>
 
@@ -129,12 +144,13 @@ import { useCurrentUser } from '@/composables/useCurrentUser'
 
 const props = defineProps({
   isOpen: { type: Boolean, required: true },
-  mode: { type: String, default: 'manual' },
+  mode: { type: String, default: 'manual' }, // 'manual', 'auto', 'invalid'
   itemIds: { type: Array, default: () => [] },
   maxCount: { type: Number, default: 1 },
   bookId: { type: [Number, String], default: null },
   invNumber: { type: String, default: '' },
   partyNumber: { type: String, default: null },
+  sn: { type: String, default: null }, // добавляем SN
   zavod: { type: [Number, String], default: '' },
   sklad: { type: String, default: '' },
   objectData: { type: Object, default: null },
@@ -159,6 +175,12 @@ const isOwner = ref(false)
 const loadingBook = ref(false)
 const okManualAbr = ref(null)
 const okAutoAbr = ref(null)
+
+const modalTitle = computed(() => {
+  if (props.mode === 'auto') return 'Подтверждение по QR-коду'
+  if (props.mode === 'invalid') return 'Объект не найден'
+  return 'Подтверждение наличия'
+})
 
 const locationDisplay = computed(() => {
   if (!props.objectData) return null
@@ -217,6 +239,12 @@ const resetForm = () => {
 }
 
 const loadBookInfo = async () => {
+  // Для invalid режима не загружаем данные книги
+  if (props.mode === 'invalid') {
+    loadingBook.value = false
+    return
+  }
+  
   loadingBook.value = true
   try {
     await fetchUserAbr()
@@ -254,12 +282,23 @@ const handleSave = async () => {
       ? buildComment(props.existingRem, userAbr.value, date, newComment.value.trim())
       : props.existingRem
 
-    await inventoryBookService.confirmItems(props.bookId, idsToConfirm, {
-      isOkManual: props.mode === 'manual',
-      isOkAuto: props.mode === 'auto',
+    // Формируем обновляемые поля
+    const updatePayload = {
       rem,
       ...(props.objectData || {})
-    })
+    }
+
+    // Для auto-режима: передаём только isOkAuto = true (isOkManual не трогаем)
+    if (props.mode === 'auto') {
+      updatePayload.isOkAuto = true
+    }
+    
+    // Для manual-режима: передаём только isOkManual = true (isOkAuto не трогаем)
+    if (props.mode === 'manual') {
+      updatePayload.isOkManual = true
+    }
+
+    await inventoryBookService.confirmItems(props.bookId, idsToConfirm, updatePayload)
 
     emit('save', { confirmedCount: idsToConfirm.length })
     resetForm()

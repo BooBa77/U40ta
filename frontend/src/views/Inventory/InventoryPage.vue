@@ -33,7 +33,7 @@
         @reset="resetCurrentFilter"
       />
 
-      <!-- Модалка детализации группы -->
+      <!-- Модалка детализации группы (список объектов) -->
       <InvListModal
         :is-open="invListIsOpen"
         :inv-number="selectedItem.invNumber"
@@ -43,10 +43,34 @@
         :id-book="bookId"
         @close="handleInvListClose"
         @saved="reload"
+        @openCheckModal="handleOpenCheckModalFromList"
+      />
+
+      <!-- Модалка подтверждения наличия (для ручного, QR и invalid режимов) -->
+      <InventoryCheckModal
+        :is-open="checkModalIsOpen"
+        :mode="checkModalMode"
+        :item-ids="checkModalItemIds"
+        :max-count="checkModalMaxCount"
+        :book-id="bookId"
+        :inv-number="checkModalInvNumber"
+        :party-number="checkModalPartyNumber"
+        :sn="checkModalSn"
+        :zavod="checkModalZavod"
+        :sklad="checkModalSklad"
+        :object-data="checkModalObjectData"
+        :is-ok-manual="checkModalIsOkManual"
+        :is-ok-auto="checkModalIsOkAuto"
+        :date-ok-manual-checked="checkModalDateOkManualChecked"
+        :date-ok-auto-checked="checkModalDateOkAutoChecked"
+        :id-user-ok-manual-checked="checkModalIdUserOkManualChecked"
+        :id-user-ok-auto-checked="checkModalIdUserOkAutoChecked"
+        :existing-rem="checkModalExistingRem"
+        @save="handleCheckSave"
+        @cancel="handleCheckCancel"
       />
 
       <!-- Таблица -->
-
       <InventoryBookTable 
         :key="JSON.stringify(activeFiltersForTable)"
         :items="filteredItems"
@@ -103,6 +127,7 @@ import { useRouter, useRoute } from 'vue-router'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
 import InvListModal from '@/views/Inventory/components/InvListModal.vue'
+import InventoryCheckModal from './components/InventoryCheckModal.vue'
 import InventoryBookTable from './components/InventoryBookTable.vue'
 
 // Композаблы
@@ -111,6 +136,8 @@ import { useInventoryAggregation } from './composables/table/useInventoryAggrega
 import { useTableFilter } from '@/composables/useTableFilter'
 import { useActualManager } from './composables/table/useActualManager'
 import { inventoryBookService } from '@/services/inventory-book.service'
+import { qrService } from '@/services/qr-service'
+import { objectService } from '@/services/object-service'
 
 const route = useRoute()
 const router = useRouter()
@@ -162,7 +189,7 @@ const {
   activeFilters
 } = useTableFilter(aggregatedItems, filterColumns)
 
-// === СОСТОЯНИЕ ДЛЯ OBJECT VIEW ===
+// === СОСТОЯНИЕ ДЛЯ InvListModal ===
 const invListIsOpen = ref(false)
 const selectedItem = ref({
   invNumber: '',
@@ -170,6 +197,25 @@ const selectedItem = ref({
   zavod: 0,
   sklad: ''
 })
+
+// === СОСТОЯНИЕ ДЛЯ InventoryCheckModal ===
+const checkModalIsOpen = ref(false)
+const checkModalMode = ref('manual') // 'manual', 'auto', 'invalid'
+const checkModalItemIds = ref([])
+const checkModalMaxCount = ref(1)
+const checkModalInvNumber = ref('')
+const checkModalPartyNumber = ref(null)
+const checkModalSn = ref(null)
+const checkModalZavod = ref(0)
+const checkModalSklad = ref('')
+const checkModalObjectData = ref(null)
+const checkModalIsOkManual = ref(false)
+const checkModalIsOkAuto = ref(false)
+const checkModalDateOkManualChecked = ref(null)
+const checkModalDateOkAutoChecked = ref(null)
+const checkModalIdUserOkManualChecked = ref(null)
+const checkModalIdUserOkAutoChecked = ref(null)
+const checkModalExistingRem = ref(null)
 
 // === COMPUTED ===
 const activeFiltersForTable = computed(() => {
@@ -202,7 +248,7 @@ const closeFilterModal = () => {
 }
 
 const handleRowClick = (groupParams) => {
-  console.log('[InventoryPage] Клик по строке, открываем ObjectViewModal')
+  console.log('[InventoryPage] Клик по строке, открываем InvListModal')
   
   selectedItem.value = {
     invNumber: groupParams.invNumber,
@@ -227,14 +273,153 @@ const handleInvListClose = () => {
   }, 300)
 }
 
-// === QR-СКАНИРОВАНИЕ В ФУТЕРЕ ===
+// === ОБРАБОТЧИК ИЗ InvListModal (ручной режим) ===
+const handleOpenCheckModalFromList = (payload) => {
+  console.log('[InventoryPage] Открываем InventoryCheckModal из списка:', payload)
+  
+  checkModalMode.value = 'manual'
+  checkModalItemIds.value = payload.itemIds
+  checkModalMaxCount.value = payload.maxCount
+  checkModalObjectData.value = payload.objectData
+  checkModalIsOkManual.value = payload.isOkManual
+  checkModalIsOkAuto.value = payload.isOkAuto
+  checkModalDateOkManualChecked.value = payload.dateOkManualChecked
+  checkModalDateOkAutoChecked.value = payload.dateOkAutoChecked
+  checkModalIdUserOkManualChecked.value = payload.idUserOkManualChecked
+  checkModalIdUserOkAutoChecked.value = payload.idUserOkAutoChecked
+  checkModalExistingRem.value = payload.existingRem
+  
+  // Данные из текущего selectedItem (InvListModal)
+  checkModalInvNumber.value = selectedItem.value.invNumber
+  checkModalPartyNumber.value = selectedItem.value.partyNumber
+  checkModalZavod.value = selectedItem.value.zavod
+  checkModalSklad.value = selectedItem.value.sklad
+  checkModalSn.value = null
+  
+  checkModalIsOpen.value = true
+}
+
+// === ОБРАБОТЧИКИ InventoryCheckModal ===
+const handleCheckSave = async () => {
+  checkModalIsOpen.value = false
+  await reload()
+  // Если модалка открывалась из InvListModal, закрываем и её
+  if (invListIsOpen.value) {
+    invListIsOpen.value = false
+  }
+}
+
+const handleCheckCancel = () => {
+  checkModalIsOpen.value = false
+}
+
+// === QR-СКАНИРОВАНИЕ (автоматический режим) ===
 const handleQrScan = async (qrCode) => {
   console.log('[InventoryPage] QR-скан в футере:', qrCode)
-  // TODO: открыть новую инвентаризационную модалку
+  
+  try {
+    // 1. Ищем QR-код в системе
+    const qrResult = await qrService.findObjectByQrCode(qrCode)
+    
+    if (!qrResult || !qrResult.objectId) {
+      alert('Данный код не зарегистрирован в системе')
+      return
+    }
+    
+    const objectId = qrResult.objectId
+    
+    // 2. Загружаем объект
+    const object = await objectService.getObject(objectId)
+    
+    // 3. Ищем в inventory_book_items записи с таким objectId
+    const allItems = await inventoryBookService.getBookItems(bookId)
+    let foundItem = allItems.find(item => item.idObject === objectId)
+    
+    if (foundItem) {
+      // Нашли по objectId - открываем модалку в auto-режиме с этой записью
+      openCheckModalFromScan([foundItem.id], 1, object, foundItem)
+      return
+    }
+    
+    // 4. Не нашли по objectId - ищем по комбинации полей
+    const candidateItems = allItems.filter(item => 
+      item.invNumber === object.invNumber &&
+      (item.partyNumber === object.partyNumber || (!item.partyNumber && !object.partyNumber)) &&
+      Number(item.zavod) === Number(object.zavod) &&
+      item.sklad === object.sklad
+    )
+    
+    // Отфильтровываем записи с isOkAuto = true
+    let availableItems = candidateItems.filter(item => !item.isOkAuto)
+    
+    if (availableItems.length === 0) {
+      // Все записи уже подтверждены автоматически - invalid
+      openCheckModalFromScan([], 0, object, null)
+      return
+    }
+    
+    // Сортируем: сначала isOkManual = false, потом isOkManual = true
+    availableItems.sort((a, b) => {
+      if (a.isOkManual === b.isOkManual) return 0
+      return a.isOkManual ? 1 : -1
+    })
+    
+    // Берём первую запись
+    const targetItem = availableItems[0]
+    openCheckModalFromScan([targetItem.id], 1, object, targetItem)
+    
+  } catch (error) {
+    console.error('[InventoryPage] Ошибка при обработке QR-кода:', error)
+    alert(error.message || 'Ошибка при обработке QR-кода')
+  }
+}
+
+const openCheckModalFromScan = (itemIds, maxCount, object, existingItem) => {
+  checkModalMode.value = 'auto'
+  checkModalItemIds.value = itemIds
+  checkModalMaxCount.value = maxCount
+  checkModalObjectData.value = object.id ? {
+    idObject: object.id,
+    placeTer: object.placeTer,
+    placePos: object.placePos,
+    placeCab: object.placeCab,
+    placeUser: object.placeUser
+  } : null
+  checkModalInvNumber.value = object.invNumber
+  checkModalPartyNumber.value = object.partyNumber
+  checkModalSn.value = object.sn || null
+  checkModalZavod.value = object.zavod
+  checkModalSklad.value = object.sklad
+  
+  if (existingItem) {
+    checkModalIsOkManual.value = existingItem.isOkManual || false
+    checkModalIsOkAuto.value = existingItem.isOkAuto || false
+    checkModalDateOkManualChecked.value = existingItem.dateOkManualChecked || null
+    checkModalDateOkAutoChecked.value = existingItem.dateOkAutoChecked || null
+    checkModalIdUserOkManualChecked.value = existingItem.idUserOkManualChecked || null
+    checkModalIdUserOkAutoChecked.value = existingItem.idUserOkAutoChecked || null
+    checkModalExistingRem.value = existingItem.rem || null
+  } else {
+    checkModalIsOkManual.value = false
+    checkModalIsOkAuto.value = false
+    checkModalDateOkManualChecked.value = null
+    checkModalDateOkAutoChecked.value = null
+    checkModalIdUserOkManualChecked.value = null
+    checkModalIdUserOkAutoChecked.value = null
+    checkModalExistingRem.value = null
+  }
+  
+  // Если нет itemIds - это invalid режим
+  if (itemIds.length === 0) {
+    checkModalMode.value = 'invalid'
+  }
+  
+  checkModalIsOpen.value = true
 }
 
 const handleScanError = (error) => {
   console.error('[InventoryPage] Ошибка сканирования:', error)
+  alert('Ошибка сканирования: ' + error)
 }
 
 </script>

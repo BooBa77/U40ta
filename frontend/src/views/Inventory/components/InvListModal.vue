@@ -40,18 +40,12 @@
                   <td class="px-2 py-2.5 border-b border-gray-100 text-gray-600">{{ item._locationDisplay }}</td>
                   <td class="px-3 py-2.5 border-b border-gray-100 text-right">
                     <button 
-                      v-if="item._isConfirmed"
-                      @click="openCheckModal(item, 'manual')"
-                      class="px-3 py-1.5 bg-green-100 text-green-700 border border-green-300 rounded-md text-xs font-medium active:bg-green-200"
+                      @click="openCheckModal(item)"
+                      :class="item._isConfirmed 
+                        ? 'px-3 py-1.5 bg-green-100 text-green-700 border border-green-300 rounded-md text-xs font-medium active:bg-green-200'
+                        : 'px-3 py-1.5 bg-blue-500 text-white border border-blue-600 rounded-md text-xs font-medium active:bg-blue-600'"
                     >
-                      Подтверждено
-                    </button>
-                    <button 
-                      v-else
-                      @click="openCheckModal(item, 'manual')"
-                      class="px-3 py-1.5 bg-blue-500 text-white border border-blue-600 rounded-md text-xs font-medium active:bg-blue-600"
-                    >
-                      Подтвердить наличие
+                      {{ item._isConfirmed ? 'Подтверждено' : 'Подтвердить наличие' }}
                     </button>
                   </td>
                 </tr>
@@ -66,34 +60,10 @@
       </div>
     </div>
   </Transition>
-
-  <InventoryCheckModal
-    v-if="checkModalIsOpen"
-    :is-open="checkModalIsOpen"
-    :mode="checkModalMode"
-    :item-ids="selectedItemIds"
-    :max-count="selectedMaxCount"
-    :book-id="idBook"
-    :inv-number="invNumber"
-    :party-number="partyNumber"
-    :zavod="zavod"
-    :sklad="sklad"
-    :object-data="selectedObjectData"
-    :is-ok-manual="selectedIsOkManual"
-    :is-ok-auto="selectedIsOkAuto"
-    :date-ok-manual-checked="selectedDateOkManualChecked"
-    :date-ok-auto-checked="selectedDateOkAutoChecked"
-    :id-user-ok-manual-checked="selectedIdUserOkManualChecked"
-    :id-user-ok-auto-checked="selectedIdUserOkAutoChecked"
-    :existing-rem="selectedExistingRem"
-    @save="handleCheckSave"
-    @cancel="handleCheckCancel"
-  />
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import InventoryCheckModal from './InventoryCheckModal.vue'
 import { objectService } from '@/services/object-service'
 import { inventoryBookService } from '@/services/inventory-book.service'
 
@@ -106,25 +76,12 @@ const props = defineProps({
   idBook: { type: [Number, String], required: true }
 })
 
-const emit = defineEmits(['close', 'saved'])
+const emit = defineEmits(['close', 'saved', 'openCheckModal'])
 
 const isLoading = ref(false)
 const error = ref('')
 const bookItemRows = ref([])
 const objectRows = ref([])
-
-const checkModalIsOpen = ref(false)
-const checkModalMode = ref('manual')
-const selectedItemIds = ref([])
-const selectedMaxCount = ref(1)
-const selectedObjectData = ref(null)
-const selectedIsOkManual = ref(false)
-const selectedIsOkAuto = ref(false)
-const selectedDateOkManualChecked = ref(null)
-const selectedDateOkAutoChecked = ref(null)
-const selectedIdUserOkManualChecked = ref(null)
-const selectedIdUserOkAutoChecked = ref(null)
-const selectedExistingRem = ref(null)
 
 const modalTitle = computed(() => `Инв. № ${props.invNumber} / Склад ${props.sklad}`)
 
@@ -174,7 +131,7 @@ const combinedItems = computed(() => {
         _dateOkAutoChecked: null,
         _idUserOkManualChecked: null,
         _idUserOkAutoChecked: null,
-        _existingRem: null
+        _existingRem: pickFirst(linkedRows, 'rem')
       })
     }
     
@@ -215,7 +172,7 @@ const combinedItems = computed(() => {
       _dateOkAutoChecked: null,
       _idUserOkManualChecked: null,
       _idUserOkAutoChecked: null,
-      _existingRem: null
+      _existingRem: pickFirst(noObjectUnconfirmed, 'rem')
     })
   }
   
@@ -266,29 +223,20 @@ const loadData = async () => {
   }
 }
 
-const openCheckModal = (item, mode) => {
-  checkModalMode.value = mode
-  selectedItemIds.value = item._itemIds
-  selectedMaxCount.value = item._maxCount
-  selectedObjectData.value = item._objectData
-  selectedIsOkManual.value = item._isOkManual
-  selectedIsOkAuto.value = item._isOkAuto
-  selectedDateOkManualChecked.value = item._dateOkManualChecked
-  selectedDateOkAutoChecked.value = item._dateOkAutoChecked
-  selectedIdUserOkManualChecked.value = item._idUserOkManualChecked
-  selectedIdUserOkAutoChecked.value = item._idUserOkAutoChecked
-  selectedExistingRem.value = item._existingRem
-  checkModalIsOpen.value = true
-}
-
-const handleCheckSave = async (result) => {
-  checkModalIsOpen.value = false
-  await loadData()
-  emit('saved', result)
-}
-
-const handleCheckCancel = () => {
-  checkModalIsOpen.value = false
+const openCheckModal = (item) => {
+  emit('openCheckModal', {
+    mode: 'manual',
+    itemIds: item._itemIds,
+    maxCount: item._maxCount,
+    objectData: item._objectData,
+    isOkManual: item._isOkManual,
+    isOkAuto: item._isOkAuto,
+    dateOkManualChecked: item._dateOkManualChecked,
+    dateOkAutoChecked: item._dateOkAutoChecked,
+    idUserOkManualChecked: item._idUserOkManualChecked,
+    idUserOkAutoChecked: item._idUserOkAutoChecked,
+    existingRem: item._existingRem
+  })
 }
 
 const handleClose = () => emit('close')
@@ -321,4 +269,4 @@ watch(() => props.isOpen, async (newVal) => {
 .modal-leave-to .modal-container {
   transform: scale(0.95) translateY(-5px);
 }
-</style>
+</style>  
