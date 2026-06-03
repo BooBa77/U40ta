@@ -1,6 +1,6 @@
 <template>
   <div class="statement-table flex-1 min-h-[300px] max-h-full border border-gray-200 rounded-lg bg-white overflow-auto relative">
-    <table class="w-full border-collapse table-fixed min-w-[350px]">
+    <table class="w-full border-collapse table-fixed min-w-[350px] debug-cells">
       <thead class="sticky top-0 z-10 bg-gray-50">
         <tr>
           <th 
@@ -48,7 +48,7 @@
               class="w-4 h-4 accent-blue-500 cursor-pointer"
             />
           </td>
-          <td class="px-3 py-2 border-b border-gray-100 align-middle">
+          <td class="px-2 py-2 border-b border-gray-100 align-middle">
             <div class="inv-party-cell leading-tight">
               <div class="inv-number font-medium mb-0.5">{{ row.invNumber || '—' }}</div>
               <div class="party-number text-xs text-gray-500">
@@ -174,6 +174,17 @@ const handleActualChange = (row, checked) => {
 </script>
 
 <style>
+.debug-cells th {
+  outline: 2px solid red;
+  outline-offset: -2px;
+}
+
+.debug-cells td {
+  outline: 2px solid blue;
+  outline-offset: -2px;
+}
+
+
 .statement-table {
   @media (max-width: 768px) {
     height: calc(100vh - 160px);
