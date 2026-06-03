@@ -15,7 +15,7 @@
               'px-3 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200 cursor-pointer hover:bg-gray-100 transition',
               { 'bg-yellow-50 border-l-2 border-l-yellow-500 border-r-2 border-r-yellow-500': hasFilter('inv_party_combined') }
             ]"
-            style="min-width: 100px; max-width: 300px; width: 100px;"
+            style="min-width: 100px; max-width: 100px; width: 100px;"
           >
             Инв. номер
           </th>
