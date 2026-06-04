@@ -43,6 +43,18 @@ class OfflineSyncService {
     })
   }
 
+  /**
+   * Получает логи, относящиеся к конкретной строке инвентаризационной книги.
+   * @param {number} inventoryBookItemId — idInventoryStatement
+   * @returns {Promise<Array>}
+   */
+  async getLogsByInventoryBookItemId(inventoryBookItemId) {
+    return await offlineCache.getLogsByFilter({
+      source: 'inventory-history',
+      content: { inventoryBookItemId }
+    })
+  }
+
   // ============================================================================
   // ФОРМИРОВАНИЕ CHANGES
   // ============================================================================
@@ -168,23 +180,96 @@ class OfflineSyncService {
   }
 
   // ============================================================================
+  // ФОРМИРОВАНИЕ INVENTORY BOOK ITEM CHANGES
+  // ============================================================================
+
+  /**
+   * Подготавливает массив inventoryBookItemChanges для отправки на бэкенд.
+   * 1. Собирает все затронутые inventoryBookItemId из логов inventory-history.
+   * 2. Для каждого находит актуальное состояние в кэше.
+   * 3. Собирает связанные логи.
+   * @returns {Promise<Array>} массив изменений строк инвентаризационных книг
+   */
+  async prepareInventoryBookItemChanges() {
+    console.log('[OfflineSyncService] Подготовка inventoryBookItemChanges для синхронизации...')
+
+    // Шаг 1: собираем все затронутые inventoryBookItemId из логов
+    const allLogs = await this.getAllLogs()
+    const affectedItemIds = new Set()
+
+    for (const log of allLogs) {
+      if (log.source === 'inventory-history') {
+        const content = log.content
+        if (content && typeof content === 'object' && content.inventoryBookItemId !== undefined) {
+          affectedItemIds.add(content.inventoryBookItemId)
+        }
+      }
+    }
+
+    if (affectedItemIds.size === 0) {
+      console.log('[OfflineSyncService] Нет изменённых строк инвентаризационных книг')
+      return []
+    }
+
+    console.log(`[OfflineSyncService] Затронуто строк книг: ${affectedItemIds.size}`)
+
+    const inventoryBookItemChanges = []
+
+    for (const idInventoryStatement of affectedItemIds) {
+      // Шаг 2: получаем актуальное состояние из кэша
+      const item = await offlineCache.getInventoryBookItemByStatementId(idInventoryStatement)
+      if (!item) {
+        console.warn(`[OfflineSyncService] Строка с idInventoryStatement=${idInventoryStatement} не найдена в кэше, пропускаем`)
+        continue
+      }
+
+      // Шаг 3: собираем связанные логи
+      const itemLogs = await this.getLogsByInventoryBookItemId(idInventoryStatement)
+
+      inventoryBookItemChanges.push({
+        idInventoryStatement: item.idInventoryStatement,
+        idObject: item.idObject,
+        placeTer: item.placeTer,
+        placePos: item.placePos,
+        placeCab: item.placeCab,
+        placeUser: item.placeUser,
+        isOkManual: item.isOkManual,
+        isOkAuto: item.isOkAuto,
+        dateOkManualChecked: item.dateOkManualChecked,
+        dateOkAutoChecked: item.dateOkAutoChecked,
+        rem: item.rem,
+        logs: itemLogs.map(l => ({ source: l.source, time: l.time, content: l.content }))
+      })
+    }
+
+    console.log(`[OfflineSyncService] Подготовлено ${inventoryBookItemChanges.length} строк книг для синхронизации`)
+    return inventoryBookItemChanges
+  }
+
+  // ============================================================================
   // ОТПРАВКА CHANGES НА БЭКЕНД
   // ============================================================================
 
   /**
    * Отправляет подготовленный массив changes на бэкенд.
    * @param {Array} changes — массив объектов для синхронизации
+   * @param {Array} inventoryBookItemChanges — массив изменений строк книг
    * @returns {Promise<{success: boolean, message?: string}>}
    */
-  async syncChanges(changes) {
+  async syncChanges(changes, inventoryBookItemChanges = []) {
     const token = localStorage.getItem('auth_token')
     if (!token) {
       throw new Error('Токен авторизации не найден')
     }
 
-    console.log(`[OfflineSyncService] Отправка ${changes.length} изменений на сервер...`)
-    const body = { changes }
-    console.log('[OfflineSyncService] Отправляем на сервер:', JSON.stringify(body, null, 2))    
+    console.log(`[OfflineSyncService] Отправка ${changes.length} объектов и ${inventoryBookItemChanges.length} строк книг на сервер...`)
+
+    const body = { 
+      changes,
+      inventoryBookItemChanges 
+    }
+    
+    console.log('[OfflineSyncService] Отправляем на сервер:', JSON.stringify(body, null, 2))
 
     const response = await fetch(`${this.baseUrl}/offline/sync`, {
       method: 'POST',
@@ -192,7 +277,7 @@ class OfflineSyncService {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ changes })
+      body: JSON.stringify(body)
     })
 
     if (!response.ok) {
@@ -216,7 +301,7 @@ class OfflineSyncService {
   /**
    * Выполняет полный цикл синхронизации при выходе из офлайна:
    * 1. Проверяет, есть ли изменения
-   * 2. Формирует changes
+   * 2. Формирует changes и inventoryBookItemChanges
    * 3. Отправляет на сервер
    * 4. Возвращает результат
    * @returns {Promise<{success: boolean, syncedCount: number, message?: string}>}
@@ -226,14 +311,19 @@ class OfflineSyncService {
 
     try {
       const changes = await this.prepareChanges()
+      const inventoryBookItemChanges = await this.prepareInventoryBookItemChanges()
 
-      if (changes.length === 0) {
+      if (changes.length === 0 && inventoryBookItemChanges.length === 0) {
         console.log('[OfflineSyncService] Нет изменений для синхронизации')
         return { success: true, syncedCount: 0 }
       }
 
-      const result = await this.syncChanges(changes)
-      return { success: true, syncedCount: changes.length, ...result }
+      const result = await this.syncChanges(changes, inventoryBookItemChanges)
+      return { 
+        success: true, 
+        syncedCount: changes.length + inventoryBookItemChanges.length, 
+        ...result 
+      }
     } catch (error) {
       console.error('[OfflineSyncService] Ошибка синхронизации:', error)
       return { success: false, syncedCount: 0, message: error.message }

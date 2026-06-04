@@ -1,6 +1,6 @@
 <template>
   <div class="statement-table flex-1 min-h-[300px] max-h-full border border-gray-200 rounded-lg bg-white overflow-auto relative">
-    <table class="w-full border-collapse table-fixed min-w-[350px] debug-cells">
+    <table class="w-full border-collapse table-fixed min-w-[350px]">
       <thead class="sticky top-0 z-10 bg-gray-50">
         <tr>
           <th 

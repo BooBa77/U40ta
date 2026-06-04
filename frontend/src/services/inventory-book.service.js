@@ -6,6 +6,7 @@
  * Офлайн-режим (flightMode = true): все операции в IndexedDB
  */
 import { offlineCache } from './offline-cache-service'
+import { logsService } from './logs-service'
 
 export class InventoryBookService {
   constructor() {
@@ -505,13 +506,43 @@ export class InventoryBookService {
    */
   async confirmItemsInCache(bookId, itemIds, data) {
     try {
-      await offlineCache.confirmInventoryBookItems(bookId, itemIds, data)
+      const updatedItems = await offlineCache.confirmInventoryBookItems(bookId, itemIds, data)
+      
+      // Логируем изменения для каждой обновлённой строки
+      for (const item of updatedItems) {
+        let eventType, storyLine
+        
+        if (data.isOkManual === false) {
+          eventType = 'manualCancel'
+          storyLine = 'Ручное подтверждение отменено'
+        } else if (data.isOkManual === true) {
+          eventType = 'manualConfirm'
+          storyLine = 'Подтверждено вручную'
+        } else if (data.isOkAuto === true) {
+          eventType = 'autoConfirm'
+          storyLine = 'Подтверждено по QR-коду'
+        } else {
+          eventType = 'updated'
+          storyLine = 'Обновлены данные строки'
+        }
+        
+        if (data.rem !== undefined) {
+          storyLine += data.rem ? `. Комментарий: ${data.rem}` : '. Комментарий очищен'
+        }
+        
+        await logsService.addInventoryBookItemHistory(
+          item.idInventoryStatement,
+          eventType,
+          storyLine
+        )
+      }
+      
       return { success: true, confirmedCount: itemIds.length }
     } catch (error) {
       console.error('[InventoryBookService] Ошибка подтверждения в кэше:', error)
       throw new Error('Не удалось подтвердить строки в кэше')
     }
-  }  
+  } 
 }
 
 // Экспортируем синглтон

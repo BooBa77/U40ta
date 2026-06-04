@@ -1,6 +1,7 @@
-import { IsArray, ValidateNested } from 'class-validator';
+import { IsArray, ValidateNested, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SyncObjectDto } from './sync-object.dto';
+import { SyncInventoryBookItemDto } from './sync-inventory-book-item.dto';
 
 /*
 export class SyncChangesRequestDto {
@@ -8,15 +9,15 @@ export class SyncChangesRequestDto {
   @ValidateNested({ each: true })
   @Type(() => SyncObjectDto)
   changes!: SyncObjectDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SyncInventoryBookItemDto)
+  @IsOptional()
+  inventoryBookItemChanges?: SyncInventoryBookItemDto[];
 }
 */
-/*
 export class SyncChangesRequestDto {
-  @IsArray()
   changes!: any[];
-}
-*/
-export class SyncChangesRequestDto {
-  @IsArray()
-  changes!: SyncObjectDto[];
+  inventoryBookItemChanges?: any[];
 }

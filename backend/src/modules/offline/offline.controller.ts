@@ -111,7 +111,8 @@ export class OfflineController {
   //@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }))
   async syncChanges(
     @Req() request: any,
-    @Body() body: SyncChangesRequestDto,
+    @Body() body: any,
+    //@Body() body: SyncChangesRequestDto,
   ) {
     console.log('[OfflineController] raw body:', JSON.stringify(body, null, 2));
     try {

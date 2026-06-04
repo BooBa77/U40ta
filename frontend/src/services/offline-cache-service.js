@@ -5,8 +5,8 @@ class OfflineCacheService {
   constructor() {
     this.db = new Dexie('u40ta_offline_db')
     
-    // Версия 5: актуальная схема со всеми таблицами и полями
-    this.db.version(5).stores({
+    // Версия 6: добавлен idInventoryStatement
+    this.db.version(6).stores({
       email_attachments: 'id, filename, emailFrom, receivedAt, docType, zavod, sklad, inProcess, isInventory',
       objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser',
       processed_statements: 'id, emailAttachmentId, zavod, sklad, docType, invNumber, partyNumber, buhName, haveObject, isActual, isExcess',
@@ -14,7 +14,7 @@ class OfflineCacheService {
       photos: '++id, objectId',
       logs: '++id, source, time, content',
       inventory_books: 'id, createdAt, idOwner',
-      inventory_book_items: 'id, idBook, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto, dateOkManualChecked, dateOkAutoChecked, placeTer, placePos, placeCab, placeUser, rem'
+      inventory_book_items: 'id, idBook, idInventoryStatement, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto, dateOkManualChecked, dateOkAutoChecked, placeTer, placePos, placeCab, placeUser, rem'
     })
   }
 
@@ -555,6 +555,42 @@ class OfflineCacheService {
     await this.db.logs.add(logEntry)
   }
 
+  /**
+   * Получает все логи из кэша
+   * @returns {Promise<Array>}
+   */
+  async getAllLogs() {
+    return await this.db.logs.toArray()
+  }
+
+  /**
+   * Получает логи по фильтру
+   * @param {Object} filter - Объект с полями для фильтрации
+   * @param {string} [filter.source] - Тип лога (object-history, qr-code-history, inventory-book-item-history и т.д.)
+   * @param {Object} [filter.content] - Поля content для фильтрации (ключ-значение)
+   * @returns {Promise<Array>} Массив логов, соответствующих фильтру
+   */
+  async getLogsByFilter(filter) {
+    let logs = await this.db.logs.toArray()
+    
+    if (filter.source) {
+      logs = logs.filter(log => log.source === filter.source)
+    }
+    
+    if (filter.content) {
+      logs = logs.filter(log => {
+        const logContent = log.content
+        if (!logContent || typeof logContent !== 'object') return false
+        
+        return Object.entries(filter.content).every(([key, value]) => {
+          return logContent[key] === value
+        })
+      })
+    }
+    
+    return logs
+  }
+
   // ============================================================================
   // РАБОТА С ИНВЕНТАРИЗАЦИОННЫМИ КНИГАМИ (inventory_books)
   // ============================================================================
@@ -595,6 +631,29 @@ class OfflineCacheService {
   }
 
   /**
+   * Находит строку инвентаризационной книги по idInventoryStatement
+   * @param {number} idInventoryStatement - ID строки инвентаризационной ведомости
+   * @returns {Promise<Object|null>} Строка книги или null
+   */
+  async getInventoryBookItemByStatementId(idInventoryStatement) {
+    return await this.db.inventory_book_items
+      .where('idInventoryStatement')
+      .equals(idInventoryStatement)
+      .first()
+  }
+
+  /**
+   * Обновляет строку инвентаризационной книги по ID
+   * @param {number} id - ID строки книги
+   * @param {Object} updates - Поля для обновления
+   * @returns {Promise<Object>} Обновлённая строка книги
+   */
+  async updateInventoryBookItem(id, updates) {
+    await this.db.inventory_book_items.update(id, updates)
+    return await this.db.inventory_book_items.get(id)
+  }
+
+  /**
    * Обновляет поле isActual для всех строк книги с указанным invNumber
    * @param {number} bookId - ID книги
    * @param {string} invNumber - Инвентарный номер
@@ -623,6 +682,62 @@ class OfflineCacheService {
     }
     
     console.log(`[OfflineCache] Обновлено ${itemsToUpdate.length} строк в книге ${bookId}: invNumber=${invNumber}, isActual=${isActual}`)
+  }
+
+  /**
+   * Подтверждает наличие для указанных строк инвентаризационной книги в кэше
+   * @param {number} bookId - ID книги
+   * @param {Array<number>} itemIds - ID строк для подтверждения
+   * @param {Object} data - Данные подтверждения
+   * @param {boolean} [data.isOkManual] - Ручное подтверждение
+   * @param {boolean} [data.isOkAuto] - Автоматическое подтверждение
+   * @param {string} [data.rem] - Комментарий
+   * @param {number} [data.idObject] - ID объекта
+   * @param {string} [data.placeTer] - Территория
+   * @param {string} [data.placePos] - Здание
+   * @param {string} [data.placeCab] - Кабинет
+   * @param {string} [data.placeUser] - Пользователь
+   * @returns {Promise<Array>} Массив обновлённых строк книги
+   */
+  async confirmInventoryBookItems(bookId, itemIds, data) {
+    const updatedItems = []
+    const now = new Date().toISOString()
+    
+    for (const itemId of itemIds) {
+      const item = await this.db.inventory_book_items.get(itemId)
+      if (!item) {
+        console.warn(`[OfflineCache] Строка книги ${itemId} не найдена в кэше`)
+        continue
+      }
+      
+      // Обновляем данные объекта
+      if (data.idObject !== undefined) item.idObject = data.idObject
+      if (data.placeTer !== undefined) item.placeTer = data.placeTer
+      if (data.placePos !== undefined) item.placePos = data.placePos
+      if (data.placeCab !== undefined) item.placeCab = data.placeCab
+      if (data.placeUser !== undefined) item.placeUser = data.placeUser
+      
+      // Обновляем комментарий
+      if (data.rem !== undefined) item.rem = data.rem
+      
+      // Обновляем ручное подтверждение
+      if (data.isOkManual !== undefined) {
+        item.isOkManual = data.isOkManual
+        item.dateOkManualChecked = data.isOkManual ? now : null
+      }
+      
+      // Обновляем автоматическое подтверждение
+      if (data.isOkAuto !== undefined) {
+        item.isOkAuto = data.isOkAuto
+        item.dateOkAutoChecked = data.isOkAuto ? now : null
+      }
+      
+      await this.db.inventory_book_items.put(item)
+      updatedItems.push(item)
+    }
+    
+    console.log(`[OfflineCache] Подтверждено ${updatedItems.length} строк в книге ${bookId}`)
+    return updatedItems
   }
 }
 

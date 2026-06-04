@@ -149,6 +149,88 @@ export class LogsService {
   }
 
   //============================================================================
+  // ИСТОРИЯ ИНВЕНТАРИЗАЦИОННЫХ КНИГ (СТРОК)
+  //============================================================================
+
+  /**
+   * Менеджер: добавляет запись в историю изменений строки инвентаризационной книги.
+   * @param {number} inventoryBookItemId — ID строки книги (idInventoryStatement).
+   * @param {string} eventType — тип события (manualConfirm, manualCancel, autoConfirm, commentAdded и т.д.).
+   * @param {string} storyLine — текстовая запись об изменении.
+   * @returns {Promise<boolean>} true если запись добавлена успешно.
+   */
+  async addInventoryBookItemHistory(inventoryBookItemId, eventType, storyLine) {
+    if (!inventoryBookItemId || isNaN(inventoryBookItemId)) {
+      console.error('[LogsService] Некорректный inventoryBookItemId:', inventoryBookItemId)
+      return false
+    }
+
+    console.log(`[LogsService] Добавление записи для строки книги ${inventoryBookItemId}:`, storyLine)
+
+    const payload = {
+      inventoryBookItemId: Number(inventoryBookItemId),
+      eventType,
+      storyLine
+    }
+
+    return this.isFlightMode()
+      ? this.addToCache('inventory-history', payload)
+      : this.addToApi('inventory-history', payload)
+  }
+
+  /**
+   * Исполнитель для онлайн: отправляет лог через API.
+   * @param {Object} data — данные в camelCase.
+   * @returns {Promise<boolean>}
+   */
+  async addInventoryBookItemHistoryToApi(data) {
+    return this.addToApi('inventory-history', data)
+  }
+
+  /**
+   * Исполнитель для офлайн: сохраняет лог в IndexedDB.
+   * @param {Object} data — данные в camelCase.
+   * @returns {Promise<boolean>}
+   */
+  async addInventoryBookItemHistoryToCache(data) {
+    return this.addToCache('inventory-history', data)
+  }
+
+  /**
+   * Менеджер: получает историю строки инвентаризационной книги.
+   * @param {number} inventoryBookItemId — ID строки книги (idInventoryStatement).
+   * @returns {Promise<Array>} массив записей истории в camelCase.
+   */
+  async getInventoryBookItemHistory(inventoryBookItemId) {
+    return this.isFlightMode()
+      ? this.getInventoryBookItemHistoryFromCache(inventoryBookItemId)
+      : this.getInventoryBookItemHistoryFromApi(inventoryBookItemId)
+  }
+
+  /**
+   * Исполнитель для офлайн: получает историю из IndexedDB.
+   * @param {number} inventoryBookItemId
+   * @returns {Promise<Array>}
+   */
+  async getInventoryBookItemHistoryFromCache(inventoryBookItemId) {
+    const dbLogs = await offlineCache.getLogsByFilter({
+      source: 'inventory-history',
+      content: { inventoryBookItemId: inventoryBookItemId }
+    })
+    return dbLogs
+  }
+
+  /**
+   * Исполнитель для онлайн: получает историю через API.
+   * @param {number} inventoryBookItemId
+   * @returns {Promise<Array>}
+   */
+  async getInventoryBookItemHistoryFromApi(inventoryBookItemId) {
+    const data = await this.apiRequest(`/inventory-history/${inventoryBookItemId}`)
+    return data.history || []
+  }
+
+  //============================================================================
   // УНИВЕРСАЛЬНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ЛОГАМИ В API и IndexedDB
   //============================================================================
 
