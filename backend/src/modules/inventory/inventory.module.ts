@@ -13,6 +13,7 @@ import { InventoryStatementsService } from './services/inventory-statements.serv
 import { InventoryBooksService } from './services/inventory-books.service';
 import { RevisorAccessService } from './services/revisor-access.service';
 import { UsersModule } from '../users/users.module';
+import { EmailModule } from '../email/email.module';
 
 /**
  * Модуль инвентаризации.
@@ -41,6 +42,7 @@ import { UsersModule } from '../users/users.module';
     JwtAuthModule,
     AppEventsModule,
     UsersModule,
+    EmailModule,
   ],
   controllers: [InventoryController],
   providers: [

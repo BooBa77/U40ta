@@ -7,6 +7,9 @@ import { InventoryBook } from '../entities/inventory-book.entity';
 import { InventoryBookItem } from '../entities/inventory-book-item.entity';
 import { RevisorAccessService } from './revisor-access.service';
 import { AppEventsService } from '../../app-events/app-events.service';
+import * as XLSX from 'xlsx';
+import { SmtpService } from '../../email/services/smtp.service';
+import { UsersService } from 'src/modules/users/users.service';
 
 /**
  * Сервис для работы с инвентаризационными книгами.
@@ -27,6 +30,8 @@ export class InventoryBooksService {
     private readonly revisorAccessService: RevisorAccessService,
     private readonly inventoryStatementsService: InventoryStatementsService,
     private readonly appEventsService: AppEventsService,
+    private readonly smtpService: SmtpService,
+    private readonly usersService: UsersService,
   ) {}
 
   /**
@@ -368,5 +373,197 @@ export class InventoryBooksService {
     );
 
     return { success: true, confirmedCount };
+  }
+
+  // ============================================================================
+  // ВЫГРУЗКА КНИГИ В EXCEL
+  // ============================================================================
+
+  /**
+   * Выгрузить книгу в Excel и отправить файл на почту пользователю.
+   * 
+   * ## Процесс
+   * 1. Проверяет доступ пользователя к книге
+   * 2. Получает книгу и все её строки
+   * 3. Собирает уникальные ID ревизоров, получает их аббревиатуры через UsersService
+   * 4. Формирует массив строк для Excel с читаемыми заголовками
+   * 5. Создаёт Excel-файл в Buffer через библиотеку xlsx
+   * 6. Настраивает ширину колонок под содержимое
+   * 7. Отправляет файл на email пользователя через SmtpService
+   * 
+   * ## Формат Excel
+   * 17 колонок: Завод, Склад, Инвентарный номер, Партия, Название,
+   * Территория, Позиция, Кабинет, Пользователь, Участвует,
+   * Подтверждено (ручное), Ревизор, Дата (ручное),
+   * Подтверждено (авто), Ревизор (авто), Дата (авто), Примечание
+   * 
+   * ## Имя файла
+   * Формат: НазваниеКниги_ГГГГММДДЧЧММ.xlsx
+   * Недопустимые символы в названии заменяются на '_'
+   * 
+   * @param bookId - ID книги для выгрузки
+   * @param userId - ID пользователя (для проверки доступа)
+   * @param userEmail - email пользователя-получателя
+   * @returns Объект с результатом: success и сообщение
+   * @throws ForbiddenException если нет доступа
+   * @throws NotFoundException если книга не найдена
+   */
+  async exportBookToExcel(
+    bookId: number,
+    userId: number,
+    userEmail: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // ========== Шаг 1: Проверяем доступ ==========
+    await this.checkAccess(bookId, userId);
+
+    // ========== Шаг 2: Получаем книгу и строки ==========
+    const book = await this.bookRepo.findOne({ where: { id: bookId } });
+    if (!book) {
+      throw new NotFoundException(`Книга с ID ${bookId} не найдена`);
+    }
+
+    const items = await this.getBookItems(bookId, userId);
+
+    if (items.length === 0) {
+      return { success: false, message: 'Книга пуста' };
+    }
+
+    // ========== Шаг 3: Собираем аббревиатуры ревизоров ==========
+    // Уникальные ID из полей ручного и автоматического подтверждения
+    const userIds = new Set<number>();
+    for (const item of items) {
+      if (item.idUserOkManualChecked) userIds.add(item.idUserOkManualChecked);
+      if (item.idUserOkAutoChecked) userIds.add(item.idUserOkAutoChecked);
+    }
+
+    // Кэш id -> abr (при ошибке используем id как строку)
+    const abrMap = new Map<number, string>();
+    for (const uid of userIds) {
+      try {
+        const user = await this.usersService.findById(uid);
+        abrMap.set(uid, user?.abr || String(uid));
+      } catch {
+        abrMap.set(uid, String(uid));
+      }
+    }
+
+    // ========== Шаг 4: Описываем колонки Excel ==========
+    const columns = [
+      { key: 'zavod',            header: 'Завод' },
+      { key: 'sklad',            header: 'Склад' },
+      { key: 'invNumber',        header: 'Инвентарный номер' },
+      { key: 'partyNumber',      header: 'Партия' },
+      { key: 'buhName',          header: 'Название' },
+      { key: 'placeTer',         header: 'Территория' },
+      { key: 'placePos',         header: 'Позиция' },
+      { key: 'placeCab',         header: 'Кабинет' },
+      { key: 'placeUser',        header: 'Пользователь' },
+      { key: 'isActual',         header: 'Участвует' },
+      { key: 'isOkManual',       header: 'Подтверждено (ручное)' },
+      { key: 'revisorManual',    header: 'Ревизор' },
+      { key: 'dateManual',       header: 'Дата (ручное)' },
+      { key: 'isOkAuto',         header: 'Подтверждено (авто)' },
+      { key: 'revisorAuto',      header: 'Ревизор (авто)' },
+      { key: 'dateAuto',         header: 'Дата (авто)' },
+      { key: 'rem',              header: 'Примечание' },
+    ];
+
+    // ========== Шаг 5: Формируем строки данных ==========
+    const rows = items.map(item => ({
+      zavod:           item.zavod,
+      sklad:           item.sklad,
+      invNumber:       item.invNumber,
+      partyNumber:     item.partyNumber || '',
+      buhName:         item.buhName,
+      placeTer:        item.placeTer || '',
+      placePos:        item.placePos || '',
+      placeCab:        item.placeCab || '',
+      placeUser:       item.placeUser || '',
+      isActual:        item.isActual ? 'Да' : 'Нет',
+      isOkManual:      item.isOkManual ? 'Да' : 'Нет',
+      revisorManual:   item.idUserOkManualChecked ? (abrMap.get(item.idUserOkManualChecked) || '') : '',
+      dateManual:      item.dateOkManualChecked ? this.formatDate(item.dateOkManualChecked) : '',
+      isOkAuto:        item.isOkAuto ? 'Да' : 'Нет',
+      revisorAuto:     item.idUserOkAutoChecked ? (abrMap.get(item.idUserOkAutoChecked) || '') : '',
+      dateAuto:        item.dateOkAutoChecked ? this.formatDate(item.dateOkAutoChecked) : '',
+      rem:             item.rem || '',
+    }));
+
+    // ========== Шаг 6: Создаём Excel-лист ==========
+    const worksheet = XLSX.utils.json_to_sheet(rows, { header: columns.map(c => c.key) });
+
+    // Заменяем ключи на читаемые заголовки в первой строке
+    XLSX.utils.sheet_add_aoa(worksheet, [columns.map(c => c.header)], { origin: 'A1' });
+
+    // ========== Шаг 7: Настраиваем ширину колонок ==========
+    const colWidths = columns.map((col, colIndex) => {
+      let maxLen = col.header.length;
+      for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+        const val = rows[rowIndex][col.key];
+        const len = String(val ?? '').length;
+        if (len > maxLen) maxLen = len;
+      }
+      return { wch: Math.min(maxLen + 2, 50) };
+    });
+    worksheet['!cols'] = colWidths;
+
+    // ========== Шаг 8: Создаём книгу и пишем в Buffer ==========
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Инвентаризация');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // ========== Шаг 9: Формируем имя файла ==========
+    const now = new Date();
+    const timestamp =
+      String(now.getFullYear()) +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0');
+
+    // Заменяем недопустимые символы в названии книги
+    const safeName = book.name.replace(/[^a-zA-Zа-яА-Я0-9 _-]/g, '_');
+    const filename = `${safeName}_${timestamp}.xlsx`;
+
+    // ========== Шаг 10: Отправляем письмо с вложением ==========
+    const result = await this.smtpService.sendEmail(
+      userEmail,
+      `Выгрузка инвентаризации: ${book.name}`,
+      `Инвентаризационная книга "${book.name}" во вложении.\n\n` +
+      `Сформировано: ${now.toLocaleString('ru-RU')}`,
+      [
+        {
+          filename,
+          content: buffer,
+        },
+      ],
+    );
+
+    this.logger.log(
+      `Книга ${bookId} выгружена в Excel и отправлена на ${userEmail}`
+    );
+
+    return {
+      success: result.success,
+      message: result.success ? 'Направлено Вам на почту' : 'Ошибка при отправке',
+    };
+  }
+
+  /**
+   * Форматировать дату для Excel в формате ДД.ММ.ГГГГ ЧЧ:ММ.
+   * 
+   * @param date - объект Date или строка даты
+   * @returns Отформатированная строка
+   */
+  private formatDate(date: Date): string {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month}.${year} ${hours}:${minutes}`;
   }  
+
 }

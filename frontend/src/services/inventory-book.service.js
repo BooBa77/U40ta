@@ -542,7 +542,39 @@ export class InventoryBookService {
       console.error('[InventoryBookService] Ошибка подтверждения в кэше:', error)
       throw new Error('Не удалось подтвердить строки в кэше')
     }
-  } 
+  }
+
+  // ============================================================================
+  // ВЫГРУЗКА КНИГИ В EXCEL
+  // ============================================================================
+
+  /**
+   * Выгрузить книгу в Excel и отправить на почту текущему пользователю.
+   * Только онлайн.
+   * 
+   * POST /api/inventory/books/:id/export-excel
+   * 
+   * @param {string|number} bookId - ID книги
+   * @returns {Promise<Object>} { success: boolean, message: string }
+   */
+  async exportBookToExcel(bookId) {
+    if (this.isFlightMode()) {
+      throw new Error('Выгрузка в Excel недоступна в офлайн-режиме')
+    }
+
+    const id = Number(bookId)
+
+    try {
+      const data = await this.apiRequest(`/inventory/books/${id}/export-excel`, {
+        method: 'POST'
+      })
+      return data
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка выгрузки в Excel:', error)
+      throw error
+    }
+  }  
+
 }
 
 // Экспортируем синглтон

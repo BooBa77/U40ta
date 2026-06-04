@@ -329,5 +329,39 @@ export class InventoryController {
     );
     
     return { success: true };
+  }
+  
+  // ============================================================================
+  // ВЫГРУЗКА КНИГИ В EXCEL
+  // ============================================================================
+
+  /**
+   * Выгрузить книгу в Excel и отправить файл на почту текущему пользователю.
+   * 
+   * ## Процесс
+   * 1. Получает email пользователя из JWT через getUserEmail
+   * 2. Вызывает InventoryBooksService.exportBookToExcel
+   * 3. Возвращает результат (success + сообщение для пользователя)
+   * 
+   * POST /api/inventory/books/:id/export-excel
+   * 
+   * @param request - запрос с JWT-токеном
+   * @param id - ID книги
+   * @returns Объект { success: boolean, message: string }
+   */
+  @Post('books/:id/export-excel')
+  @HttpCode(HttpStatus.OK)
+  async exportBookToExcel(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number,
+  ): Promise<{ success: boolean; message: string }> {
+    const userId = request.user.sub;
+    const userEmail = await this.getUserEmail(request);
+
+    if (!userEmail) {
+      return { success: false, message: 'Не удалось определить email пользователя' };
+    }
+
+    return await this.inventoryBooksService.exportBookToExcel(id, userId, userEmail);
   }  
 }
