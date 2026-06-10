@@ -15,20 +15,42 @@
     <!-- Список кнопок-утилит -->
     <main class="flex-1 overflow-y-auto p-4">
       <div class="flex flex-col gap-3">
-        <!-- Кнопка 1 (заглушка) -->
+
+        <!-- Кнопка "возможно произошло вовлечение" -->
         <button
-          class="w-full py-4 px-4 bg-gray-200 text-gray-400 border border-gray-300 rounded-lg
-                 text-base font-medium cursor-not-allowed text-left"
-          disabled
+          :class="[
+            'w-full py-4 px-4 border rounded-lg text-base font-medium text-left transition',
+            isInvolvementActive
+              ? 'bg-gray-900 text-white border-gray-900 active:bg-black cursor-pointer'
+              : 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+          ]"
+          :disabled="!isInvolvementActive"
+          @click="handleInvolvement"
         >
-          Кнопка 1
+          Возможно произошло вовлечение
         </button>
+
+        <!-- Кнопка "возможно произошло перемещение" -->
+        <button
+          :class="[
+            'w-full py-4 px-4 border rounded-lg text-base font-medium text-left transition',
+            isMovementActive
+              ? 'bg-gray-900 text-white border-gray-900 active:bg-black cursor-pointer'
+              : 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+          ]"
+          :disabled="!isMovementActive"
+          @click="handleMovement"
+        >
+          Возможно произошло перемещение
+        </button>
+
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -38,5 +60,33 @@ const router = useRouter()
  */
 const handleBack = () => {
   router.push('/')
+}
+
+// ============================================================================
+// УСЛОВИЯ АКТИВАЦИИ КНОПОК (заглушки)
+// ============================================================================
+
+/** Условие: возможно произошло вовлечение */
+const isInvolvementActive = ref(true) // TODO: заменить на реальное условие (пока 1>0)
+
+/** Условие: возможно произошло перемещение */
+const isMovementActive = ref(true) // TODO: заменить на реальное условие (пока 1>0)
+
+// ============================================================================
+// ОБРАБОТЧИКИ КНОПОК
+// ============================================================================
+
+/**
+ * Обработчик кнопки "возможно произошло вовлечение"
+ */
+const handleInvolvement = () => {
+  // TODO: реализовать
+}
+
+/**
+ * Обработчик кнопки "возможно произошло перемещение"
+ */
+const handleMovement = () => {
+  // TODO: реализовать
 }
 </script>

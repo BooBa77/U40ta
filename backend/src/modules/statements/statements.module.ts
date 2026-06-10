@@ -8,7 +8,8 @@ import { StatementParserService } from './services/statement-parser.service';
 import { StatementObjectsService } from './services/statement-objects.service';
 import { ProcessedStatement } from './entities/processed-statement.entity';
 import { EmailAttachment } from '../email/entities/email-attachment.entity';
-import { InventoryObject } from '../objects/entities/object.entity'; // Импорт сущности объектов
+import { InventoryObject } from '../objects/entities/object.entity';
+import { AppEventsService } from '../app-events/app-events.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { InventoryObject } from '../objects/entities/object.entity'; // Импо
     JwtAuthModule, // Для JAuthGuard    
   ],
   controllers: [StatementsController],
-  providers: [StatementService, StatementParserService, StatementObjectsService],
+  providers: [StatementService, StatementParserService, StatementObjectsService, AppEventsService,],
   exports: [StatementService, StatementObjectsService],
 })
 export class StatementsModule {}

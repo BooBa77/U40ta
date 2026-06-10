@@ -21,7 +21,7 @@
               class="section-list-action-btn" 
               title="Открыть ведомость"
               @click="openStatement(file.id, file.isInventory, file.inProcess)">
-              <span v-html="file.inProcess ? letterIcon : fireIcon"></span>
+              <span v-html="file.inProcess ? fireIcon : letterIcon"></span>
             </button>            
           </div>
           

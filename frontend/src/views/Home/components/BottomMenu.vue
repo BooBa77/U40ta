@@ -10,11 +10,11 @@
     </button>
     <div v-else class="w-32"></div>
 
-    <!-- Центральная кнопка: Инструменты (только для МОЛ) -->
+    <!-- Центральная кнопка: Инструменты МОЛ -->
     <button
       v-if="hasAccessToStatements"
       class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-center"
-      @click="$emit('mol')"
+      @click="handleMOL"
     >
       МОЛ
     </button>
@@ -34,6 +34,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 
 /**
@@ -61,10 +62,10 @@ const props = defineProps({
 /**
  * События компонента
  * @event new-inventory - создание новой инвентаризационной книги (ревизор)
- * @event mol - открытие инструментов (МОЛ)
  */
-defineEmits(['new-inventory', 'mol'])
+defineEmits(['new-inventory'])
 
+const router = useRouter()
 const { showInstall, install } = usePwaInstall()
 
 /**
@@ -74,4 +75,11 @@ const { showInstall, install } = usePwaInstall()
 const isAuthenticated = computed(() => {
   return !!localStorage.getItem('auth_token')
 })
+
+/**
+ * Переход на страницу утилит МОЛ
+ */
+const handleMOL = () => {
+  router.push('/mol')
+}
 </script>

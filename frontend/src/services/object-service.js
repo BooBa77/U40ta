@@ -178,6 +178,41 @@ export class ObjectService {
     return data.objects || []
   }
 
+  /**
+   * Находит все объекты с указанным местоположением.
+   * @param {Object} places — { placeTer, placePos, placeCab, placeUser }
+   * @param {number} [excludeId] — ID объекта, который нужно исключить (текущий)
+   * @returns {Promise<Array>} массив объектов
+   */
+  async getObjectsByPlaces(places, excludeId = null) {
+    return this.isFlightMode()
+      ? this.getObjectsByPlacesFromCache(places, excludeId)
+      : this.getObjectsByPlacesFromApi(places, excludeId)
+  }
+
+  async getObjectsByPlacesFromCache(places, excludeId) {
+    const all = await offlineCache.getAllObjects()
+    return all.filter(obj =>
+      obj.placeTer === places.placeTer &&
+      obj.placePos === places.placePos &&
+      obj.placeCab === places.placeCab &&
+      obj.placeUser === places.placeUser &&
+      obj.id !== excludeId
+    )
+  }
+
+  async getObjectsByPlacesFromApi(places, excludeId) {
+    const params = new URLSearchParams({
+      placeTer: places.placeTer || '',
+      placePos: places.placePos || '',
+      placeCab: places.placeCab || '',
+      placeUser: places.placeUser || ''
+    })
+    if (excludeId != null) params.append('excludeId', excludeId)
+    const data = await this.apiRequest(`/objects/by-places?${params}`)
+    return data.objects || []
+  }
+
   //============================================================================
   // ПОЛУЧЕНИЕ МЕСТОПОЛОЖЕНИЙ
   //============================================================================

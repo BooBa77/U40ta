@@ -90,7 +90,6 @@
         :has-access-to-statements="hasAccessToStatements"
         :is-flight-mode="isFlightMode"
         @new-inventory="handleNewInventory"
-        @tools="handleTools"
       />
     </main>
   </div>
@@ -403,13 +402,6 @@ const showInventorySection = computed(() => {
 const handleNewInventory = () => {
   editingInventoryBookId.value = 0
   showInventoryBookEditModal.value = true
-}
-
-/**
- * Кнопка "Инструменты" (МОЛ) — заглушка
- */
-const handleTools = () => {
-  showInfoMessage('Инструменты', 'Раздел в разработке')
 }
 
 /**

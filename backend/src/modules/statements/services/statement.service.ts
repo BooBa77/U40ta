@@ -7,6 +7,7 @@ import { StatementObjectsService } from './statement-objects.service';
 import { ProcessedStatement } from '../entities/processed-statement.entity';
 import { UpdateActualDto } from '../dto/update-actual.dto';
 
+
 @Injectable()
 export class StatementService {
   constructor(
@@ -63,17 +64,21 @@ export class StatementService {
       throw new NotFoundException(`Вложение с ID ${attachmentId} не найдено`);
     }
 
-    //if (attachment.isInventory) {
-    //  return [];
-    //}
-
     if (attachment.inProcess) {
       return await this.parserService.getExistingStatements(attachmentId);
     }
 
     try {
+      // Первое открытие - парсим файл
       const statements = await this.parserService.parseStatement(attachmentId);
-      
+
+      // Устанавливаем флаг inProcess в true
+      attachment.inProcess = true;
+      await this.emailAttachmentRepo.save(attachment);      
+
+      // Отправляем SSE уведомление об обновлении статуса
+      this.appEventsService.notifyStatementUpdated(attachmentId);
+
       if (attachment.zavod && attachment.sklad && attachment.docType) {
         await this.objectsService.updateHaveObjectsForStatement(
           attachment.zavod,
