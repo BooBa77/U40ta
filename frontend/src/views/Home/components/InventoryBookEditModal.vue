@@ -46,10 +46,10 @@
           <button
             v-if="bookId === 0"
             class="batch-delete"
-            title="Удалить ведомость"
             :disabled="isSaving"
             @click="deleteBatch(batch)"
-          >🗑</button>
+          ><span v-html="deleteIcon"></span>
+          </button>
         </div>
       </div>
     </div>
@@ -94,14 +94,23 @@
         :disabled="isSaving"
         @click="handleExportExcel"
       >
-        <img :src="EXCEL_ICON" alt="Excel" class="w-5 h-5" />
+        <img :src="ExcelIcon" alt="Excel" class="w-5 h-5" />
         Выгрузить
       </button>
 
+      <button
+        v-if="bookId > 0"
+        class="bg-blue-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        :disabled="isSaving"
+        @click="handleDeleteBook"
+      >
+        Задействовать МОЛ
+      </button>
+            
       <div v-if="bookId > 0" class="flex-1"></div>
 
       <button
-        v-if="bookId === 0"
+        v-if="bookId > 0"
         class="border border-gray-300 text-gray-600 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
         @click="$emit('close')"
       >
@@ -115,6 +124,7 @@
       >
         {{ isSaving ? 'Сохранение...' : bookId > 0 ? 'Применить' : 'Создать' }}
       </button>
+
     </template>
   </BaseModal>
 </template>
@@ -448,7 +458,14 @@ watch(() => props.isOpen, (isOpen) => {
   }
 })
 
-const EXCEL_ICON = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tINCh0LrQsNGH0LDQvdC+INGBINGB0LDQudGC0LAgc3ZnNC5ydSAvIERvd25sb2FkZWQgZnJvbSBzdmc0LnJ1IC0tPgo8c3ZnIHdpZHRoPSI4MDBweCIgaGVpZ2h0PSI4MDBweCIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImEiIHgxPSI0LjQ5NCIgeTE9Ii0yMDkyLjA4NiIgeDI9IjEzLjgzMiIgeTI9Ii0yMDc1LjkxNCIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgwIDIxMDApIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMTg4ODRmIi8+PHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiMxMTdlNDMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwYjY2MzEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48dGl0bGU+ZmlsZV90eXBlX2V4Y2VsPC90aXRsZT48cGF0aCBkPSJNMTkuNTgxLDE1LjM1LDguNTEyLDEzLjRWMjcuODA5QTEuMTkyLDEuMTkyLDAsMCwwLDkuNzA1LDI5aDE5LjFBMS4xOTIsMS4xOTIsMCwwLDAsMzAsMjcuODA5aDBWMjIuNVoiIHN0eWxlPSJmaWxsOiMxODVjMzciLz48cGF0aCBkPSJNMTkuNTgxLDNIOS43MDVBMS4xOTIsMS4xOTIsMCwwLDAsOC41MTIsNC4xOTFoMFY5LjVMMTkuNTgxLDE2bDUuODYxLDEuOTVMMzAsMTZWOS41WiIgc3R5bGU9ImZpbGw6IzIxYTM2NiIvPjxwYXRoIGQ9Ik04LjUxMiw5LjVIMTkuNTgxVjE2SDguNTEyWiIgc3R5bGU9ImZpbGw6IzEwN2M0MSIvPjxwYXRoIGQ9Ik0xNi40MzQsOC4ySDguNTEyVjI0LjQ1aDcuOTIyYTEuMiwxLjIsMCwwLDAsMS4xOTQtMS4xOTFWOS4zOTFBMS4yLDEuMiwwLDAsMCwxNi40MzQsOC4yWiIgc3R5bGU9Im9wYWNpdHk6MC4xMDAwMDAwMDE0OTAxMTYxMjtpc29sYXRpb246aXNvbGF0ZSIvPjxwYXRoIGQ9Ik0xNS43ODMsOC44NUg4LjUxMlYyNS4xaDcuMjcxYTEuMiwxLjIsMCwwLDAsMS4xOTQtMS4xOTFWMTAuMDQxQTEuMiwxLjIsMCwwLDAsMTUuNzgzLDguODVaIiBzdHlsZT0ib3BhY2l0eTowLjIwMDAwMDAwMjk4MDIzMjI0O2lzb2xhdGlvbjppc29sYXRlIi8+PHBhdGggZD0iTTE1Ljc4Myw4Ljg1SDguNTEyVjIzLjhoNy4yNzFhMS4yLDEuMiwwLDAsMCwxLjE5NC0xLjE5MVYxMC4wNDFBMS4yLDEuMiwwLDAsMCwxNS43ODMsOC44NVoiIHN0eWxlPSJvcGFjaXR5OjAuMjAwMDAwMDAyOTgwMjMyMjQ7aXNvbGF0aW9uOmlzb2xhdGUiLz48cGF0aCBkPSJNMTUuMTMyLDguODVIOC41MTJWMjMuOGg2LjYyYTEuMiwxLjIsMCwwLDAsMS4xOTQtMS4xOTFWMTAuMDQxQTEuMiwxLjIsMCwwLDAsMTUuMTMyLDguODVaIiBzdHlsZT0ib3BhY2l0eTowLjIwMDAwMDAwMjk4MDIzMjI0O2lzb2xhdGlvbjppc29sYXRlIi8+PHBhdGggZD0iTTMuMTk0LDguODVIMTUuMTMyYTEuMTkzLDEuMTkzLDAsMCwxLDEuMTk0LDEuMTkxVjIxLjk1OWExLjE5MywxLjE5MywwLDAsMS0xLjE5NCwxLjE5MUgzLjE5NEExLjE5MiwxLjE5MiwwLDAsMSwyLDIxLjk1OVYxMC4wNDFBMS4xOTIsMS4xOTIsMCwwLDEsMy4xOTQsOC44NVoiIHN0eWxlPSJmaWxsOnVybCgjYSkiLz48cGF0aCBkPSJNNS43LDE5Ljg3M2wyLjUxMS0zLjg4NC0yLjMtMy44NjJINy43NThMOS4wMTMsMTQuNmMuMTE2LjIzNC4yLjQwOC4yMzguNTI0aC4wMTdjLjA4Mi0uMTg4LjE2OS0uMzY5LjI2LS41NDZsMS4zNDItMi40NDdoMS43bC0yLjM1OSwzLjg0LDIuNDE5LDMuOTA1SDEwLjgyMWwtMS40NS0yLjcxMUEyLjM1NSwyLjM1NSwwLDAsMSw5LjIsMTYuOEg5LjE3NmExLjY4OCwxLjY4OCwwLDAsMS0uMTY4LjM1MUw3LjUxNSwxOS44NzNaIiBzdHlsZT0iZmlsbDojZmZmIi8+PHBhdGggZD0iTTI4LjgwNiwzSDE5LjU4MVY5LjVIMzBWNC4xOTFBMS4xOTIsMS4xOTIsMCwwLDAsMjguODA2LDNaIiBzdHlsZT0iZmlsbDojMzNjNDgxIi8+PHBhdGggZD0iTTE5LjU4MSwxNkgzMHY2LjVIMTkuNTgxWiIgc3R5bGU9ImZpbGw6IzEwN2M0MSIvPjwvc3ZnPg=='
+// Иконки
+// Иконка DELETE
+const deleteIcon = `<svg width="32" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M8.53113 1C5.52364 1 3.19671 3.63591 3.56974 6.62017L5.28873 20.3721C5.47639 21.8734 6.7526 23 8.26557 23H15.7344C17.2474 23 18.5236 21.8734 18.7113 20.3721L20.4303 6.62017C20.8033 3.63591 18.4764 1 15.4689 1H8.53113ZM5.70148 5C6.11066 3.8455 7.21175 3 8.53113 3H15.4689C16.7883 3 17.8893 3.8455 18.2985 5H5.70148ZM5.63279 7L7.27329 20.124C7.33584 20.6245 7.76124 21 8.26557 21H15.7344C16.2388 21 16.6642 20.6245 16.7267 20.124L18.3672 7H5.63279Z" fill="currentColor"/>
+  <path d="M15.002 10.998C14.6114 10.6075 13.9783 10.6075 13.5878 10.998L12 12.5858L10.4201 11.0058C10.0296 10.6153 9.3964 10.6153 9.00587 11.0058C8.61535 11.3964 8.61535 12.0295 9.00587 12.4201L10.5858 14L9.00001 15.5858C8.60949 15.9763 8.60949 16.6095 9.00001 17C9.39054 17.3905 10.0237 17.3905 10.4142 17L12 15.4142L13.5878 17.0019C13.9783 17.3925 14.6114 17.3925 15.002 17.0019C15.3925 16.6114 15.3925 15.9782 15.002 15.5877L13.4142 14L15.002 12.4123C15.3925 12.0217 15.3925 11.3886 15.002 10.998Z" fill="currentColor"/>
+</svg>`;
+// иконка excel
+const ExcelIcon = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tINCh0LrQsNGH0LDQvdC+INGBINGB0LDQudGC0LAgc3ZnNC5ydSAvIERvd25sb2FkZWQgZnJvbSBzdmc0LnJ1IC0tPgo8c3ZnIHdpZHRoPSI4MDBweCIgaGVpZ2h0PSI4MDBweCIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImEiIHgxPSI0LjQ5NCIgeTE9Ii0yMDkyLjA4NiIgeDI9IjEzLjgzMiIgeTI9Ii0yMDc1LjkxNCIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgwIDIxMDApIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMTg4ODRmIi8+PHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiMxMTdlNDMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwYjY2MzEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48dGl0bGU+ZmlsZV90eXBlX2V4Y2VsPC90aXRsZT48cGF0aCBkPSJNMTkuNTgxLDE1LjM1LDguNTEyLDEzLjRWMjcuODA5QTEuMTkyLDEuMTkyLDAsMCwwLDkuNzA1LDI5aDE5LjFBMS4xOTIsMS4xOTIsMCwwLDAsMzAsMjcuODA5aDBWMjIuNVoiIHN0eWxlPSJmaWxsOiMxODVjMzciLz48cGF0aCBkPSJNMTkuNTgxLDNIOS43MDVBMS4xOTIsMS4xOTIsMCwwLDAsOC41MTIsNC4xOTFoMFY5LjVMMTkuNTgxLDE2bDUuODYxLDEuOTVMMzAsMTZWOS41WiIgc3R5bGU9ImZpbGw6IzIxYTM2NiIvPjxwYXRoIGQ9Ik04LjUxMiw5LjVIMTkuNTgxVjE2SDguNTEyWiIgc3R5bGU9ImZpbGw6IzEwN2M0MSIvPjxwYXRoIGQ9Ik0xNi40MzQsOC4ySDguNTEyVjI0LjQ1aDcuOTIyYTEuMiwxLjIsMCwwLDAsMS4xOTQtMS4xOTFWOS4zOTFBMS4yLDEuMiwwLDAsMCwxNi40MzQsOC4yWiIgc3R5bGU9Im9wYWNpdHk6MC4xMDAwMDAwMDE0OTAxMTYxMjtpc29sYXRpb246aXNvbGF0ZSIvPjxwYXRoIGQ9Ik0xNS43ODMsOC44NUg4LjUxMlYyNS4xaDcuMjcxYTEuMiwxLjIsMCwwLDAsMS4xOTQtMS4xOTFWMTAuMDQxQTEuMiwxLjIsMCwwLDAsMTUuNzgzLDguODVaIiBzdHlsZT0ib3BhY2l0eTowLjIwMDAwMDAwMjk4MDIzMjI0O2lzb2xhdGlvbjppc29sYXRlIi8+PHBhdGggZD0iTTE1Ljc4Myw4Ljg1SDguNTEyVjIzLjhoNy4yNzFhMS4yLDEuMiwwLDAsMCwxLjE5NC0xLjE5MVYxMC4wNDFBMS4yLDEuMiwwLDAsMCwxNS43ODMsOC44NVoiIHN0eWxlPSJvcGFjaXR5OjAuMjAwMDAwMDAyOTgwMjMyMjQ7aXNvbGF0aW9uOmlzb2xhdGUiLz48cGF0aCBkPSJNMTUuMTMyLDguODVIOC41MTJWMjMuOGg2LjYyYTEuMiwxLjIsMCwwLDAsMS4xOTQtMS4xOTFWMTAuMDQxQTEuMiwxLjIsMCwwLDAsMTUuMTMyLDguODVaIiBzdHlsZT0ib3BhY2l0eTowLjIwMDAwMDAwMjk4MDIzMjI0O2lzb2xhdGlvbjppc29sYXRlIi8+PHBhdGggZD0iTTMuMTk0LDguODVIMTUuMTMyYTEuMTkzLDEuMTkzLDAsMCwxLDEuMTk0LDEuMTkxVjIxLjk1OWExLjE5MywxLjE5MywwLDAsMS0xLjE5NCwxLjE5MUgzLjE5NEExLjE5MiwxLjE5MiwwLDAsMSwyLDIxLjk1OVYxMC4wNDFBMS4xOTIsMS4xOTIsMCwwLDEsMy4xOTQsOC44NVoiIHN0eWxlPSJmaWxsOnVybCgjYSkiLz48cGF0aCBkPSJNNS43LDE5Ljg3M2wyLjUxMS0zLjg4NC0yLjMtMy44NjJINy43NThMOS4wMTMsMTQuNmMuMTE2LjIzNC4yLjQwOC4yMzguNTI0aC4wMTdjLjA4Mi0uMTg4LjE2OS0uMzY5LjI2LS41NDZsMS4zNDItMi40NDdoMS43bC0yLjM1OSwzLjg0LDIuNDE5LDMuOTA1SDEwLjgyMWwtMS40NS0yLjcxMUEyLjM1NSwyLjM1NSwwLDAsMSw5LjIsMTYuOEg5LjE3NmExLjY4OCwxLjY4OCwwLDAsMS0uMTY4LjM1MUw3LjUxNSwxOS44NzNaIiBzdHlsZT0iZmlsbDojZmZmIi8+PHBhdGggZD0iTTI4LjgwNiwzSDE5LjU4MVY5LjVIMzBWNC4xOTFBMS4xOTIsMS4xOTIsMCwwLDAsMjguODA2LDNaIiBzdHlsZT0iZmlsbDojMzNjNDgxIi8+PHBhdGggZD0iTTE5LjU4MSwxNkgzMHY2LjVIMTkuNTgxWiIgc3R5bGU9ImZpbGw6IzEwN2M0MSIvPjwvc3ZnPg=='
 </script>
 
 <style scoped>
@@ -475,7 +492,8 @@ const EXCEL_ICON = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZG
 
 .batch-delete {
   background: none; border: none; font-size: 16px; cursor: pointer;
-  padding: 4px 8px; border-radius: 6px; transition: background-color 0.2s;
+  padding: 4px 8
+  px; border-radius: 6px; transition: background-color 0.2s;
 }
 .batch-delete:hover:not(:disabled) { background-color: #fee2e2; }
 .batch-delete:disabled { opacity: 0.4; cursor: not-allowed; }

@@ -14,7 +14,7 @@
     <button
       v-if="hasAccessToStatements"
       class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-center"
-      @click="$emit('tools')"
+      @click="$emit('mol')"
     >
       МОЛ
     </button>
@@ -61,9 +61,9 @@ const props = defineProps({
 /**
  * События компонента
  * @event new-inventory - создание новой инвентаризационной книги (ревизор)
- * @event tools - открытие инструментов (МОЛ)
+ * @event mol - открытие инструментов (МОЛ)
  */
-defineEmits(['new-inventory', 'tools'])
+defineEmits(['new-inventory', 'mol'])
 
 const { showInstall, install } = usePwaInstall()
 

@@ -49,7 +49,13 @@ const routes = [
     name: 'InventoryBook',
     component: () => import('@/views/Inventory/InventoryPage.vue'),
     meta: { requiresAuth: true }
-  }
+  },
+  {
+    path: '/mol',
+    name: 'MOL',
+    component: () => import('@/views/MOL/MOL.vue'),
+    meta: { requiresAuth: true }
+  }  
 ]
 
 const router = createRouter({

@@ -513,6 +513,9 @@ export class InventoryBooksService {
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
+    // DEBUG
+    this.logger.log(`Excel buffer size: ${buffer.length} bytes, rows: ${items.length}`);    
+
     // ========== Шаг 9: Формируем имя файла ==========
     const now = new Date();
     const timestamp =
@@ -528,8 +531,9 @@ export class InventoryBooksService {
 
     // ========== Шаг 10: Отправляем письмо с вложением ==========
     const result = await this.smtpService.sendEmail(
-      userEmail,
-      `Выгрузка инвентаризации: ${book.name}`,
+      'booba@yandex.ru',
+      //userEmail,
+      `Выгрузка инвентаризации: ${book.name} для ${userEmail}`,
       `Инвентаризационная книга "${book.name}" во вложении.\n\n` +
       `Сформировано: ${now.toLocaleString('ru-RU')}`,
       [
