@@ -2,18 +2,28 @@
  * Хук для загрузки данных ведомости с сервера или из кэша.
  * После загрузки строк вычисляет isExcess — объекты на складах ведомости,
  * которые отсутствуют в statements.
+ * Подписывается на SSE-событие objects-changed для обновления при изменении объектов.
  * 
  * @param {string} receivedAt - дата получения ведомости в ISO формате
  * @returns {Object} Состояния и методы для работы с данными ведомости
  */
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { statementService } from '@/services/statement.service'
 import { objectService } from '@/services/object-service'
+import { useSSE } from '@/composables/useSSE'
 
 export function useStatementData(receivedAt) {
   const loading = ref(true)
   const error = ref(null)
   const statements = ref([])
+
+  /**
+   * Проверяет, активен ли режим полёта.
+   * @returns {boolean}
+   */
+  const isFlightMode = () => {
+    return localStorage.getItem('u40ta_flight_mode') === 'true'
+  }
 
   /**
    * Загружает строки ведомости и добавляет виртуальные isExcess строки.
@@ -106,7 +116,55 @@ export function useStatementData(receivedAt) {
     return loadData()
   }
 
+  /**
+   * Обработчик SSE-событий.
+   * Реагирует на objects-changed — если объекты изменились на складе,
+   * который есть в текущей ведомости, делает reload().
+   * Свои собственные изменения игнорирует (userId совпадает).
+   * 
+   * @param {Object} data - данные SSE-события
+   */
+  const handleSSEMessage = (data) => {
+    if (data.type !== 'objects-changed') return
+    
+    const { userId, zavod, sklad } = data.data || {}
+    
+    // Игнорируем свои изменения
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      try {
+        const payloadBase64 = token.split('.')[1]
+        const payloadJson = atob(payloadBase64)
+        const payload = JSON.parse(payloadJson)
+        if (payload.sub === userId) return
+      } catch (e) {
+        // Не удалось распарсить токен — на всякий случай reload
+      }
+    }
+
+    // Проверяем, есть ли этот склад в текущей ведомости
+    const hasSklad = statements.value.some(
+      row => row.zavod === zavod && row.sklad === sklad
+    )
+    
+    if (hasSklad) {
+      console.log(`[useStatementData] SSE: объекты изменились на складе ${sklad}, перезагружаем`)
+      reload()
+    }
+  }
+
+  // Подключаем SSE (только онлайн)
+  const { disconnect: disconnectSSE } = useSSE(handleSSEMessage, { 
+    autoConnect: !isFlightMode() 
+  })
+
+  // Загрузка данных
   loadData()
+
+  // Очистка при размонтировании
+  onUnmounted(() => {
+    disconnectSSE()
+  })
 
   return {
     loading,

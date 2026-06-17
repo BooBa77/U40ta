@@ -165,7 +165,38 @@ export class StatementService {
    */
   async getItemsFromCache(receivedAt) {
     try {
+      // 1. Получаем строки ведомости из кэша
       const statements = await offlineCache.getStatementsByReceivedAt(receivedAt)
+      
+      // 2. Собираем уникальные zavod + sklad
+      const skladPairs = new Map()
+      for (const row of statements) {
+        const key = `${row.zavod}|${row.sklad}`
+        if (!skladPairs.has(key)) {
+          skladPairs.set(key, { zavod: row.zavod, sklad: row.sklad })
+        }
+      }
+
+      // 3. Для каждой пары получаем объекты и считаем objectCount
+      for (const [key, { zavod, sklad }] of skladPairs) {
+        const objects = await offlineCache.findObjectsByZavodSklad(zavod, sklad)
+        
+        // Группируем объекты по invNumber + partyNumber
+        const objectCounts = new Map()
+        for (const obj of objects) {
+          const objKey = `${obj.invNumber}|${obj.partyNumber || ''}`
+          objectCounts.set(objKey, (objectCounts.get(objKey) || 0) + 1)
+        }
+
+        // Проставляем objectCount для каждой строки statements
+        for (const row of statements) {
+          if (row.zavod === zavod && row.sklad === sklad) {
+            const rowKey = `${row.invNumber}|${row.partyNumber || ''}`
+            row.objectCount = objectCounts.get(rowKey) || 0
+          }
+        }
+      }
+
       console.log(`[StatementService] Из кэша получено записей: ${statements.length}`)
       return statements
     } catch (error) {
@@ -318,7 +349,6 @@ export class StatementService {
 
   /**
    * Получает записи ведомости по инвентарному номеру (для InvListModal).
-   * Возвращает все записи, без фильтрации по haveObject.
    * GET /api/statements/by-inv?inv=...&zavod=...&sklad=...&party=...
    * @param {string} inv - инвентарный номер
    * @param {string} [partyNumber] - партия объекта

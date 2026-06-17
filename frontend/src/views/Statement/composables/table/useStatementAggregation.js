@@ -34,11 +34,11 @@ export function useStatementAggregation(statements) {
   /**
    * Определяет цвет группы.
    * @param {Object} group - сгруппированные данные
-   * @returns {number} 6-синий, 1-красный, 2-жёлтый, 3-зелёный, 4-серый
+   * @returns {number} 0-синий, 1-красный, 2-жёлтый, 3-зелёный, 4-серый
    */
   const getGroupColor = (group) => {
     // isExcess — всегда синий
-    if (group.isExcess) return 6
+    if (group.isExcess) return 0
     
     // Неактивные — серый
     if (!group.isActual) return 4
@@ -100,7 +100,7 @@ export function useStatementAggregation(statements) {
           zavod: row.zavod,
           sklad: row.sklad,
           totalCount: 0,
-          objectCount: isExcessGroup ? objectCount : 0,
+          objectCount: objectCount,
           isActual: isExcess ? true : isActual,
           isExcess: isExcess,
           originalRowsIds: [],

@@ -5,6 +5,7 @@ import { ObjectsService } from './services/objects.service';
 import { CreateObjectDto } from './dto/create-object.dto';
 import { UpdateObjectDto } from './dto/update-object.dto';
 import { InventoryObject } from './entities/object.entity';
+import { AppEventsService } from '../app-events/app-events.service';
 
 // Интерфейс для типизации пользователя в запросе
 interface RequestWithUser extends ExpressRequest {
@@ -16,7 +17,10 @@ interface RequestWithUser extends ExpressRequest {
 @Controller('objects')
 @UseGuards(JwtAuthGuard)
 export class ObjectsController {
-  constructor(private readonly objectsService: ObjectsService) {}
+  constructor(
+    private readonly objectsService: ObjectsService,
+    private readonly appEventsService: AppEventsService,
+  ) {}
 
   /**
    * Поиск объектов по инвкентарному номеру на конкретном складе
@@ -199,6 +203,15 @@ export class ObjectsController {
         throw new UnauthorizedException('Пользователь не авторизован');
       }      
       const newObject = await this.objectsService.create(createObjectDto, userId);
+      // Уведомляем коллег об изменении объектов на складе
+      if (createObjectDto.zavod && createObjectDto.sklad) {
+        this.appEventsService.notifyObjectsChanged(
+          userId,
+          createObjectDto.zavod,
+          createObjectDto.sklad
+        );
+      }
+      
       return {
         success: true,
         object: newObject,
@@ -237,6 +250,14 @@ export class ObjectsController {
         throw new UnauthorizedException('Пользователь не авторизован');
       }            
       const updatedObject = await this.objectsService.update(+id, updateObjectDto, userId);
+      // Уведомляем коллег об изменении объектов на складе
+      if (updatedObject.zavod && updatedObject.sklad) {
+        this.appEventsService.notifyObjectsChanged(
+          userId,
+          updatedObject.zavod,
+          updatedObject.sklad
+        );
+      }      
       return {
         success: true,
         object: updatedObject,

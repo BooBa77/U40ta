@@ -10,7 +10,7 @@ import { InventoryObject } from '../../objects/entities/object.entity';
  * ## Назначение
  * Получение списка ведомостей, строк конкретной ведомости,
  * удаление ведомостей, поиск записей по инвентарному номеру,
- * обновление флагов haveObject, isActual, isExcess.
+ * обновление флагов isActual.
  */
 @Injectable()
 export class StatementsService {
@@ -70,6 +70,7 @@ export class StatementsService {
    * @param receivedAt - дата получения ведомости
    * @returns Массив строк Statement с дополнительным полем objectCount
    */
+
   async getItems(
     userId: number,
     receivedAt: Date
@@ -81,34 +82,30 @@ export class StatementsService {
         'o',
         'o.zavod = s.zavod AND o.sklad = s.sklad AND o.inv_number = s.inv_number AND o.party_number = s.party_number AND o.is_written_off = false'
       )
-      .select('s.*')
+      .select('s.id', 'id')
+      .addSelect('s.userId', 'userId')
+      .addSelect('s.receivedAt', 'receivedAt')
+      .addSelect('s.docType', 'docType')
+      .addSelect('s.description', 'description')
+      .addSelect('s.zavod', 'zavod')
+      .addSelect('s.sklad', 'sklad')
+      .addSelect('s.invNumber', 'invNumber')
+      .addSelect('s.partyNumber', 'partyNumber')
+      .addSelect('s.buhName', 'buhName')
+      .addSelect('s.isActual', 'isActual')
       .addSelect('COUNT(o.id)', 'objectCount')
       .where('s.userId = :userId', { userId })
       .andWhere('s.receivedAt = :receivedAt', { receivedAt })
       .andWhere('s.isActual = true')
       .groupBy('s.id')
-      .addGroupBy('s.zavod')
-      .addGroupBy('s.sklad')
-      .addGroupBy('s.invNumber')
-      .addGroupBy('s.partyNumber')
       .orderBy('s.invNumber', 'ASC')
       .getRawMany();
 
     return result.map(row => ({
-      id: row.id,
-      userId: row.user_id,
-      receivedAt: row.received_at,
-      docType: row.doc_type,
-      description: row.description,
-      zavod: row.zavod,
-      sklad: row.sklad,
-      invNumber: row.inv_number,
-      partyNumber: row.party_number,
-      buhName: row.buh_name,
-      isActual: row.is_actual,
+      ...row,
       objectCount: Number(row.objectCount),
     }));
-  }
+  }  
 
   // ============================================================================
   // УДАЛЕНИЕ ВЕДОМОСТИ
@@ -144,7 +141,6 @@ export class StatementsService {
 
   /**
    * Поиск записей ведомости по инвентарному номеру.
-   * Возвращает только записи с haveObject = false (объект ещё не создан).
    * 
    * @param invNumber - инвентарный номер
    * @param zavod - номер завода (опционально)
@@ -160,8 +156,7 @@ export class StatementsService {
   ): Promise<Statement[]> {
     const queryBuilder = this.statementRepo
       .createQueryBuilder('statement')
-      .where('statement.haveObject = :haveObject', { haveObject: false })
-      .andWhere('statement.invNumber = :invNumber', { invNumber });
+      .where('statement.invNumber = :invNumber', { invNumber });
 
     if (zavod !== undefined && !isNaN(zavod)) {
       queryBuilder.andWhere('statement.zavod = :zavod', { zavod });

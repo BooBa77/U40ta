@@ -52,13 +52,11 @@
           <td class="px-2 py-2 border-b border-gray-100 align-middle">
             <div class="inv-party-cell leading-tight">
               <div class="inv-number font-medium mb-0.5">{{ row.invNumber || '—' }}</div>
-              <div class="party-number text-xs text-gray-500">
-                <span v-if="row.showParty && row.partyNumber" class="party-text">
-                  {{ row.partyNumber }}
-                </span>
-                <span v-if="row.displayQuantity" class="quantity-text text-xs font-semibold text-black ml-1">
-                  {{ row.displayQuantity }}
-                </span>
+              <div v-if="row.showParty && row.partyNumber" class="party-number text-xs text-gray-500">
+                {{ row.partyNumber }}
+              </div>
+              <div v-if="row.groupCount > 1" class="quantity-text text-xs font-semibold text-black">
+                {{ row.displayQuantity }}
               </div>
             </div>
           </td>
