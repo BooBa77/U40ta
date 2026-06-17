@@ -5,13 +5,11 @@ import { OfflineService } from './services/offline.service';
 import { OfflineCacheService } from './services/offline-cache.service';
 import { OfflineSyncService } from './services/offline-sync.service';
 import { InventoryObject } from '../objects/entities/object.entity';
-import { ProcessedStatement } from '../statements/entities/processed-statement.entity';
+import { Statement } from '../statements/entities/statement.entity';
 import { QrCode } from '../qr-codes/entities/qr-code.entity';
 import { Photo } from '../photos/entities/photos.entity';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
 import { MolAccess } from '../users/entities/mol-access.entity';
-import { EmailAttachment } from '../email/entities/email-attachment.entity';
-import { EmailModule } from '../email/email.module';
 import { ObjectsModule } from '../objects/objects.module';
 import { StatementsModule } from '../statements/statements.module';
 import { QrCodesModule } from '../qr-codes/qr-codes.module';
@@ -20,31 +18,24 @@ import { InventoryBook } from '../inventory/entities/inventory-book.entity';
 import { InventoryBookItem } from '../inventory/entities/inventory-book-item.entity';
 import { RevisorAccess } from '../inventory/entities/revisor-access.entity';
 import { InventoryModule } from '../inventory/inventory.module';
-import { AppEventsModule } from '../app-events/app-events.module';
 
 @Module({
   imports: [
-    // Регистрируем необходимые сущности
     TypeOrmModule.forFeature([
       MolAccess,
-      EmailAttachment,
+      Statement,
       InventoryObject,
-      ProcessedStatement,
       QrCode,
       Photo,
       InventoryBook,
       InventoryBookItem,
-      RevisorAccess,      
+      RevisorAccess,
     ]),
-    
-    // Импортируем внешние модули для доступа к их сервисам
     JwtAuthModule,
-    EmailModule,    
     StatementsModule,
     ObjectsModule,
     QrCodesModule,
     PhotosModule,
-    AppEventsModule,
     InventoryModule,
   ],
   controllers: [OfflineController],

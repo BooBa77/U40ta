@@ -1,31 +1,41 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
-import { AppEventsModule } from '../app-events/app-events.module';
 import { LogsModule } from '../logs/logs.module';
+import { UsersModule } from '../users/users.module';
 import { EmailController } from './email.controller';
-import { EmailAttachment } from './entities/email-attachment.entity';
-import { MolAccess } from '../users/entities/mol-access.entity';
 import { ImapService } from './services/imap.service';
 import { SmtpService } from './services/smtp.service';
 import { EmailProcessor } from './services/email-processor.service';
 import { EmailFileAnalyzer } from './services/email-file-analyzer.service';
-import { EmailAttachmentsService } from './services/email-attachments.service';
-import { EmailStorageService } from './services/email-storage.service';
 
+/**
+ * Модуль электронной почты.
+ * 
+ * ## Назначение
+ * Приём писем по IMAP, извлечение Excel-вложений, анализ и передача
+ * в соответствующие модули:
+ * - Обычные ведомости → statements-модуль (событие statement.file.received)
+ * - Инвентаризационные ведомости → inventory-модуль (событие inventory.file.received)
+ * 
+ * Файлы не сохраняются на диск, записи в email_attachments не создаются.
+ */
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([EmailAttachment, MolAccess]),
-    EventEmitterModule, // Для отправки событий о поступлении новых Инвентаризационных ведомостей
-    AppEventsModule, // Модуль SSE
+    EventEmitterModule,
     JwtAuthModule,
     LogsModule,
+    UsersModule, // Для поиска пользователя по email в EmailProcessor
   ],
   controllers: [EmailController],
-  providers: [ImapService, SmtpService, EmailProcessor, EmailFileAnalyzer, EmailAttachmentsService, EmailStorageService],
-  exports: [ImapService, SmtpService, EmailProcessor, EmailFileAnalyzer, EmailAttachmentsService, EmailStorageService]
+  providers: [
+    ImapService,
+    SmtpService,
+    EmailProcessor,
+    EmailFileAnalyzer,
+  ],
+  exports: [ImapService, SmtpService],
 })
 export class EmailModule {}

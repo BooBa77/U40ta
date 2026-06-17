@@ -75,6 +75,55 @@ export class ObjectsService {
   }
 
   /**
+   * Находит все объекты с заданным местоположением.
+   * Пустые значения в полях места сравниваются с NULL в БД.
+   * 
+   * @param placeTer — территория
+   * @param placePos — здание (null если отсутствует)
+   * @param placeCab — кабинет (null если отсутствует)
+   * @param placeUser — пользователь (null если отсутствует)
+   * @param excludeId — ID объекта для исключения из выборки
+   * @returns Массив объектов
+   */
+  async findByPlaces(
+    placeTer: string | null,
+    placePos: string | null,
+    placeCab: string | null,
+    placeUser: string | null,
+    excludeId: number | null,
+  ): Promise<InventoryObject[]> {
+    const qb = this.objectRepository.createQueryBuilder('obj');
+    
+    if (placeTer) {
+      qb.where('obj.placeTer = :placeTer', { placeTer });
+    }
+
+    if (placePos) {
+      qb.andWhere('obj.placePos = :placePos', { placePos });
+    } else {
+      qb.andWhere('obj.placePos IS NULL');
+    }
+
+    if (placeCab) {
+      qb.andWhere('obj.placeCab = :placeCab', { placeCab });
+    } else {
+      qb.andWhere('obj.placeCab IS NULL');
+    }
+
+    if (placeUser) {
+      qb.andWhere('obj.placeUser = :placeUser', { placeUser });
+    } else {
+      qb.andWhere('obj.placeUser IS NULL');
+    }
+
+    if (excludeId != null) {
+      qb.andWhere('obj.id != :excludeId', { excludeId });
+    }
+
+    return qb.getMany();
+  }
+
+  /**
    * Получение уникальных комбинаций place_ter, place_pos, place_cab, place_user
    * Возвращает массив объектов с полями ter, pos, cab, user
    * ter - обязательно не NULL и не пустое

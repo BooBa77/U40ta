@@ -39,9 +39,15 @@ const routes = [
     }
   },
   {
-    path: '/statement/:id',
+    path: '/statement/:receivedAt',
     name: 'Statement',
     component: () => import('@/views/Statement/StatementPage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/inventory/:id',
+    name: 'Inventory',
+    component: () => import('@/views/Inventory/InventoryPage.vue'),
     meta: { requiresAuth: true }
   },
   {

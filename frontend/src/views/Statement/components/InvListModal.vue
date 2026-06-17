@@ -263,17 +263,8 @@ const handleObjectFormSave = async (result) => {
     objectFormQrCode.value = null
   }, 300)
   
-  if (objectFormStatementId.value) {
-    try {
-      await statementService.updateStatementHaveObject(
-          objectFormStatementId.value,
-          true
-      )
-    } catch (error) {
-      console.error('[LocViewModal] Ошибка обновления ведомости:', error)
-    }
-  }
-  
+  // haveObject вычисляется динамически на бэке,
+  // просто перезагружаем данные
   await loadData()
 }
 

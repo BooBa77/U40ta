@@ -8,9 +8,8 @@
       <div v-else class="w-10"></div>
       <FlightModeToggle v-if="hasAccessToStatements || isRevisor" />
     </header>
-
     <main class="flex-1 flex flex-col overflow-y-auto">
-      <!-- Секция QR-сканирования - компактная, не растягивается -->
+      <!-- Секция QR-сканирования -->
       <section class="py-5 flex justify-center flex-shrink-0">
         <div v-if="hasCamera === true" class="flex justify-center w-full">
           <div class="w-1/3 max-w-[200px] min-w-[120px]">
@@ -35,8 +34,8 @@
         @edit-inventory-book="handleEditInventoryBook"
       />
 
-      <!-- Секция почтовых вложений (для МОЛ) -->
-      <EmailAttachmentsSection v-if="hasAccessToStatements" />
+      <!-- Секция ведомостей МОЛ -->
+      <StatementsSection v-if="hasAccessToStatements" />
       
       <!-- Сообщение для гостей без доступа -->
       <div v-if="accessChecked && !hasAccessToStatements && !isRevisor" class="text-center text-gray-500 py-10 px-5">
@@ -101,7 +100,7 @@ import { useRouter, useRoute } from 'vue-router'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import FlightModeToggle from './components/FlightModeToggle.vue'
-import EmailAttachmentsSection from './components/EmailAttachmentsSection.vue'
+import StatementsSection from './components/StatementsSection.vue'
 import InventoryBooksSection from './components/InventoryBooksSection.vue'
 import InventoryBookEditModal from './components/InventoryBookEditModal.vue'
 import BottomMenu from './components/BottomMenu.vue'
@@ -226,47 +225,34 @@ const checkAccessToStatements = async () => {
 }
 
 /**
- * Обработка события изменения прав доступа
- */
-const handleAccessChangedEvent = (eventData) => {
-  const token = localStorage.getItem('auth_token')
-  const payloadBase64 = token.split('.')[1]
-  const payloadJson = atob(payloadBase64)
-  const payload = JSON.parse(payloadJson)
-  const currentUserId = payload.sub
-  
-  if (!eventData.data || !eventData.data.userId || eventData.data.userId === currentUserId) {
-    fetchUserAbr()
-    checkAccessToStatements()
-    fetchIsRevisor()
-  }
-}
-
-/**
- * Обработка события обновления данных пользователя
- */
-const handleUserDataUpdatedEvent = (eventData) => {
-  const token = localStorage.getItem('auth_token')
-  const payloadBase64 = token.split('.')[1]
-  const payloadJson = atob(payloadBase64)
-  const payload = JSON.parse(payloadJson)
-  const currentUserId = payload.sub
-  
-  if (!eventData.data || !eventData.data.userId || eventData.data.userId === currentUserId) {
-    fetchUserAbr()
-  }
-}
-
-/**
- * Обработчик SSE сообщений
+ * Обработчик SSE сообщений.
+ * Только access-changed и user-data-updated — statement-* события больше не используются.
  */
 const handleSSEMessage = (data) => {
   if (data.type === 'access-changed') {
-    handleAccessChangedEvent(data)
+    const token = localStorage.getItem('auth_token')
+    const payloadBase64 = token.split('.')[1]
+    const payloadJson = atob(payloadBase64)
+    const payload = JSON.parse(payloadJson)
+    const currentUserId = payload.sub
+    
+    if (!data.data || !data.data.userId || data.data.userId === currentUserId) {
+      fetchUserAbr()
+      checkAccessToStatements()
+      fetchIsRevisor()
+    }
   }
   
   if (data.type === 'user-data-updated') {
-    handleUserDataUpdatedEvent(data)
+    const token = localStorage.getItem('auth_token')
+    const payloadBase64 = token.split('.')[1]
+    const payloadJson = atob(payloadBase64)
+    const payload = JSON.parse(payloadJson)
+    const currentUserId = payload.sub
+    
+    if (!data.data || !data.data.userId || data.data.userId === currentUserId) {
+      fetchUserAbr()
+    }
   }
 }
 
@@ -373,7 +359,9 @@ const handleFlightModeChange = async (event) => {
   fetchIsRevisor()
 }
 
-// Проверка наличия инвентаризационных книг в кэше
+/**
+ * Проверка наличия инвентаризационных книг в кэше
+ */
 const checkInventoryBooksInCache = async () => {
   try {
     const inventoryBooks = await offlineCache.getAllInventoryBooks()
@@ -384,7 +372,9 @@ const checkInventoryBooksInCache = async () => {
   }
 }
 
-// Итоговый флаг показа секции книг
+/**
+ * Итоговый флаг показа секции книг
+ */
 const showInventorySection = computed(() => {
   if (isFlightMode.value) {
     return hasInventoryBooksInCache.value

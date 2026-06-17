@@ -1,28 +1,37 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
-import { AppEventsModule } from '../app-events/app-events.module';
 import { StatementsController } from './statements.controller';
-import { StatementService } from './services/statement.service';
-import { StatementParserService } from './services/statement-parser.service';
-import { StatementObjectsService } from './services/statement-objects.service';
-import { ProcessedStatement } from './entities/processed-statement.entity';
-import { EmailAttachment } from '../email/entities/email-attachment.entity';
+import { StatementsService } from './services/statements.service';
+import { StatementParser } from './services/statement-parser.service';
+import { Statement } from './entities/statement.entity';
 import { InventoryObject } from '../objects/entities/object.entity';
-import { AppEventsService } from '../app-events/app-events.service';
 
+/**
+ * Модуль ведомостей МОЛ.
+ * 
+ * ## Назначение
+ * Обрабатывает ведомости МОЛ, полученные по email:
+ * - Приём Excel-файлов через EventEmitter из EmailModule
+ * - Парсинг строк в таблицу statements
+ * - Управление ведомостями (CRUD)
+ * - Обновление флагов haveObject, isActual, isExcess
+ * 
+ * ## События
+ * Слушает `statement.file.received` от EmailModule.
+ */
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      ProcessedStatement, // Для работы с таблицей активных ведомостей
-      EmailAttachment, // Для работы с таблицей файлов почтовых вложений
-      InventoryObject, // Для работы с таблицей объектов
+      Statement,
+      InventoryObject,
     ]),
-    AppEventsModule, // Для SSE уведомлений
-    JwtAuthModule, // Для JAuthGuard    
+    JwtAuthModule,
   ],
   controllers: [StatementsController],
-  providers: [StatementService, StatementParserService, StatementObjectsService, AppEventsService,],
-  exports: [StatementService, StatementObjectsService],
+  providers: [
+    StatementsService,
+    StatementParser,
+  ],
 })
 export class StatementsModule {}

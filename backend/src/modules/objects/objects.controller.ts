@@ -66,6 +66,37 @@ export class ObjectsController {
   }
 
   /**
+   * Получение объектов по заданному местоположению.
+   * Используется для поиска связанных объектов при перемещении.
+   * 
+   * GET /api/objects/by-places
+   * 
+   * @param placeTer — территория
+   * @param placePos — здание (может быть пустым)
+   * @param placeCab — кабинет (может быть пустым)
+   * @param placeUser — пользователь (может быть пустым)
+   * @param excludeId — ID объекта, который нужно исключить из результатов
+   * @returns { objects: InventoryObject[] }
+   */
+  @Get('by-places')
+  async getByPlaces(
+    @Query('placeTer') placeTer: string,
+    @Query('placePos') placePos: string,
+    @Query('placeCab') placeCab: string,
+    @Query('placeUser') placeUser: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    const objects = await this.objectsService.findByPlaces(
+      placeTer || null,
+      placePos || null,
+      placeCab || null,
+      placeUser || null,
+      excludeId ? +excludeId : null,
+    );
+    return { objects };
+  }
+
+  /**
    * Получение всех уникальных комбинаций местоположений
    * GET /api/objects/place-combinations
    */

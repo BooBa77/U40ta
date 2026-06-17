@@ -58,6 +58,27 @@ export class ObjectService {
     return await response.json()
   }
 
+  /**
+   * Проверяет, имеет ли текущий пользователь доступ к складу как МОЛ.
+   * В офлайн-режиме всегда возвращает true (сохраняем в кэш, а разбитаться при синхронизации).
+   * 
+   * @param {number} zavod — номер завода.
+   * @param {string} sklad — код склада.
+   * @returns {Promise<boolean>} true если МОЛ или офлайн, false если гость в онлайне.
+   */
+  async checkSkladAccess(zavod, sklad) {
+    if (this.isFlightMode()) return true
+
+    try {
+      const data = await this.apiRequest(
+        `/users/me/has-access-to-sklad/${zavod}/${encodeURIComponent(sklad)}`
+      )
+      return data.canEdit === true
+    } catch {
+      return false
+    }
+  }
+
   //============================================================================
   // ПОЛУЧЕНИЕ ОБЪЕКТА ПО ID
   //============================================================================

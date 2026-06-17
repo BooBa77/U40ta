@@ -112,6 +112,18 @@ export class UsersService {
   }
 
   /**
+   * Поиск пользователя по email.
+   * 
+   * @param email - email пользователя
+   * @returns пользователь или null, если не найден
+   */
+  async findByEmail(email: string): Promise<User | null> {
+    return await this.usersRepository.findOne({
+      where: { eMail: email },
+    });
+  }
+
+  /**
    * Обновление данных пользователя.
    * При обновлении имени или фамилии автоматически пересчитывает abr.
    * 
@@ -209,6 +221,22 @@ export class UsersService {
     const count = await this.molAccessRepository.count({ where: { userId } });
     return count > 0;
   }
+
+  /**
+   * Проверка, имеет ли пользователь доступ к складу.
+   * По таблице mol_access.
+   * 
+   * @param userId - ID пользователя в системе
+   * @param zavod - код завода
+   * @param sklad - код склада
+   * @returns true если пользователь — МОЛ этого склада
+   */  
+  async hasAccessToSklad(userId: number, zavod: number, sklad: string): Promise<boolean> {
+    const count = await this.molAccessRepository.count({
+      where: { userId, zavod, sklad }
+    });
+    return count > 0;
+  }  
 
   /**
    * Проверка, является ли пользователь ревизором.

@@ -49,12 +49,29 @@ export class UsersController {
   }
 
   /**
+   * GET /api/users/me/has-access-to-sklad/:zavod/:sklad - проверка доступа к складу
+   */
+  @Get('me/has-access-to-sklad/:zavod/:sklad')
+  async checkHasAccessToSklad(
+    @Req() request: RequestWithUser,
+    @Param('zavod') zavod: string,
+    @Param('sklad') sklad: string,
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      return { canEdit: false };
+    }
+    const canEdit = await this.usersService.hasAccessToSklad(userId, +zavod, sklad);
+    return { canEdit };
+  }
+
+  /**
    * GET /api/users/me/has-access-to-statements/id - возвращает список доступных ведомостей
    */
   @Get('me/has-access-to-statements')
   async checkAccessToStatements(@Req() request: RequestWithUser) {
     const userId = request.user?.sub;
-    // Если userId нет (маловероятно, но TypeScript требует проверку)
+    // Если userId нет (невероятно, но TypeScript требует проверку)
     if (!userId) {
       return { hasAccessToStatements: false };
     }

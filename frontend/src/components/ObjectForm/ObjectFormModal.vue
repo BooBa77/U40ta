@@ -203,18 +203,27 @@
     :current-sn="objectData.sn"
     @close="isPhotoViewerOpen = false"
     @update:sn="(newSn) => objectData.sn = newSn"
-  />  
+  />
+
+  <BulkMoveModal
+    :is-open="isBulkMoveOpen"
+    :objects="bulkMoveObjects"
+    @confirm="handleBulkMoveConfirm"
+    @skip="handleBulkMoveSkip"
+  />
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { objectService } from '@/services/object-service.js'
 import { logsService } from '@/services/logs-service.js'
+import { proposedChangesService } from '@/services/proposed-changes-service.js'
 import { useObjectPhotos } from './composables/useObjectPhotos'
 import { useObjectQrCodes } from './composables/useObjectQrCodes'
 import { useCamera } from '@/composables/useCamera'
 import { useObjectPlaces } from './composables/useObjectPlaces'
 import PhotoViewerModal from './components/PhotoViewerModal.vue'
+import BulkMoveModal from './components/BulkMoveModal.vue'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -283,8 +292,37 @@ const {
 
 const originalData = ref({
   sn: '',
-  places: ''
+  placesString: '',
+  placesObject: {
+    placeTer: '',
+    placePos: '',
+    placeCab: '',
+    placeUser: ''
+  }
 })
+
+// BulkMoveModal
+const isBulkMoveOpen = ref(false)
+const bulkMoveObjects = ref([])
+let bulkMoveResolve = null
+
+const showBulkMoveModal = (objects) => {
+  return new Promise((resolve) => {
+    bulkMoveObjects.value = objects
+    bulkMoveResolve = resolve
+    isBulkMoveOpen.value = true
+  })
+}
+
+const handleBulkMoveConfirm = (selectedIds) => {
+  isBulkMoveOpen.value = false
+  bulkMoveResolve?.(selectedIds)
+}
+
+const handleBulkMoveSkip = () => {
+  isBulkMoveOpen.value = false
+  bulkMoveResolve?.([])
+}
 
 const formatPlacesToString = (places) => {
   const parts = [
@@ -298,11 +336,11 @@ const formatPlacesToString = (places) => {
 
 const captureOriginalData = () => {
   const placesForSave = getPlacesForSave()
-  const placesString = formatPlacesToString(placesForSave)
   
   originalData.value = {
     sn: objectData.value.sn || '',
-    places: placesString
+    placesString: formatPlacesToString(placesForSave),
+    placesObject: { ...placesForSave }
   }
 }
 
@@ -414,7 +452,7 @@ const getSnChangeMessage = () => {
 }
 
 const getPlacesChangeMessage = () => {
-  const oldPlaces = originalData.value.places
+  const oldPlaces = originalData.value.placesString
   const newPlaces = formatPlacesToString(getPlacesForSave())
   
   if (oldPlaces === newPlaces) return null
@@ -434,65 +472,185 @@ const handleSave = async () => {
     }
 
     const { toAdd: photosToAdd, toDelete: photosToDelete } = await prepareForSave()
+    const newQrCodes = Array.from(pendingQrCodes.value)
 
-    const savedObject = await objectService.saveObject({
-      objectData: objectToSave,
-      qrCodes: Array.from(pendingQrCodes.value),
-      photosToAdd: photosToAdd,
-      photosToDelete: photosToDelete
-    })
+    // ---------- ОСНОВНОЙ ОБЪЕКТ ----------
+    
+    // Проверяем права доступа к складу
+    const canEdit = await objectService.checkSkladAccess(
+      objectToSave.zavod,
+      objectToSave.sklad
+    )
 
-    const savedId = savedObject.object?.id || savedObject.id
-    const wasCreated = !objectData.value.id && savedId
-    objectData.value.id = savedId
+    let savedId
 
-    const historyEntries = []
-
-    if (wasCreated) {
-      historyEntries.push({
-        eventType: 'created',
-        storyLine: 'Объект создан'
+    if (canEdit) {
+      // МОЛ — прямое сохранение
+      const savedObject = await objectService.saveObject({
+        objectData: objectToSave,
+        qrCodes: newQrCodes,
+        photosToAdd: photosToAdd,
+        photosToDelete: photosToDelete
       })
-    }
 
-    const snMessage = getSnChangeMessage()
-    if (snMessage) {
-      historyEntries.push({
-        eventType: 'sn_changed',
-        storyLine: snMessage
-      })
-    }
+      savedId = savedObject.object?.id || savedObject.id
+      const wasCreated = !objectData.value.id && savedId
+      objectData.value.id = savedId
 
-    const placesMessage = getPlacesChangeMessage()
-    if (placesMessage) {
-      historyEntries.push({
-        eventType: 'place_changed',
-        storyLine: placesMessage
-      })
-    }
+      // Логи для МОЛ
+      const historyEntries = []
 
-    for (const entry of historyEntries) {
-      await logsService.addObjectHistory(savedId, entry.eventType, entry.storyLine)
-    }
+      if (wasCreated) {
+        historyEntries.push({ eventType: 'created', storyLine: 'Объект создан' })
+      }
 
-    if (comment.value.trim()) {
-      await logsService.addObjectHistory(savedId, 'comment', comment.value.trim())
-    }
+      const snMessage = getSnChangeMessage()
+      if (snMessage) {
+        historyEntries.push({ eventType: 'sn_changed', storyLine: snMessage })
+      }
 
-    const hasAnyChanges = historyEntries.length > 0 || comment.value.trim()
+      const placesMessage = getPlacesChangeMessage()
+      if (placesMessage) {
+        historyEntries.push({ eventType: 'place_changed', storyLine: placesMessage })
+      }
 
-    if (hasAnyChanges) {
-      await objectService.updateCheckedAt(savedId)
+      for (const entry of historyEntries) {
+        await logsService.addObjectHistory(savedId, entry.eventType, entry.storyLine)
+      }
+
+      if (comment.value.trim()) {
+        await logsService.addObjectHistory(savedId, 'comment', comment.value.trim())
+      }
+
+      const hasAnyChanges = historyEntries.length > 0 || comment.value.trim()
+
+      if (hasAnyChanges) {
+        await objectService.updateCheckedAt(savedId)
+      } else {
+        await logsService.addObjectHistory(savedId, 'checked', 'проверено')
+        await objectService.updateCheckedAt(savedId)
+      }
+
+      for (const qrCode of newQrCodes) {
+        await logsService.addQrCodeHistory(qrCode, savedId)
+      }
+
     } else {
-      await logsService.addObjectHistory(savedId, 'checked', 'проверено')
-      await objectService.updateCheckedAt(savedId)
+      // Гость — предлагаемые изменения
+      const proposedChanges = []
+
+      // Местоположение
+      const placesMessage = getPlacesChangeMessage()
+      if (placesMessage) {
+        proposedChanges.push({
+          changeType: 'place',
+          proposedData: getPlacesForSave()
+        })
+      }
+
+      // Серийный номер
+      const snMessage = getSnChangeMessage()
+      if (snMessage) {
+        proposedChanges.push({
+          changeType: 'sn',
+          proposedData: { sn: objectToSave.sn || null }
+        })
+      }
+
+      // Комментарий
+      if (comment.value.trim()) {
+        proposedChanges.push({
+          changeType: 'comment',
+          proposedData: { comment: comment.value.trim() }
+        })
+      }
+
+      // Новые фото
+      for (const photo of photosToAdd) {
+        proposedChanges.push({
+          changeType: 'photo_add',
+          proposedData: {
+            photoMaxData: photo.max,
+            photoMinData: photo.min
+          }
+        })
+      }
+
+      // Новые QR-коды
+      for (const qrValue of newQrCodes) {
+        proposedChanges.push({
+          changeType: 'qr_code',
+          proposedData: { qrValue }
+        })
+      }
+
+      if (proposedChanges.length > 0) {
+        await proposedChangesService.proposeChanges(objectToSave.id, proposedChanges)
+      }
+      
+      savedId = objectToSave.id
+      objectData.value.id = savedId
     }
 
-    for (const qrCode of pendingQrCodes.value) {
-      await logsService.addQrCodeHistory(qrCode, savedId)      
+    // ---------- СВЯЗАННЫЕ ОБЪЕКТЫ (BulkMoveModal) ----------
+    
+    const placesChanged = getPlacesChangeMessage() !== null
+
+    if (placesChanged) {
+      const newPlaces = getPlacesForSave()
+      const oldPlaces = originalData.value.placesObject
+
+      const allAtOldPlace = await objectService.getObjectsByPlaces(oldPlaces, savedId)
+
+      if (allAtOldPlace.length > 0) {
+        const selectedIds = await showBulkMoveModal(allAtOldPlace)
+
+        for (const obj of allAtOldPlace) {
+          if (selectedIds.includes(obj.id)) {
+            const relatedCanEdit = await objectService.checkSkladAccess(
+              obj.zavod,
+              obj.sklad
+            )
+
+            if (relatedCanEdit) {
+              await objectService.updateObject(obj.id, {
+                placeTer: newPlaces.placeTer,
+                placePos: newPlaces.placePos,
+                placeCab: newPlaces.placeCab,
+                placeUser: newPlaces.placeUser
+              })
+
+              const storyLine = `теперь у: ${formatPlacesToString(newPlaces)}`
+              await logsService.addObjectHistory(obj.id, 'place_changed', storyLine)
+
+              if (comment.value.trim()) {
+                await logsService.addObjectHistory(obj.id, 'comment', comment.value.trim())
+              }
+
+              await objectService.updateCheckedAt(obj.id)
+
+            } else {
+              const relatedChanges = [{
+                changeType: 'place',
+                proposedData: newPlaces
+              }]
+
+              if (comment.value.trim()) {
+                relatedChanges.push({
+                  changeType: 'comment',
+                  proposedData: { comment: comment.value.trim() }
+                })
+              }
+
+              await proposedChangesService.proposeChanges(obj.id, relatedChanges)
+            }
+          }
+        }
+      }
     }
     
-    emit('save', { wasCreated: wasCreated })
+    const wasCreated = canEdit && !objectData.value.id
+    emit('save', { wasCreated })
     resetForm()
     
   } catch (error) {

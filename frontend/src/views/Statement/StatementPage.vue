@@ -111,10 +111,15 @@ import { statementService } from '@/services/statement.service'
 
 const route = useRoute()
 const router = useRouter()
-const attachmentId = route.params.id
+
+/**
+ * Дата получения ведомости из параметра маршрута.
+ * В URL: /statement/2026-01-15T10:30:00.000Z
+ */
+const receivedAt = decodeURIComponent(route.params.receivedAt)
 
 // === ДАННЫЕ ===
-const { loading, error, statements, reload } = useStatementData(attachmentId)
+const { loading, error, statements, reload } = useStatementData(receivedAt)
 const { aggregatedStatements, hasPartyOrQuantity, getRowGroup: getAggregatedRowGroup } = useStatementAggregation(statements)
 
 // === КОНФИГУРАЦИЯ ФИЛЬТРОВ ===
@@ -163,7 +168,9 @@ const selectedItem = ref({
 const statementsLength = computed(() => tableStatements.value?.length || 0)
 const tableStatements = computed(() => tableFilteredData.value)
 
-// Преобразуем activeFilters в формат, который ожидает таблица
+/**
+ * Преобразуем activeFilters в формат, который ожидает таблица.
+ */
 const activeFiltersForTable = computed(() => {
   const result = {}
   if (activeFilters.value.inv_number) {
@@ -172,20 +179,20 @@ const activeFiltersForTable = computed(() => {
   if (activeFilters.value.buh_name) {
     result.buh_name = activeFilters.value.buh_name
   }
-  console.log('[StatementPage] activeFiltersForTable обновлён:', result)
   return result
 })
 
+/**
+ * Заголовок ведомости.
+ * Берём описание из первой строки.
+ */
 const statementTitle = computed(() => {
   if (!statements.value?.length) return ''
-  const firstRow = statements.value[0]
-  return `${firstRow.docType} ${firstRow.sklad}`
+  return statements.value[0].description || ''
 })
 
 // === ОБРАБОТЧИК КЛИКА ПО СТРОКЕ ТАБЛИЦЫ ===
 const handleRowClick = (groupParams) => {
-  console.log('[StatementPage] Клик по строке, открываем InvListModal с параметрами:', groupParams)
-  
   selectedItem.value = {
     invNumber: groupParams.invNumber,
     partyNumber: groupParams.partyNumber,
@@ -197,7 +204,6 @@ const handleRowClick = (groupParams) => {
 }
 
 const handleInvListClose = () => {
-  console.log('[StatementPage] Закрытие InvListModal')
   invListIsOpen.value = false
   
   setTimeout(() => {
@@ -212,9 +218,6 @@ const handleInvListClose = () => {
 
 // === ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ФОРМЫ ИЗ ТАБЛИЦЫ ===
 const openObjectFormFromRowData = ({ scannedData, rowData }) => {
-  console.log('[STATEMENT-PAGE] Открытие формы для строки ведомости:', rowData)
-  console.log('[STATEMENT-PAGE] Отсканированный код:', scannedData)
-  
   objectFormStatementId.value = rowData.id || null
   objectFormObjectId.value = null
   objectFormInitialData.value = rowData
@@ -225,25 +228,15 @@ const openObjectFormFromRowData = ({ scannedData, rowData }) => {
 
 // === ОБРАБОТЧИКИ OBJECT FORM ===
 const handleObjectFormSave = async (result) => {
-  console.log('[STATEMENT-PAGE] Результат сохранения объекта:', result, objectFormStatementId.value)
-  
   objectFormIsOpen.value = false
   resetObjectFormState()
 
   if (result.wasCreated) {
     if (objectFormStatementId.value) {
       try {
-        console.log('[STATEMENT-PAGE] Устанавливаем haveObject=true для записи:', {
-          statementId: objectFormStatementId.value
-        })
-        
-        await statementService.updateStatementHaveObject(
-          objectFormStatementId.value,
-          true
-        )
-        
+        await statementService.updateHaveObject(objectFormStatementId.value)
       } catch (error) {
-        console.error('[STATEMENT-PAGE] Ошибка обновления ведомости:', error)
+        console.error('[StatementPage] Ошибка обновления ведомости:', error)
       }
     }
     
@@ -252,7 +245,6 @@ const handleObjectFormSave = async (result) => {
 }
 
 const handleObjectFormCancel = () => {
-  console.log('[STATEMENT-PAGE] Отмена создания объекта')
   objectFormIsOpen.value = false
   resetObjectFormState()
 }
@@ -266,7 +258,6 @@ const resetObjectFormState = () => {
 
 // === МЕТОДЫ ===
 const handleBack = () => {
-  console.log('[STATEMENT-PAGE] Кнопка "Назад" нажата')
   resetAllFilters()
   router.push('/')
 }
@@ -284,6 +275,6 @@ const closeFilterModal = () => {
 }
 
 // === МЕНЕДЖЕР АКТУАЛЬНОСТИ ===
-const actualManager = useActualManager(attachmentId, reload)
+const actualManager = useActualManager(receivedAt, reload)
 
 </script>

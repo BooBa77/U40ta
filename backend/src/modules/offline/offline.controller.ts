@@ -35,9 +35,8 @@ export class OfflineController {
       return {
         success: false,
         data: {
-          email_attachments: [],
           objects: [],
-          processed_statements: [],
+          statements: [],
           qr_codes: [],
           photos: [],
           inventory_books: [],
@@ -45,11 +44,10 @@ export class OfflineController {
           meta: {
             userId: 0,
             fetchedAt: new Date().toISOString(),
+            totalStatements: 0,
             totalObjects: 0,
-            totalObjectsInStatements: 0,
             totalQrCodes: 0,
             totalPhotos: 0,
-            accessibleSklads: 0,
             totalInventoryBooks: 0,
             totalInventoryBookItems: 0,
           }

@@ -22,4 +22,3 @@ export class User {
   abr!: string;
 
 }
-

@@ -1,30 +1,29 @@
 /**
- * Менеджер для работы с актуальностью строк ведомости (isActual)
- * Обрабатывает изменение статуса актуальности для всей группы позиций
+ * Менеджер для работы с актуальностью строк ведомости (isActual).
+ * Обрабатывает изменение статуса актуальности для всей группы позиций.
+ * 
+ * @param {string} receivedAt - дата получения ведомости в ISO формате
+ * @param {Function} reloadCallback - функция перезагрузки данных
  */
 import { statementService } from '@/services/statement.service'
 
-export function useActualManager(attachmentId, reloadCallback) {
+export function useActualManager(receivedAt, reloadCallback) {
   /**
-   * Обработчик изменения статуса актуальности
-   * Устанавливает isActual = false для всех строк с указанным инв.номером
-   * (и партией, если она есть)
+   * Обработчик изменения статуса актуальности.
+   * Устанавливает isActual для всех строк с указанным инв.номером.
    * @param {Object} params - параметры обновления
-   * @param {string} params.inv - инвентарный номер
-   * @param {string} [params.party] - номер партии (опционально)
+   * @param {string} params.invNumber - инвентарный номер
    * @param {boolean} params.isActual - новое значение актуальности
    * @returns {Promise<void>}
    */
   const handleActualChange = async ({ invNumber, isActual }) => {
     try {
-      // Вызываем сервис для обновления статуса актуальности
       await statementService.updateActualStatus(
-        attachmentId,
+        receivedAt,
         invNumber,
         isActual
       )
       
-      // После успешного обновления перезагружаем данные
       if (reloadCallback && typeof reloadCallback === 'function') {
         reloadCallback()
       }

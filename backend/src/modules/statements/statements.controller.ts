@@ -1,22 +1,120 @@
-import { Controller, Get, Post, Body, Param, UseGuards, ParseIntPipe, HttpCode, Query } from '@nestjs/common';
-import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
-import { StatementService } from './services/statement.service';
-import { StatementObjectsService } from './services/statement-objects.service';
-import { UpdateActualDto } from './dto/update-actual.dto';
-import { UpdateHaveObjectDto } from './dto/update-have-object.dto';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  UseGuards,
+  Req,
+  Body,
+  Query,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { StatementsService } from './services/statements.service';
+import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
+/**
+ * Контроллер для работы с ведомостями МОЛ.
+ * 
+ * ## Понятия
+ * - **Ведомость** — группа строк из одного Excel-файла, полученного по email.
+ *   Уникальная комбинация: userId + receivedAt + description.
+ * - **Строка ведомости** — одна позиция в ведомости (инвентарный номер, партия и т.д.).
+ * 
+ * Базовый путь: /api/statements
+ */
 @Controller('statements')
 @UseGuards(JwtAuthGuard)
 export class StatementsController {
   constructor(
-    private readonly statementService: StatementService,
-    private readonly statementObjectsService: StatementObjectsService,
+    private readonly statementsService: StatementsService,
   ) {}
 
+  // ============================================================================
+  // СПИСОК ВЕДОМОСТЕЙ
+  // ============================================================================
+
   /**
-   * Поиск записей ведомости по инвентарному номеру по определённому складу без учёта party
-   * GET /api/statements/by-inv?inv=...&zavod=...&sklad=...
-   * Только записи с haveObject = false (те, по которым нужно создать объект)
+   * Получить список ведомостей текущего МОЛ.
+   * GET /api/statements
+   */
+  @Get()
+  async getList(
+    @Req() request: RequestWithUser
+  ): Promise<{ receivedAt: Date; description: string; docType: string; count: number }[]> {
+    const userId = request.user.sub;
+    if (!userId) {
+      return [];
+    }
+
+    return await this.statementsService.getList(userId);
+  }
+
+  // ============================================================================
+  // СТРОКИ ВЕДОМОСТИ
+  // ============================================================================
+
+  /**
+   * Получить строки конкретной ведомости.
+   * GET /api/statements/items?receivedAt=...
+   */
+  @Get('items')
+  async getItems(
+    @Req() request: RequestWithUser,
+    @Query('receivedAt') receivedAt: string
+  ) {
+    const userId = request.user.sub;
+    if (!userId) {
+      return { statements: [] };
+    }
+
+    const statements = await this.statementsService.getItems(
+      userId,
+      new Date(receivedAt)
+    );
+
+    return { statements };
+  }
+
+  // ============================================================================
+  // УДАЛЕНИЕ ВЕДОМОСТИ
+  // ============================================================================
+
+  /**
+   * Удалить ведомость.
+   * DELETE /api/statements?receivedAt=...
+   */
+  @Delete()
+  @HttpCode(HttpStatus.OK)
+  async deleteStatement(
+    @Req() request: RequestWithUser,
+    @Query('receivedAt') receivedAt: string
+  ): Promise<{ success: boolean; message: string }> {
+    const userId = request.user.sub;
+    if (!userId) {
+      return { success: false, message: 'Пользователь не найден' };
+    }
+
+    try {
+      await this.statementsService.deleteStatement(userId, new Date(receivedAt));
+      return { success: true, message: 'Ведомость удалена' };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Ошибка при удалении ведомости',
+      };
+    }
+  }
+
+  // ============================================================================
+  // ПОИСК ПО ИНВЕНТАРНОМУ НОМЕРУ
+  // ============================================================================
+
+  /**
+   * Поиск записей ведомости по инвентарному номеру.
+   * Только записи с haveObject = false (те, по которым нужно создать объект).
+   * GET /api/statements/by-inv?inv=...&zavod=...&sklad=...&party=...
    */
   @Get('by-inv')
   async findByInv(
@@ -26,105 +124,61 @@ export class StatementsController {
     @Query('party') party?: string
   ) {
     try {
-      console.log(`[StatementsController] Поиск записей ведомости по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
-      
       if (!inv || inv.trim() === '') {
         return {
           success: false,
           error: 'Инвентарный номер обязателен',
-          statements: []
+          statements: [],
         };
       }
-      
+
       const zavodValue = zavod ? parseInt(zavod, 10) : undefined;
       const skladValue = sklad || undefined;
-      
-      const statements = await this.statementService.findByInv(
+
+      const statements = await this.statementsService.findByInv(
         inv.trim(),
         zavodValue,
         skladValue,
         party?.trim() || undefined
       );
-      
+
       return {
         success: true,
-        statements: statements,
-        count: statements.length
+        statements,
+        count: statements.length,
       };
     } catch (error) {
-      console.error('[StatementsController] Ошибка поиска записей ведомости:', error);
       return {
         success: false,
         error: error.message,
-        statements: []
-      };
-    }
-  }
-
-  /**
-   * Открытие ведомости по ID вложения из email
-   * GET /api/statements/:attachmentId
-   */
-  @Get(':attachmentId')
-  async getStatement(
-    @Param('attachmentId', ParseIntPipe) attachmentId: number
-  ) {
-    try {
-      const statements = await this.statementService.parseStatement(attachmentId);
-      
-      return {
-        success: true,
-        attachmentId: attachmentId,
-        statements: statements,
-        count: statements.length,
-        message: `Загружено ${statements.length} строк`
-      };
-      
-    } catch (error) {
-      return {
-        success: false,
-        attachmentId: attachmentId,
         statements: [],
-        count: 0,
-        error: error.message
       };
     }
   }
 
+  // ============================================================================
+  // ОБНОВЛЕНИЕ АКТУАЛЬНОСТИ
+  // ============================================================================
+
   /**
-   * Обновление статуса актуальности/игнорирования для группы строк
-   * POST /api/statements/actual
+   * Обновить статус актуальности для группы строк.
+   * POST /api/statements/update-actual
    */
   @Post('update-actual')
-  async updateActualStatus(@Body() dto: UpdateActualDto) {
-    try {
-      const updated = await this.statementService.updateActualStatus(dto);
-      
-      return {
-        success: true,
-        attachmentId: dto.attachmentId,
-        statements: updated,
-        count: updated.length,
-        message: `Обновлено ${updated.length} записей`
-      };
-    } catch (error) {
-      return {
-        success: false,
-        attachmentId: dto.attachmentId,
-        statements: [],
-        count: 0,
-        error: error.message
-      };
-    }
-  }
+  @HttpCode(HttpStatus.OK)
+  async updateActual(
+    @Req() request: RequestWithUser,
+    @Body() body: { receivedAt: string; invNumber: string; isActual: boolean }
+  ): Promise<{ success: boolean; updatedCount: number }> {
+    const userId = request.user.sub;
 
-  /**
-   * Обновление статуса haveObject для конкретной строки ведомости
-   * POST /api/statements/update-have-object
-   */
-  @Post('update-have-object')
-  async updateHaveObject(@Body() dto: UpdateHaveObjectDto) {
-      await this.statementObjectsService.updateSingleHaveObject(dto.statementId);
-      return { success: true };
-  } 
+    const updatedCount = await this.statementsService.updateActual(
+      userId,
+      new Date(body.receivedAt),
+      body.invNumber,
+      body.isActual
+    );
+
+    return { success: true, updatedCount };
+  }
 }

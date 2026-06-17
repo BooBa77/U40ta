@@ -2,37 +2,33 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EmailAttachment } from '../entities/email-attachment.entity';
-import { AppEventsService } from '../../app-events/app-events.service';
 import { SmtpService } from './smtp.service';
 import { EmailFileAnalyzer } from './email-file-analyzer.service';
-import { EmailStorageService } from './email-storage.service';
 import { LogsService } from '../../logs/logs.service';
+import { UsersService } from '../../users/users.service';
 
 /**
  * Сервис обработки вложений электронной почты.
  * 
  * ## Назначение
  * Координирует полный цикл обработки одного вложения, полученного по email:
- * анализ структуры, сохранение на диск и в БД (для обычных ведомостей),
- * передача в inventory-модуль (для инвентаризационных), отправка уведомлений.
+ * анализ структуры, передача в соответствующий модуль (statements или inventory),
+ * отправка уведомлений отправителю.
  * 
  * ## Два режима обработки
- * - **Обычная ведомость** (is_inventory = false) — для МОЛ.
- *   Анализ → сохранение файла на диск → запись в email_attachments → SSE + уведомление.
- * - **Инвентаризационная ведомость** (is_inventory = true) — для ревизоров.
- *   Анализ → проверка валидности → эмит события `inventory.file.received` с Buffer.
- *   Файл не сохраняется на диск и в email_attachments.
+ * - **Обычная ведомость** (тема письма НЕ содержит "инвентар") — для МОЛ.
+ *   Анализ → поиск пользователя по email → эмит события `statement.file.received`.
+ *   Файл не сохраняется на диск.
+ * - **Инвентаризационная ведомость** (тема содержит "инвентар") — для ревизоров.
+ *   Анализ → эмит события `inventory.file.received`.
+ *   Файл не сохраняется на диск.
  * 
- * ## Признак инвентаризационной ведомости is_inventory
+ * ## Признак инвентаризационной ведомости
  * Определяется в ImapService по теме письма (ключевое слово "инвентар").
  * 
  * ## Обработка ошибок
  * - При ошибке обработки уведомление отправляется администратору
  *   (tregubovsy@irkutsk-dobycha.gazprom.ru)
- * 
- * ## Использование
- * Вызывается из ImapService.processAttachment() для каждого вложения письма.
  */
 @Injectable()
 export class EmailProcessor {
@@ -44,13 +40,10 @@ export class EmailProcessor {
   private readonly ADMIN_EMAIL = 'tregubovsy@irkutsk-dobycha.gazprom.ru';
 
   constructor(
-    @InjectRepository(EmailAttachment)
-    private attachmentsRepo: Repository<EmailAttachment>,
-    private appEventsService: AppEventsService,
     private smtpService: SmtpService,
     private emailFileAnalyzer: EmailFileAnalyzer,
-    private emailStorageService: EmailStorageService,
     private logsService: LogsService,
+    private usersService: UsersService,
     private eventEmitter: EventEmitter2,
   ) {}
 
@@ -58,24 +51,23 @@ export class EmailProcessor {
    * Проанализировать вложение и выполнить действие в зависимости от типа.
    * 
    * ## Процесс
-   * 1. Определяет is_inventory по теме письма
+   * 1. Определяет isInventory по теме письма
    * 2. Анализирует Excel через EmailFileAnalyzer.analyzeExcel(Buffer)
    * 3. Если файл невалидный — отправляет уведомление отправителю
-   * 4. Если валидный и is_inventory = true — эмитит событие для inventory-модуля
-   * 5. Если валидный и is_inventory = false — сохраняет файл и запись в БД
+   * 4. Если валидный и isInventory = true — эмитит событие для inventory-модуля
+   * 5. Если валидный и isInventory = false — эмитит событие для statements-модуля
    * 
    * @param fileContent - содержимое файла в виде Buffer
    * @param originalFilename - оригинальное имя файла из письма
    * @param emailFrom - email отправителя
-   * @param emailSubject - тема письма (для определения is_inventory)
-   * @returns EmailAttachment или null (для инвентаризационных всегда null)
+   * @param emailSubject - тема письма (для определения isInventory)
    */
   async analyzeAndSaveAttachment(
     fileContent: Buffer,
     originalFilename: string,
     emailFrom: string,
     emailSubject?: string
-  ): Promise<EmailAttachment | null> {
+  ): Promise<void> {
     this.logger.log(`Обрабатываем вложение: ${originalFilename}`);
 
     // ========== Определяем тип ведомости по теме письма ==========
@@ -97,22 +89,19 @@ export class EmailProcessor {
           isInventory,
           analysis.error
         );
-        return null;
+        return;
       }
 
       // ========== Файл валидный — действуем по типу ==========
       if (isInventory) {
-        // Инвентаризационная ведомость: эмитим событие для inventory-модуля
         await this.handleInventoryAttachment(
           fileContent,
           originalFilename,
           emailFrom,
           analysis
         );
-        return null;
       } else {
-        // Обычная ведомость: сохраняем на диск и в БД
-        return await this.saveValidAttachment(
+        await this.handleStatementAttachment(
           fileContent,
           originalFilename,
           emailFrom,
@@ -121,7 +110,6 @@ export class EmailProcessor {
       }
 
     } catch (error) {
-      // ========== Непредвиденная ошибка ==========
       await this.handleProcessingError(originalFilename, emailFrom, error);
       throw error;
     }
@@ -129,14 +117,7 @@ export class EmailProcessor {
 
   /**
    * Обработать валидную инвентаризационную ведомость.
-   * 
-   * ## Действия
-   * 1. Логирует успешный анализ
-   * 2. Эмитит событие `inventory.file.received` с Buffer, именем файла и email отправителя
-   * 3. Inventory-модуль слушает это событие и парсит строки в inventory_statements
-   * 4. Отправляет SSE `inventory-statement-loaded` с ключом email (делает inventory-модуль)
-   * 
-   * Файл НЕ сохраняется на диск и НЕ создаётся запись в email_attachments.
+   * Эмитит событие `inventory.file.received` с Buffer, именем файла, email и docType.
    * 
    * @param buffer - содержимое файла
    * @param filename - оригинальное имя файла
@@ -147,7 +128,7 @@ export class EmailProcessor {
     buffer: Buffer,
     filename: string,
     emailFrom: string,
-    analysis: { docType?: string }
+    analysis: { docType?: string; description?: string }
   ): Promise<void> {
     this.logger.log(`Инвентаризационная ведомость принята: ${filename}, тип: ${analysis.docType}`);
 
@@ -155,11 +136,10 @@ export class EmailProcessor {
       action: 'inventory_file_accepted',
       filename,
       emailFrom,
-      docType: analysis.docType
+      docType: analysis.docType,
+      description: analysis.description
     });
 
-    // Эмитим событие для inventory-модуля
-    // InventoryStatementListener.OnInventoryFileReceived обработает его
     this.eventEmitter.emit('inventory.file.received', {
       buffer,
       filename,
@@ -169,88 +149,95 @@ export class EmailProcessor {
   }
 
   /**
-   * Сохранить валидную обычную ведомость МОЛ.
+   * Обработать валидную обычную ведомость МОЛ.
+   * Находит пользователя по email и эмитит событие `statement.file.received`.
    * 
-   * ## Действия
-   * 1. Сохраняет файл на диск через EmailStorageService
-   * 2. Создаёт запись в email_attachments
-   * 3. Отправляет SSE statementLoaded
-   * 4. Отправляет уведомление отправителю
+   * Если пользователь не найден по email — отправляет уведомление отправителю
+   * и администратору, файл не обрабатывается.
    * 
    * @param buffer - содержимое файла
-   * @param originalFilename - оригинальное имя файла
+   * @param filename - оригинальное имя файла
    * @param emailFrom - email отправителя
-   * @param analysis - результат анализа (docType, zavod, sklad)
-   * @returns Сохранённая запись EmailAttachment
+   * @param analysis - результат анализа (docType, description)
    */
-  private async saveValidAttachment(
+  private async handleStatementAttachment(
     buffer: Buffer,
-    originalFilename: string,
+    filename: string,
     emailFrom: string,
-    analysis: { docType?: string; zavod?: number; sklad?: string }
-  ): Promise<EmailAttachment> {
-    // ========== Шаг 1: Сохраняем файл на диск ==========
-    const { filePath, uniqueFilename } = await this.emailStorageService.saveFile(
-      originalFilename,
-      buffer
-    );
+    analysis: { docType?: string; description?: string }
+  ): Promise<void> {
+    this.logger.log(`Ведомость МОЛ принята: ${filename}, тип: ${analysis.docType}, описание: ${analysis.description}`);
 
-    this.logger.log(`Файл сохранён на диск: ${uniqueFilename}`);
+    // ========== Ищем пользователя по email ==========
+    const user = await this.usersService.findByEmail(emailFrom);
 
-    // ========== Шаг 2: Создаём запись в БД ==========
-    const attachmentData = {
-      filename: uniqueFilename,
-      emailFrom,
-      receivedAt: new Date(),
-      docType: analysis.docType,
-      zavod: analysis.zavod || 0,
-      sklad: analysis.sklad || '',
-      inProcess: false
-    };
+    if (!user) {
+      this.logger.warn(`Пользователь с email ${emailFrom} не найден, ведомость отклонена`);
 
-    const savedRecord = await this.attachmentsRepo.save(attachmentData);
+      this.logsService.log('backend', null, {
+        action: 'statement_file_rejected_user_not_found',
+        filename,
+        emailFrom,
+        docType: analysis.docType
+      });
 
-    this.logger.log(
-      `Запись в БД создана: id=${savedRecord.id}, тип=${analysis.docType}, ` +
-      `склад=${analysis.sklad}`
-    );
+      // Уведомляем отправителя
+      const rejectText =
+        `Извините, Ваш файл "${filename}" не принят.\n\n` +
+        `Причина: Ваш email ${emailFrom} не зарегистрирован в системе U40TA как МОЛ.\n` +
+        `Обратитесь к администратору для получения доступа.`;
 
-    // ========== Шаг 3: SSE-уведомление ==========
-    this.appEventsService.notifyStatementLoaded();
+      await this.smtpService.sendEmail(
+        emailFrom,
+        `Файл отклонён: ${filename}`,
+        rejectText
+      );
 
-    // ========== Шаг 4: Логирование ==========
+      // Уведомляем администратора
+      await this.smtpService.sendEmail(
+        this.ADMIN_EMAIL,
+        `Неизвестный отправитель ведомости: ${filename}`,
+        `Файл: ${filename}\nEmail: ${emailFrom}\nТип: ${analysis.docType}\nОписание: ${analysis.description}`
+      );
+
+      return;
+    }
+
+    // ========== Логируем успешный приём ==========
     this.logsService.log('backend', null, {
-      action: 'email_attachment_accepted',
-      filename: uniqueFilename,
+      action: 'statement_file_accepted',
+      filename,
       emailFrom,
+      userId: user.id,
       docType: analysis.docType,
-      zavod: analysis.zavod,
-      sklad: analysis.sklad
+      description: analysis.description
     });
 
-    // ========== Шаг 5: Уведомление отправителю ==========
+    // ========== Эмитим событие для statements-модуля ==========
+    this.eventEmitter.emit('statement.file.received', {
+      buffer,
+      filename,
+      userId: user.id,
+      docType: analysis.docType,
+      description: analysis.description
+    });
+
+    // ========== Уведомление отправителю ==========
     const acceptText =
-      `Ваш файл "${originalFilename}" принят.\n\n` +
+      `Ваш файл "${filename}" принят.\n\n` +
       `Тип документа: ${analysis.docType}\n` +
-      `Склад: ${analysis.sklad}\n`;
+      `Описание: ${analysis.description}\n`;
 
     await this.smtpService.sendEmail(
       emailFrom,
-      `Файл принят: ${originalFilename}`,
+      `Файл принят: ${filename}`,
       acceptText
     );
-
-    return savedRecord;
   }
 
   /**
    * Обработать невалидное вложение.
-   * 
-   * ## Действия
-   * 1. Логирует отклонение
-   * 2. Отправляет уведомление отправителю с причиной
-   * 
-   * Файл не сохранялся на диск — удалять нечего.
+   * Отправляет уведомление отправителю с причиной отклонения.
    * 
    * @param filename - оригинальное имя файла
    * @param emailFrom - email отправителя
@@ -274,7 +261,6 @@ export class EmailProcessor {
       reason: errorMessage
     });
 
-    // Отправляем уведомление отправителю
     const rejectText =
       `Извините, Ваш файл "${filename}" не принят.\n\n` +
       `Причина: ${errorMessage || 'Неизвестная ошибка'}\n\n` +
@@ -292,10 +278,7 @@ export class EmailProcessor {
 
   /**
    * Обработать непредвиденную ошибку при обработке вложения.
-   * 
-   * ## Действия
-   * 1. Логирует ошибку
-   * 2. Отправляет уведомление администратору (не отправителю)
+   * Отправляет уведомление администратору.
    * 
    * @param filename - оригинальное имя файла
    * @param emailFrom - email отправителя (для контекста в логах)
@@ -308,7 +291,6 @@ export class EmailProcessor {
   ): Promise<void> {
     this.logger.error(`Ошибка обработки файла ${filename}:`, error);
 
-    // ========== Логируем ошибку ==========
     this.logsService.log('backend', null, {
       action: 'email_processing_error',
       filename,
@@ -317,7 +299,6 @@ export class EmailProcessor {
       stack: error.stack
     });
 
-    // ========== Отправляем уведомление администратору ==========
     const errorText =
       `Ошибка обработки вложения.\n\n` +
       `Файл: ${filename}\n` +

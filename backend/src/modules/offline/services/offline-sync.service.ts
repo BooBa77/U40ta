@@ -6,24 +6,27 @@ import { LogsService } from '../../logs/logs.service';
 import { SyncChangesRequestDto } from '../dto/sync-changes.request.dto';
 import { CreateObjectDto } from '../../objects/dto/create-object.dto';
 import { UpdateObjectDto } from '../../objects/dto/update-object.dto';
-import { EmailAttachment } from '../../email/entities/email-attachment.entity';
 import { InventoryBookItem } from '../../inventory/entities/inventory-book-item.entity';
 import { InventoryBook } from '../../inventory/entities/inventory-book.entity';
-import { AppEventsService } from '../../app-events/app-events.service';
 
+/**
+ * Сервис синхронизации изменений из офлайн-режима.
+ * 
+ * ## Назначение
+ * Применяет изменения, сделанные пользователем в офлайн-режиме,
+ * к онлайн-базе данных: создание/обновление объектов,
+ * обновление строк инвентаризационных книг.
+ */
 @Injectable()
 export class OfflineSyncService {
   constructor(
     private readonly entityManager: EntityManager,
     private readonly objectsService: ObjectsService,
     private readonly logsService: LogsService,
-    @InjectRepository(EmailAttachment)
-    private readonly emailAttachmentRepository: Repository<EmailAttachment>,
     @InjectRepository(InventoryBookItem)
     private readonly inventoryBookItemRepository: Repository<InventoryBookItem>,
     @InjectRepository(InventoryBook)
     private readonly inventoryBookRepository: Repository<InventoryBook>,
-    private readonly appEventsService: AppEventsService,    
   ) {}
 
   /**
@@ -31,6 +34,10 @@ export class OfflineSyncService {
    * Для каждого объекта: создаёт (id < 0) или обновляет (id > 0),
    * затем сохраняет связанные QR-коды, фото и логи.
    * Для строк инвентаризационных книг: сверяет даты подтверждений и обновляет.
+   * 
+   * @param userId - ID пользователя
+   * @param dto - DTO с изменениями
+   * @returns количество обработанных объектов и строк книг
    */
   async applyChanges(userId: number, dto: SyncChangesRequestDto): Promise<{ processed: number; inventoryItemsProcessed: number }> {
     console.log(`[OfflineSyncService] Применяем ${dto.changes.length} изменений объектов и ${dto.inventoryBookItemChanges?.length || 0} строк книг для userId=${userId}`);
@@ -176,7 +183,6 @@ export class OfflineSyncService {
             const offlineRem = item.rem || '';
 
             if (offlineRem && offlineRem !== dbRem) {
-              // Дописываем офлайн-rem к БД-rem, если они различаются
               dbItem.rem = dbRem 
                 ? `${dbRem}\n${offlineRem}` 
                 : offlineRem;
@@ -202,28 +208,6 @@ export class OfflineSyncService {
         }
       }
     });
-
-    // SSE для ведомостей (существующая логика)
-    if (processed > 0) {
-      const uniquePairs = new Map<string, { zavod: number; sklad: string }>();
-      for (const obj of dto.changes) {
-        const key = `${obj.zavod}_${obj.sklad}`;
-        if (!uniquePairs.has(key)) {
-          uniquePairs.set(key, { zavod: obj.zavod, sklad: obj.sklad });
-        }
-      }
-      const pairs = Array.from(uniquePairs.values());
-      for (const pair of pairs) {
-        const attachments = await this.emailAttachmentRepository.find({
-          where: { zavod: pair.zavod, sklad: pair.sklad },
-          select: ['id'],
-        });
-        for (const att of attachments) {
-          this.appEventsService.notifyStatementUpdated(att.id);
-          console.log(`[OfflineSyncService] SSE отправлено для attachmentId=${att.id}`);
-        }
-      }
-    }
 
     console.log(`[OfflineSyncService] Синхронизация завершена: ${processed} объектов, ${inventoryItemsProcessed} строк книг обработано`);
     return { processed, inventoryItemsProcessed };

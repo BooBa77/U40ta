@@ -5,11 +5,10 @@ class OfflineCacheService {
   constructor() {
     this.db = new Dexie('u40ta_offline_db')
     
-    // Версия 6: добавлен idInventoryStatement
-    this.db.version(6).stores({
-      email_attachments: 'id, filename, emailFrom, receivedAt, docType, zavod, sklad, inProcess, isInventory',
+    // Версия 7: statements вместо processed_statements и email_attachments
+    this.db.version(7).stores({
+      statements: 'id, userId, receivedAt, docType, description, zavod, sklad, invNumber, partyNumber, buhName, isActual',
       objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser',
-      processed_statements: 'id, emailAttachmentId, zavod, sklad, docType, invNumber, partyNumber, buhName, haveObject, isActual, isExcess',
       qr_codes: '++id, qrValue, objectId',
       photos: '++id, objectId',
       logs: '++id, source, time, content',
@@ -30,7 +29,6 @@ class OfflineCacheService {
     console.log('[OfflineCache] Включение режима полёта...')
     
     try {
-      // 1. Запрашиваем данные с бэкенда
       const response = await fetch('/api/offline/data', {
         headers: { 
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
@@ -43,12 +41,10 @@ class OfflineCacheService {
       
       const result = await response.json()
       
-      // 2. Проверяем успешность ответа от бэкенда
       if (!result.success) {
         throw new Error(result.message || 'Бэкенд вернул ошибку')
       }
       
-      // 3. Извлекаем данные
       const data = result.data
       
       if (!data) {
@@ -56,15 +52,13 @@ class OfflineCacheService {
       }
       
       console.log('[OfflineCache] Данные получены:', {
+        statements: data.statements?.length || 0,
         objects: data.objects?.length || 0,
-        processed_statements: data.processed_statements?.length || 0,
         qr_codes: data.qr_codes?.length || 0,
-        email_attachments: data.email_attachments?.length || 0,
         inventory_books: data.inventory_books?.length || 0,
         inventory_book_items: data.inventory_book_items?.length || 0
       })
       
-      // 4. Сохраняем данные в кэш
       const cacheResult = await this.cacheAllData(data)
       if (!cacheResult.success) {
         throw new Error(cacheResult.error)
@@ -77,8 +71,7 @@ class OfflineCacheService {
       console.error('[OfflineCache] Ошибка включения режима полёта:', error)
       return { success: false, error: error.message }
     }
-  } 
-
+  }
 
   /**
    * Выключает режим полёта: очищает весь кэш
@@ -88,7 +81,6 @@ class OfflineCacheService {
     console.log('[OfflineCache] Выключение режима полёта...')
     
     try {
-      // 1. Синхронизация локальных изменений
       const syncResult = await offlineSyncService.synchronize()
       
       if (!syncResult.success) {
@@ -97,7 +89,6 @@ class OfflineCacheService {
       
       console.log(`[OfflineCache] Синхронизировано объектов: ${syncResult.syncedCount}`)
       
-      // 2. Очищаем кэш
       await this.clearAllCache()
       
       console.log('[OfflineCache] Режим полёта выключен, кэш очищен')
@@ -114,13 +105,12 @@ class OfflineCacheService {
   // ============================================================================
 
   /**
-   * Кэширует все данные для офлайн-режима
-   * Предварительно очищает кэш для гарантии актуальности
+   * Кэширует все данные для офлайн-режима.
+   * Предварительно очищает кэш для гарантии актуальности.
    * @param {Object} data - Объект с данными от бэкенда в camelCase
-   * @param {Array} data.processed_statements - Массив объектов ведомостей
+   * @param {Array} data.statements - Массив строк ведомостей МОЛ
    * @param {Array} data.objects - Массив объектов
    * @param {Array} data.qr_codes - Массив QR-кодов
-   * @param {Array} data.email_attachments - Массив вложений
    * @param {Array} data.inventory_books - Массив инвентаризационных книг
    * @param {Array} data.inventory_book_items - Массив строк инвентаризационных книг
    * @returns {Promise<{success: boolean, error: string|null, stats: Object}>}
@@ -129,58 +119,44 @@ class OfflineCacheService {
     console.log('[OfflineCache] Начинаем кэширование данных...')
     
     const {
+      statements = [],
       objects = [],
-      processed_statements = [],
       qr_codes = [],
-      email_attachments = [],
       inventory_books = [],
       inventory_book_items = []
     } = data
 
     try {
-      // Очищаем кэш перед загрузкой новых данных
       await this.clearAllCache()
       
       let stats = {
+        statements: 0,
         objects: 0,
-        processed_statements: 0,
         qr_codes: 0,
-        email_attachments: 0,
         inventory_books: 0,
         inventory_book_items: 0
       }
       
-      // Сохраняем email_attachments (массово)
-      if (email_attachments.length) {
-        await this.db.email_attachments.bulkAdd(email_attachments)
-        stats.email_attachments = email_attachments.length
-      }
-      
-      // Сохраняем ведомости (массово)
-      if (processed_statements.length) {
-        await this.db.processed_statements.bulkAdd(processed_statements)
-        stats.processed_statements = processed_statements.length
+      if (statements.length) {
+        await this.db.statements.bulkAdd(statements)
+        stats.statements = statements.length
       }
 
-      // Сохраняем объекты (массово)
       if (objects.length) {
         await this.db.objects.bulkAdd(objects)
         stats.objects = objects.length
       }
       
-      // Сохраняем QR-коды (массово)
       if (qr_codes.length) {
         await this.db.qr_codes.bulkAdd(qr_codes)
         stats.qr_codes = qr_codes.length
       }
 
-      // Сохраняем инвентаризационные книги (массово)
       if (inventory_books.length) {
         await this.db.inventory_books.bulkAdd(inventory_books)
         stats.inventory_books = inventory_books.length
       }
 
-      // Сохраняем строки инвентаризационных книг (массово)
       if (inventory_book_items.length) {
         await this.db.inventory_book_items.bulkAdd(inventory_book_items)
         stats.inventory_book_items = inventory_book_items.length
@@ -196,15 +172,13 @@ class OfflineCacheService {
   }
 
   /**
-   * Полностью очищает весь кэш
-   * Вызывается при возвращении в онлайн после синхронизации и перед ручным кэшированием для гарантированной чистоты
+   * Полностью очищает весь кэш.
    */
   async clearAllCache() {
     console.log('[OfflineCache] Очищаем весь кэш...')
     
     await Promise.all([
-      this.db.email_attachments.clear(),
-      this.db.processed_statements.clear(),
+      this.db.statements.clear(),
       this.db.objects.clear(),
       this.db.qr_codes.clear(),
       this.db.photos.clear(),
@@ -216,142 +190,105 @@ class OfflineCacheService {
     console.log('[OfflineCache] Кэш очищен')
   }
 
-
   // ============================================================================
-  // РАБОТА С ФАЙЛАМИ ВЕДОМОСТЕЙ (email_attachments)
+  // РАБОТА С ВЕДОМОСТЯМИ МОЛ (statements)
   // ============================================================================
 
   /**
-   * Получает все вложения email из кэша
-   * @returns {Promise<Array>} Массив вложений в camelCase
+   * Получает все строки ведомостей из кэша.
+   * @returns {Promise<Array>} Массив всех строк statements
    */
-  async getAllEmailAttachments() {
-    return await this.db.email_attachments.toArray()
+  async getAllStatements() {
+    return await this.db.statements.toArray()
   }
 
   /**
-   * Получает одно вложение email по ID
-   * @param {number} id - ID вложения
-   * @returns {Promise<Object|null>}
+   * Получает строки ведомости по дате получения.
+   * @param {string} receivedAt - дата получения ведомости в ISO формате
+   * @returns {Promise<Array>} Массив строк ведомости
    */
-  async getEmailAttachment(id) {
-    return await this.db.email_attachments.get(id)
-  }
-
-  // ============================================================================
-  // РАБОТА С ОБЪЕКТАМИ ВЕДОМОСТЕЙ (processed_statements)
-  // ============================================================================
-
-  /**
-   * Получает все записи ведомости по ID вложения email
-   * @param {number} attachmentId - ID вложения email
-   * @returns {Promise<Array>} Массив записей ведомости
-   */
-  async getProcessedStatementsByAttachmentId(attachmentId) {
-    const targetId = Number(attachmentId)
+  async getStatementsByReceivedAt(receivedAt) {
+    const allStatements = await this.db.statements.toArray()
     
-    const allStatements = await this.db.processed_statements.toArray()
+    const filtered = allStatements.filter(s => s.receivedAt === receivedAt)
     
-    const filtered = allStatements.filter(statement => {
-      return Number(statement.emailAttachmentId) === targetId
-    })
-    
-    console.log(`[OfflineCache] Получено записей для attachmentId ${attachmentId}: ${filtered.length}`)
+    console.log(`[OfflineCache] Получено записей для receivedAt ${receivedAt}: ${filtered.length}`)
     return filtered
   }
 
   /**
-   * Обновляет поле haveObject у записи ведомости по ID
-   * @param {number} statementId - ID записи ведомости
-   * @param {boolean} haveObject - Новое значение haveObject
-   * @returns {Promise<void>}
+   * Удаляет все строки ведомости по дате получения.
+   * @param {string} receivedAt - дата получения ведомости
+   * @returns {Promise<number>} Количество удалённых записей
    */
-  async updateProcessedStatementHaveObject(statementId, haveObject) {
-    const targetId = Number(statementId)
+  async deleteStatementsByReceivedAt(receivedAt) {
+    const allStatements = await this.db.statements.toArray()
+    const toDelete = allStatements.filter(s => s.receivedAt === receivedAt)
     
-    const statement = await this.db.processed_statements
-      .where('id')
-      .equals(targetId)
-      .first()
-    
-    if (!statement) {
-      throw new Error(`Запись ведомости с ID ${statementId} не найдена`)
+    for (const s of toDelete) {
+      await this.db.statements.delete(s.id)
     }
     
-    statement.haveObject = haveObject
-    statement.updated_at = new Date().toISOString()
-    
-    await this.db.processed_statements.put(statement)
-    
-    console.log(`[OfflineCache] Обновлена запись ${statementId}: haveObject=${haveObject}`)
+    console.log(`[OfflineCache] Удалено записей для receivedAt ${receivedAt}: ${toDelete.length}`)
+    return toDelete.length
   }
 
   /**
-   * Обновляет поле isActual для всех записей ведомости с указанным attachmentId и invNumber
-   * @param {number} attachmentId - ID вложения email
-   * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isActual - Новое значение isActual
+   * Обновляет поле isActual для всех записей ведомости с указанным receivedAt и invNumber.
+   * @param {string} receivedAt - дата получения ведомости
+   * @param {string} invNumber - инвентарный номер
+   * @param {boolean} isActual - новое значение isActual
    * @returns {Promise<void>}
    */
-  async updateProcessedStatementsActualByInv(attachmentId, invNumber, isActual) {
-    const targetAttachmentId = Number(attachmentId)
+
+  async updateStatementsActualByInv(receivedAt, invNumber, isActual) {
+    const allStatements = await this.db.statements.toArray()
     
-    const allStatements = await this.db.processed_statements.toArray()
-    
-    const statementsToUpdate = allStatements.filter(statement => {
-      if (Number(statement.emailAttachmentId) !== targetAttachmentId) return false
-      if (statement.invNumber !== invNumber) return false
-      return true
+    const statementsToUpdate = allStatements.filter(s => {
+      return s.receivedAt === receivedAt && s.invNumber === invNumber
     })
     
     if (statementsToUpdate.length === 0) {
-      console.warn(`[OfflineCache] Не найдено записей для обновления: attachmentId=${attachmentId}, invNumber=${invNumber}`)
+      console.warn(`[OfflineCache] Не найдено записей для обновления: receivedAt=${receivedAt}, invNumber=${invNumber}`)
       return
     }
     
     for (const statement of statementsToUpdate) {
       statement.isActual = isActual
-      statement.updated_at = new Date().toISOString()
-      await this.db.processed_statements.put(statement)
+      await this.db.statements.put(statement)
     }
     
     console.log(`[OfflineCache] Обновлено ${statementsToUpdate.length} записей: isActual=${isActual}`)
   }
 
   /**
-   * Получает записи ведомости по инвентарному номеру
-   * @param {string} inv - Инвентарный номер
-   * @param {number} [zavod] - Номер завода
-   * @param {string} [sklad] - Код склада
+   * Получает записи ведомости по инвентарному номеру.
+   * @param {string} inv - инвентарный номер
+   * @param {string} [partyNumber] - номер партии
+   * @param {number} [zavod] - номер завода
+   * @param {string} [sklad] - код склада
    * @returns {Promise<Array>} Массив записей ведомости
    */
-  async getProcessedStatementsByInv(inv, zavod, sklad) {
-      let statements = await this.db.processed_statements.toArray()
-      
-      statements = statements.filter(statement => {
-        return statement.invNumber === inv
-      })
-      
-      if (zavod !== undefined && zavod !== null) {
-        const targetZavod = Number(zavod)
-        statements = statements.filter(statement => {
-          return Number(statement.zavod) === targetZavod
-        })
-      }
-      
-      if (sklad !== undefined && sklad !== null) {
-        statements = statements.filter(statement => {
-          return statement.sklad === sklad
-        })
-      }
-      
-      // Только записи без объекта — эмулирует поведение бэкенда
-      statements = statements.filter(statement => {
-        return statement.haveObject === false || statement.haveObject === undefined
-      })
-      
-      console.log(`[OfflineCache] Найдено невовлечённых записей по inv=${inv}: ${statements.length}`)
-      return statements
+  async getStatementsByInv(inv, partyNumber, zavod, sklad) {
+    let statements = await this.db.statements.toArray()
+    
+    statements = statements.filter(s => s.invNumber === inv)
+    
+    if (partyNumber !== undefined && partyNumber !== null && partyNumber !== '') {
+      statements = statements.filter(s => s.partyNumber === partyNumber)
+    }
+    
+    if (zavod !== undefined && zavod !== null) {
+      const targetZavod = Number(zavod)
+      statements = statements.filter(s => Number(s.zavod) === targetZavod)
+    }
+    
+    if (sklad !== undefined && sklad !== null) {
+      statements = statements.filter(s => s.sklad === sklad)
+    }
+    
+    console.log(`[OfflineCache] Найдено записей по inv=${inv}: ${statements.length}`)
+    return statements
   }
 
   // ============================================================================
@@ -359,7 +296,7 @@ class OfflineCacheService {
   // ============================================================================
 
   /**
-   * Получает объект по ID
+   * Получает объект по ID.
    * @param {number} id - ID объекта
    * @returns {Promise<Object|null>}
    */
@@ -368,8 +305,8 @@ class OfflineCacheService {
   }
 
   /**
-   * Добавляет новый объект
-   * @param {Object} object - Данные объекта (уже подготовленные, с временным отрицательным ID)
+   * Добавляет новый объект.
+   * @param {Object} object - Данные объекта
    * @returns {Promise<number>} ID созданного объекта
    */
   async addObject(object) {
@@ -377,7 +314,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Обновляет существующий объект
+   * Обновляет существующий объект.
    * @param {number} id - ID объекта
    * @param {Object} updates - Поля для обновления
    * @returns {Promise<Object>} Обновлённый объект
@@ -388,7 +325,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Получает все объекты
+   * Получает все объекты.
    * @returns {Promise<Array>}
    */
   async getAllObjects() {
@@ -396,17 +333,16 @@ class OfflineCacheService {
   }
 
   /**
-   * Ищет объекты по инвентарному номеру
+   * Ищет объекты по инвентарному номеру.
    * @param {string} inv - Инвентарный номер
-   * @param {number} [zavod] - Номер завода (опционально)
-   * @param {string} [sklad] - Код склада (опционально)
+   * @param {number} [zavod] - Номер завода
+   * @param {string} [sklad] - Код склада
    * @returns {Promise<Array>}
    */
   async findObjectsByInv(inv, zavod, sklad) {
     let collection = this.db.objects.where('invNumber').equals(inv)
     let objects = await collection.toArray()
     
-    // Фильтруем по дополнительным параметрам
     if (zavod !== undefined || sklad !== undefined) {
       objects = objects.filter(obj => {
         if (zavod !== undefined && obj.zavod !== zavod) return false
@@ -419,7 +355,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Находит объекты в кэше по заводу и складу
+   * Находит объекты в кэше по заводу и складу.
    * @param {number} zavod - номер завода
    * @param {string} sklad - код склада
    * @returns {Promise<Array>} Массив объектов
@@ -440,7 +376,7 @@ class OfflineCacheService {
   // ============================================================================
 
   /**
-   * Находит QR-код по его значению
+   * Находит QR-код по его значению.
    * @param {string} qrValue - Значение QR-кода
    * @returns {Promise<Object|null>} Запись QR-кода или null
    */
@@ -452,7 +388,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Находит все QR-коды, привязанные к объекту
+   * Находит все QR-коды, привязанные к объекту.
    * @param {number} objectId - ID объекта
    * @returns {Promise<Array>} Массив записей QR-кодов
    */
@@ -464,7 +400,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Сохраняет QR-код (добавляет новый или обновляет существующий)
+   * Сохраняет QR-код (добавляет новый или обновляет существующий).
    * @param {Object} qrCode - Данные QR-кода в camelCase
    * @param {string} qrCode.qrValue - Значение QR-кода
    * @param {number} qrCode.objectId - ID объекта
@@ -474,13 +410,11 @@ class OfflineCacheService {
     const existing = await this.getQrCode(qrCode.qrValue)
     
     if (existing) {
-      // Обновляем существующую запись
       await this.db.qr_codes.update(existing.id, {
         objectId: qrCode.objectId
       })
       return existing.id
     } else {
-      // Добавляем новую запись
       return await this.db.qr_codes.add({
         qrValue: qrCode.qrValue,
         objectId: qrCode.objectId
@@ -489,11 +423,11 @@ class OfflineCacheService {
   }
 
   // ============================================================================
-  // РАБОТА С ФОТОГРАФИЯМИ (предварительно из БД не кэшируются, в кэше только новые из текущего оффлайн-сеанса)
+  // РАБОТА С ФОТОГРАФИЯМИ
   // ============================================================================
 
   /**
-   * Получает все фотографии объекта
+   * Получает все фотографии объекта.
    * @param {number} objectId - ID объекта
    * @returns {Promise<Array>} Массив фотографий объекта
    */
@@ -505,7 +439,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Сохраняет фотографию в кэш
+   * Сохраняет фотографию в кэш.
    * @param {Object} photoData - Данные фотографии в camelCase
    * @param {number} photoData.objectId - ID объекта
    * @param {string} photoData.photoMaxData - Полноразмерное фото в base64
@@ -513,18 +447,18 @@ class OfflineCacheService {
    * @returns {Promise<void>}
    */
   async savePhoto(photoData) {
-      const photoForCache = {
-        objectId: photoData.objectId,
-        photoMaxData: photoData.photoMaxData,
-        photoMinData: photoData.photoMinData,
-        createdAt: new Date().toISOString()
-      }
-      
-      await this.db.photos.add(photoForCache)
+    const photoForCache = {
+      objectId: photoData.objectId,
+      photoMaxData: photoData.photoMaxData,
+      photoMinData: photoData.photoMinData,
+      createdAt: new Date().toISOString()
+    }
+    
+    await this.db.photos.add(photoForCache)
   }
 
   /**
-   * Удаляет фотографию из кэша
+   * Удаляет фотографию из кэша.
    * @param {number} photoId - ID фотографии
    * @returns {Promise<void>}
    */
@@ -537,10 +471,9 @@ class OfflineCacheService {
   // ============================================================================
 
   /**
-   * Добавляет запись лога в кэш
-   * Время создания проставляется автоматически
-   * @param {string} source - Тип события (например, 'object_history', 'qr_code_history')
-   * @param {any} content - Содержимое лога (объект, строка и т.д.)
+   * Добавляет запись лога в кэш.
+   * @param {string} source - Тип события
+   * @param {any} content - Содержимое лога
    * @returns {Promise<void>}
    */
   async addPendingLog(source, content) {
@@ -550,13 +483,11 @@ class OfflineCacheService {
       time: new Date().toISOString()
     }
     
-    console.log('DEBUG [addPendingLog] logEntry перед add:', JSON.stringify(logEntry))
-    
     await this.db.logs.add(logEntry)
   }
 
   /**
-   * Получает все логи из кэша
+   * Получает все логи из кэша.
    * @returns {Promise<Array>}
    */
   async getAllLogs() {
@@ -564,11 +495,11 @@ class OfflineCacheService {
   }
 
   /**
-   * Получает логи по фильтру
+   * Получает логи по фильтру.
    * @param {Object} filter - Объект с полями для фильтрации
-   * @param {string} [filter.source] - Тип лога (object-history, qr-code-history, inventory-book-item-history и т.д.)
-   * @param {Object} [filter.content] - Поля content для фильтрации (ключ-значение)
-   * @returns {Promise<Array>} Массив логов, соответствующих фильтру
+   * @param {string} [filter.source] - Тип лога
+   * @param {Object} [filter.content] - Поля content для фильтрации
+   * @returns {Promise<Array>}
    */
   async getLogsByFilter(filter) {
     let logs = await this.db.logs.toArray()
@@ -596,7 +527,7 @@ class OfflineCacheService {
   // ============================================================================
 
   /**
-   * Получает все инвентаризационные книги из кэша
+   * Получает все инвентаризационные книги из кэша.
    * @returns {Promise<Array>} Массив книг в camelCase
    */
   async getAllInventoryBooks() {
@@ -604,7 +535,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Получает одну инвентаризационную книгу по ID
+   * Получает одну инвентаризационную книгу по ID.
    * @param {number} id - ID книги
    * @returns {Promise<Object|null>}
    */
@@ -613,7 +544,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Получает все строки инвентаризационной книги по ID книги
+   * Получает все строки инвентаризационной книги по ID книги.
    * @param {number} bookId - ID книги
    * @returns {Promise<Array>} Массив строк книги
    */
@@ -631,7 +562,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Находит строку инвентаризационной книги по idInventoryStatement
+   * Находит строку инвентаризационной книги по idInventoryStatement.
    * @param {number} idInventoryStatement - ID строки инвентаризационной ведомости
    * @returns {Promise<Object|null>} Строка книги или null
    */
@@ -643,7 +574,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Обновляет строку инвентаризационной книги по ID
+   * Обновляет строку инвентаризационной книги по ID.
    * @param {number} id - ID строки книги
    * @param {Object} updates - Поля для обновления
    * @returns {Promise<Object>} Обновлённая строка книги
@@ -654,7 +585,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Обновляет поле isActual для всех строк книги с указанным invNumber
+   * Обновляет поле isActual для всех строк книги с указанным invNumber.
    * @param {number} bookId - ID книги
    * @param {string} invNumber - Инвентарный номер
    * @param {boolean} isActual - Новое значение isActual
@@ -685,7 +616,7 @@ class OfflineCacheService {
   }
 
   /**
-   * Подтверждает наличие для указанных строк инвентаризационной книги в кэше
+   * Подтверждает наличие для указанных строк инвентаризационной книги в кэше.
    * @param {number} bookId - ID книги
    * @param {Array<number>} itemIds - ID строк для подтверждения
    * @param {Object} data - Данные подтверждения
@@ -710,23 +641,18 @@ class OfflineCacheService {
         continue
       }
       
-      // Обновляем данные объекта
       if (data.idObject !== undefined) item.idObject = data.idObject
       if (data.placeTer !== undefined) item.placeTer = data.placeTer
       if (data.placePos !== undefined) item.placePos = data.placePos
       if (data.placeCab !== undefined) item.placeCab = data.placeCab
       if (data.placeUser !== undefined) item.placeUser = data.placeUser
-      
-      // Обновляем комментарий
       if (data.rem !== undefined) item.rem = data.rem
       
-      // Обновляем ручное подтверждение
       if (data.isOkManual !== undefined) {
         item.isOkManual = data.isOkManual
         item.dateOkManualChecked = data.isOkManual ? now : null
       }
       
-      // Обновляем автоматическое подтверждение
       if (data.isOkAuto !== undefined) {
         item.isOkAuto = data.isOkAuto
         item.dateOkAutoChecked = data.isOkAuto ? now : null

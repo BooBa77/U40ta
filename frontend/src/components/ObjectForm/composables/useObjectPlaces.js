@@ -76,11 +76,6 @@ export function useObjectPlaces() {
     }
   }
 
-  // Проверка, существует ли значение в списке вариантов
-  const existsInOptions = (value, options) => {
-    return options.value.includes(value)
-  }
-
   // Сброс всех полей
   const resetPlaces = () => {
     territory.value = ''
@@ -89,37 +84,17 @@ export function useObjectPlaces() {
     user.value = ''
   }
 
-  const isInitializing = ref(false) // идёт загрузка данных карточки объекта, чтобы не сбрасывались поля
+  const isInitializing = ref(false)
   
   const setPlacesFromObject = (object) => {
-    console.log('[setPlacesFromObject] Весь объект:', object)
-    console.log('[setPlacesFromObject] Поля с place_:', {
-      placeTer: object.placeTer,
-      placePos: object.placePos,
-      placeCab: object.placeCab,
-      placeUser: object.placeUser
-    })
-    console.log('[setPlacesFromObject] Поля без place_:', {
-      ter: object.ter,
-      pos: object.pos,
-      cab: object.cab,
-      user: object.user
-    })
     isInitializing.value = true
     territory.value = object.placeTer || object.ter || ''
     position.value = object.placePos || object.pos || ''
     cabinet.value = object.placeCab || object.cab || ''
     user.value = object.placeUser || object.user || ''
-    // Даём Vue время установить поля, потом снимаем флаг isInitializing
     setTimeout(() => {
-        isInitializing.value = false
+      isInitializing.value = false
     }, 0)
-    console.log('[setPlacesFromObject] После установки:', {
-      territory: territory.value,
-      position: position.value,
-      cabinet: cabinet.value,
-      user: user.value
-    })
   }
 
   // Получение объекта для сохранения
@@ -134,7 +109,7 @@ export function useObjectPlaces() {
 
   // Обработчики изменений с логикой сброса
   const handleTerritoryChange = (newValue, oldValue) => {
-    if (isInitializing.value) return  // пропускаем во время инициализации
+    if (isInitializing.value) return
     if (newValue !== oldValue) {
       position.value = ''
       cabinet.value = ''
@@ -143,7 +118,7 @@ export function useObjectPlaces() {
   }
 
   const handlePositionChange = (newValue, oldValue) => {
-    if (isInitializing.value) return  // пропускаем во время инициализации
+    if (isInitializing.value) return
     if (newValue !== oldValue) {
       cabinet.value = ''
       user.value = ''
@@ -151,7 +126,7 @@ export function useObjectPlaces() {
   }
 
   const handleCabinetChange = (newValue, oldValue) => {
-    if (isInitializing.value) return  // пропускаем во время инициализации
+    if (isInitializing.value) return
     if (newValue !== oldValue) {
       user.value = ''
     }

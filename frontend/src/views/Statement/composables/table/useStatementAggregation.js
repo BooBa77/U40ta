@@ -1,7 +1,9 @@
 /**
- * Хук для агрегации строк ведомости
+ * Хук для агрегации строк ведомости.
+ * - Для isExcess строк: группировка по inv + party, синий цвет
  * - Для актуальных строк (isActual = true): группировка по inv + party
  * - Для неактуальных строк (isActual = false): группировка только по inv
+ * 
  * @param {Ref<Array>} statements - ref с массивом исходных строк ведомости
  * @returns {Object} Объект с агрегированными данными
  */
@@ -9,53 +11,60 @@ import { computed } from 'vue'
 
 export function useStatementAggregation(statements) {
   /**
-   * Генерирует ключ группировки в зависимости от статуса актуальности
+   * Генерирует ключ группировки в зависимости от типа строки.
    * @param {Object} row - строка ведомости
    * @returns {string} ключ для группировки
    */
   const getGroupKey = (row) => {
     const inv = row.inv_number || row.invNumber || ''
-    const isActual = row.is_actual ?? row.isActual ?? true
+    const party = row.party_number || row.partyNumber || ''
     
+    if (row.isExcess) {
+      return `excess_${inv}|${party}`
+    }
+    
+    const isActual = row.is_actual ?? row.isActual ?? true
     if (!isActual) {
-      // Неактуальные - группируем только по inv
       return `inactive_${inv}`
     }
     
-    // Актуальные - группируем по inv + party
-    const party = row.party_number || row.partyNumber || ''
     return `active_${inv}|${party}`
   }
 
   /**
-   * Определяет цвет группы для актуальных строк
+   * Определяет цвет группы.
    * @param {Object} group - сгруппированные данные
-   * @returns {number} 1-красный, 2-жёлтый, 3-зелёный
+   * @returns {number} 6-синий, 1-красный, 2-жёлтый, 3-зелёный, 4-серый
    */
-  const getColorForActiveGroup = (group) => {
-    // Все строки имеют объект - зелёный
-    if (group.objectCount === group.totalCount) return 3
+  const getGroupColor = (group) => {
+    // isExcess — всегда синий
+    if (group.isExcess) return 6
     
-    // Все строки не имеют объекта - красный
-    if (group.noObjectCount === group.totalCount) return 1
+    // Неактивные — серый
+    if (!group.isActual) return 4
     
-    // Смешанная ситуация - жёлтый
-    return 2
+    // Активные: по соотношению statements и objects
+    if (group.objectCount === 0) return 1              // красный — объектов нет
+    if (group.totalCount === group.objectCount) return 3 // зелёный — все строки с объектами
+    return 2                                              // жёлтый — часть строк без объектов
   }
 
   /**
-   * Форматирует отображение количества
+   * Форматирует отображение количества.
    * @param {Object} group - сгруппированные данные
-   * @param {boolean} isActive - актуальна ли группа
    * @returns {string}
    */
-  const formatDisplayQuantity = (group, isActive) => {
-    if (!isActive) {
+  const formatDisplayQuantity = (group) => {
+    if (group.isExcess) {
+      return `(${group.totalCount} шт.)`
+    }
+    
+    if (!group.isActual) {
       return `(${group.totalCount} шт.)`
     }
     
     // Для актуальных: если смешанная, показываем дробь
-    if (group.objectCount !== group.totalCount && group.noObjectCount !== group.totalCount) {
+    if (group.objectCount !== group.totalCount && group.objectCount > 0) {
       return ` (${group.objectCount}/${group.totalCount} шт.)`
     }
     
@@ -63,7 +72,7 @@ export function useStatementAggregation(statements) {
   }
 
   /**
-   * Агрегированные строки
+   * Агрегированные строки.
    */
   const aggregatedStatements = computed(() => {
     if (!statements.value || statements.value.length === 0) {
@@ -75,39 +84,35 @@ export function useStatementAggregation(statements) {
     // ПЕРВЫЙ ПРОХОД: Группировка
     statements.value.forEach((row) => {
       const key = getGroupKey(row)
-      const haveObject = row.have_object ?? row.haveObject ?? false
+      const isExcess = row.isExcess || false
       const isActual = row.is_actual ?? row.isActual ?? true
+      const objectCount = row.objectCount || 0
       
       if (!groupsMap.has(key)) {
-        // Определяем, будет ли эта группа отображать партию
         const isActiveGroup = key.startsWith('active_')
+        const isExcessGroup = key.startsWith('excess_')
         
         groupsMap.set(key, {
           key,
           invNumber: row.inv_number || row.invNumber,
-          partyNumber: isActiveGroup ? (row.party_number || row.partyNumber) : null,
+          partyNumber: (isActiveGroup || isExcessGroup) ? (row.party_number || row.partyNumber) : null,
           buhName: row.buh_name || row.buhName,
           zavod: row.zavod,
           sklad: row.sklad,
           totalCount: 0,
-          objectCount: 0,
-          noObjectCount: 0,
-          isActual: isActual,
+          objectCount: isExcessGroup ? objectCount : 0,
+          isActual: isExcess ? true : isActual,
+          isExcess: isExcess,
           originalRowsIds: [],
-          isActiveGroup
+          isActiveGroup,
+          isExcessGroup
         })
       }
       
       const group = groupsMap.get(key)
-      
       group.totalCount++
-      if (haveObject) {
-        group.objectCount++
-      } else {
-        group.noObjectCount++
-      }
       
-      if (row.id) {
+      if (row.id && !isExcess) {
         group.originalRowsIds.push(row.id)
       }
     })
@@ -116,9 +121,7 @@ export function useStatementAggregation(statements) {
     const aggregatedRows = []
     
     for (const group of groupsMap.values()) {
-      const groupColor = group.isActiveGroup 
-        ? getColorForActiveGroup(group)
-        : 4 // Неактивные - серая группа
+      const groupColor = getGroupColor(group)
       
       aggregatedRows.push({
         invNumber: group.invNumber,
@@ -128,17 +131,17 @@ export function useStatementAggregation(statements) {
         sklad: group.sklad,
         groupCount: group.totalCount,
         objectCount: group.objectCount,
-        noObjectCount: group.noObjectCount,
         isActual: group.isActual,
+        isExcess: group.isExcess,
         groupColor: groupColor,
-        displayQuantity: formatDisplayQuantity(group, group.isActiveGroup),
+        displayQuantity: formatDisplayQuantity(group),
         originalRowIds: group.originalRowsIds,
         isAggregated: true,
-        showParty: group.isActiveGroup && !!group.partyNumber // Показывать партию только у активных и если она есть
+        showParty: (group.isActiveGroup || group.isExcessGroup) && !!group.partyNumber
       })
     }
     
-    // СОРТИРОВКА: красные(1) → жёлтые(2) → зелёные(3) → серые(4)
+    // СОРТИРОВКА: синие(0) → красные(1) → жёлтые(2) → зелёные(3) → серые(4)
     return [...aggregatedRows].sort((a, b) => {
       if (a.groupColor !== b.groupColor) {
         return a.groupColor - b.groupColor
@@ -150,7 +153,7 @@ export function useStatementAggregation(statements) {
   })
 
   /**
-   * Проверяет, нужно ли показывать блок партии/количества
+   * Проверяет, нужно ли показывать блок партии/количества.
    * @param {Object} row - агрегированная строка
    * @returns {boolean}
    */
@@ -161,12 +164,12 @@ export function useStatementAggregation(statements) {
   }
 
   /**
-   * Возвращает группу строки для CSS-класса
+   * Возвращает группу строки для CSS-класса.
    * @param {Object} row - агрегированная строка
    * @returns {number}
    */
   const getRowGroup = (row) => {
-    return row.groupColor || 4
+    return row.groupColor ?? 4
   }
 
   return {

@@ -1,6 +1,6 @@
 /**
- * Сервис для работы с ведомостями (statements)
- * Поддерживает онлайн/офлайн режимы работы
+ * Сервис для работы с ведомостями МОЛ (statements).
+ * Поддерживает онлайн/офлайн режимы работы.
  * 
  * Онлайн-режим (flightMode = false): все запросы к API
  * Офлайн-режим (flightMode = true): все операции в IndexedDB
@@ -36,7 +36,6 @@ export class StatementService {
       throw new Error('Токен авторизации не найден')
     }
 
-    // Базовые настройки для всех запросов
     const defaultOptions = {
       method: 'GET',
       headers: {
@@ -45,7 +44,6 @@ export class StatementService {
       }
     }
 
-    // Объединяем с переданными опциями
     const requestOptions = {
       ...defaultOptions,
       ...options,
@@ -55,7 +53,6 @@ export class StatementService {
       }
     }
 
-    // Для методов с телом (POST, PUT) преобразуем объект в JSON
     if (requestOptions.body && typeof requestOptions.body !== 'string') {
       requestOptions.body = JSON.stringify(requestOptions.body)
     }
@@ -70,117 +67,187 @@ export class StatementService {
   }
 
   //============================================================================
-  // ПОЛУЧЕНИЕ ВЕДОМОСТИ ПО ID ВЛОЖЕНИЯ
+  // СПИСОК ВЕДОМОСТЕЙ
   //============================================================================
 
   /**
-   * Получает ведомость по ID вложения email
-   * @param {string|number} emailAttachmentId - ID вложения email
-   * @returns {Promise<Array>} Массив объектов ведомости
+   * Получает список ведомостей текущего МОЛ.
+   * GET /api/statements
+   * @returns {Promise<Array>} Массив ведомостей { receivedAt, description, docType, count }
    */
-  async fetchStatement(emailAttachmentId) {
-    const attachmentId = Number(emailAttachmentId)
-
+  async getList() {
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: получение ведомости ${attachmentId} из кэша`)
-      return this.getFromCache(attachmentId)
+      console.log('[StatementService] Офлайн-режим: получение списка ведомостей из кэша')
+      return this.getListFromCache()
     }
 
-    console.log(`[StatementService] Онлайн-режим: получение ведомости ${attachmentId} с сервера`)
-    return this.getFromApi(attachmentId)
+    console.log('[StatementService] Онлайн-режим: получение списка ведомостей с сервера')
+    return this.getListFromApi()
   }
 
   /**
-   * Получает ведомость из кэша IndexedDB
-   * @param {number} attachmentId - ID вложения email
-   * @returns {Promise<Array>} Массив записей ведомости
+   * Получает список ведомостей из кэша IndexedDB.
+   * Группирует по receivedAt + description.
+   * @returns {Promise<Array>}
    */
-  async getFromCache(attachmentId) {
+  async getListFromCache() {
     try {
-      const statements = await offlineCache.getProcessedStatementsByAttachmentId(attachmentId)
-      console.log(`[StatementService] Из кэша получено записей: ${statements.length}`)
-      return statements
-    } catch (error) {
-      console.error('[StatementService] Ошибка получения из кэша:', error)
-      throw new Error('Не удалось загрузить ведомость из кэша')
-    }
-  }
-
-  /**
-   * Получает ведомость с сервера через API
-   * @param {number} attachmentId - ID вложения email
-   * @returns {Promise<Array>} Массив записей ведомости
-   */
-  async getFromApi(attachmentId) {
-    try {
-      const data = await this.apiRequest(`/statements/${attachmentId}`)
+      const allStatements = await offlineCache.getAllStatements()
       
-      // API возвращает { success: true, statements: [...] }
-      if (data.statements && Array.isArray(data.statements)) {
-        return data.statements
+      const groups = new Map()
+      for (const s of allStatements) {
+        const key = `${s.receivedAt}_${s.description}`
+        if (!groups.has(key)) {
+          groups.set(key, {
+            receivedAt: s.receivedAt,
+            description: s.description,
+            docType: s.docType,
+            count: 0
+          })
+        }
+        groups.get(key).count++
       }
       
-      throw new Error(`Неожиданный формат ответа API для ведомости ${attachmentId}`)
+      const list = Array.from(groups.values())
+        .sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt))
+      
+      console.log(`[StatementService] Из кэша получено ведомостей: ${list.length}`)
+      return list
     } catch (error) {
-      console.error('[StatementService] Ошибка получения с сервера:', error)
+      console.error('[StatementService] Ошибка получения списка из кэша:', error)
+      throw new Error('Не удалось загрузить список ведомостей из кэша')
+    }
+  }
+
+  /**
+   * Получает список ведомостей с сервера.
+   * @returns {Promise<Array>}
+   */
+  async getListFromApi() {
+    try {
+      const data = await this.apiRequest('/statements')
+      
+      if (!Array.isArray(data)) {
+        throw new Error('Неожиданный формат ответа API для списка ведомостей')
+      }
+      
+      return data
+    } catch (error) {
+      console.error('[StatementService] Ошибка получения списка с сервера:', error)
       throw error
     }
   }
 
   //============================================================================
-  // ОБНОВЛЕНИЕ СТАТУСА haveObject
+  // СТРОКИ ВЕДОМОСТИ
   //============================================================================
 
   /**
-   * Обновляет статус haveObject для записи ведомости
-   * @param {number} statementId - ID записи ведомости
-   * @param {boolean} haveObject - Новое значение haveObject
-   * @returns {Promise<boolean>} true если успешно
+   * Получает строки конкретной ведомости.
+   * GET /api/statements/items?receivedAt=...
+   * @param {string} receivedAt - дата получения ведомости в ISO формате
+   * @returns {Promise<Array>} Массив записей ведомости с полем objectCount
    */
-  async updateStatementHaveObject(statementId, haveObject) {
-    const statementIdNum = Number(statementId)
-
+  async getItems(receivedAt) {
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: обновление haveObject для записи ${statementIdNum}`)
-      return this.updateHaveObjectInCache(statementIdNum, haveObject)
+      console.log(`[StatementService] Офлайн-режим: получение строк ведомости ${receivedAt} из кэша`)
+      return this.getItemsFromCache(receivedAt)
     }
 
-    console.log(`[StatementService] Онлайн-режим: обновление haveObject для записи ${statementIdNum}`)
-    return this.updateHaveObjectInApi(statementIdNum, haveObject)
+    console.log(`[StatementService] Онлайн-режим: получение строк ведомости ${receivedAt} с сервера`)
+    return this.getItemsFromApi(receivedAt)
   }
 
   /**
-   * Обновляет haveObject в кэше IndexedDB
-   * @param {number} statementId - ID записи ведомости
-   * @param {boolean} haveObject - Новое значение
-   * @returns {Promise<boolean>}
+   * Получает строки ведомости из кэша IndexedDB.
+   * @param {string} receivedAt - дата получения ведомости
+   * @returns {Promise<Array>}
    */
-  async updateHaveObjectInCache(statementId, haveObject) {
+  async getItemsFromCache(receivedAt) {
     try {
-      await offlineCache.updateProcessedStatementHaveObject(statementId, haveObject)
-      console.log(`[StatementService] Запись ${statementId} обновлена: haveObject=${haveObject}`)
-      return true
+      const statements = await offlineCache.getStatementsByReceivedAt(receivedAt)
+      console.log(`[StatementService] Из кэша получено записей: ${statements.length}`)
+      return statements
     } catch (error) {
-      console.error('[StatementService] Ошибка обновления в кэше:', error)
-      throw new Error('Не удалось обновить запись ведомости в кэше')
+      console.error('[StatementService] Ошибка получения строк из кэша:', error)
+      throw new Error('Не удалось загрузить строки ведомости из кэша')
     }
   }
 
   /**
-   * Обновляет haveObject через API
-   * @param {number} statementId - ID записи ведомости
-   * @param {boolean} haveObject - Новое значение
-   * @returns {Promise<boolean>}
+   * Получает строки ведомости с сервера.
+   * @param {string} receivedAt - дата получения ведомости
+   * @returns {Promise<Array>}
    */
-  async updateHaveObjectInApi(statementId, haveObject) {
+  async getItemsFromApi(receivedAt) {
     try {
-      await this.apiRequest('/statements/update-have-object', {
-        method: 'POST',
-        body: { statementId, haveObject }
+      const params = new URLSearchParams()
+      params.append('receivedAt', receivedAt)
+
+      const data = await this.apiRequest(`/statements/items?${params.toString()}`)
+      
+      if (data.statements && Array.isArray(data.statements)) {
+        return data.statements
+      }
+      
+      throw new Error('Неожиданный формат ответа API для строк ведомости')
+    } catch (error) {
+      console.error('[StatementService] Ошибка получения строк с сервера:', error)
+      throw error
+    }
+  }
+
+  //============================================================================
+  // УДАЛЕНИЕ ВЕДОМОСТИ
+  //============================================================================
+
+  /**
+   * Удаляет ведомость.
+   * DELETE /api/statements?receivedAt=...
+   * @param {string} receivedAt - дата получения ведомости
+   * @returns {Promise<Object>} Результат удаления
+   */
+  async deleteStatement(receivedAt) {
+    if (this.isFlightMode()) {
+      console.log(`[StatementService] Офлайн-режим: удаление ведомости ${receivedAt} из кэша`)
+      return this.deleteStatementFromCache(receivedAt)
+    }
+
+    console.log(`[StatementService] Онлайн-режим: удаление ведомости ${receivedAt}`)
+    return this.deleteStatementFromApi(receivedAt)
+  }
+
+  /**
+   * Удаляет ведомость из кэша IndexedDB.
+   * @param {string} receivedAt - дата получения ведомости
+   * @returns {Promise<Object>}
+   */
+  async deleteStatementFromCache(receivedAt) {
+    try {
+      const count = await offlineCache.deleteStatementsByReceivedAt(receivedAt)
+      console.log(`[StatementService] Из кэша удалено записей: ${count}`)
+      return { success: true, message: 'Ведомость удалена' }
+    } catch (error) {
+      console.error('[StatementService] Ошибка удаления из кэша:', error)
+      throw new Error('Не удалось удалить ведомость из кэша')
+    }
+  }
+
+  /**
+   * Удаляет ведомость через API.
+   * @param {string} receivedAt - дата получения ведомости
+   * @returns {Promise<Object>}
+   */
+  async deleteStatementFromApi(receivedAt) {
+    try {
+      const params = new URLSearchParams()
+      params.append('receivedAt', receivedAt)
+
+      return await this.apiRequest(`/statements?${params.toString()}`, {
+        method: 'DELETE'
       })
-      return true
     } catch (error) {
-      console.error('[StatementService] Ошибка обновления через API:', error)
+      console.error('[StatementService] Ошибка удаления через API:', error)
       throw error
     }
   }
@@ -190,35 +257,34 @@ export class StatementService {
   //============================================================================
 
   /**
-   * Обновляет статус isActual для всех записей с указанным inv_number в рамках ведомости
-   * @param {number} attachmentId - ID вложения email
-   * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isActual - Новое значение актуальности (true - актуально, false - неактуально)
+   * Обновляет статус isActual для всех записей с указанным invNumber в ведомости.
+   * POST /api/statements/update-actual
+   * @param {string} receivedAt - дата получения ведомости
+   * @param {string} invNumber - инвентарный номер
+   * @param {boolean} isActual - новое значение актуальности
    * @returns {Promise<boolean>} true если успешно
    */
-  async updateActualStatus(attachmentId, invNumber, isActual) {
-    const attachmentIdNum = Number(attachmentId)
-
+  async updateActualStatus(receivedAt, invNumber, isActual) {
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: обновление isActual для ${invNumber} в ведомости ${attachmentIdNum}`)
-      return this.updateActualInCache(attachmentIdNum, invNumber, isActual)
+      console.log(`[StatementService] Офлайн-режим: обновление isActual для ${invNumber} в ведомости ${receivedAt}`)
+      return this.updateActualInCache(receivedAt, invNumber, isActual)
     }
 
-    console.log(`[StatementService] Онлайн-режим: обновление isActual для ${invNumber} в ведомости ${attachmentIdNum}`)
-    return this.updateActualInApi(attachmentIdNum, invNumber, isActual)
+    console.log(`[StatementService] Онлайн-режим: обновление isActual для ${invNumber} в ведомости ${receivedAt}`)
+    return this.updateActualInApi(receivedAt, invNumber, isActual)
   }
 
   /**
-   * Обновляет isActual в кэше IndexedDB для всех записей с указанным inv_number
-   * @param {number} attachmentId - ID вложения email
-   * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isActual - Новое значение актуальности
+   * Обновляет isActual в кэше IndexedDB.
+   * @param {string} receivedAt - дата получения ведомости
+   * @param {string} invNumber - инвентарный номер
+   * @param {boolean} isActual - новое значение
    * @returns {Promise<boolean>}
    */
-  async updateActualInCache(attachmentId, invNumber, isActual) {
+  async updateActualInCache(receivedAt, invNumber, isActual) {
     try {
-      await offlineCache.updateProcessedStatementsActualByInv(attachmentId, invNumber, isActual)
-      console.log(`[StatementService] Обновлены записи: attachmentId=${attachmentId}, invNumber=${invNumber}, isActual=${isActual}`)
+      await offlineCache.updateStatementsActualByInv(receivedAt, invNumber, isActual)
+      console.log(`[StatementService] Обновлены записи: receivedAt=${receivedAt}, invNumber=${invNumber}, isActual=${isActual}`)
       return true
     } catch (error) {
       console.error('[StatementService] Ошибка обновления isActual в кэше:', error)
@@ -227,19 +293,17 @@ export class StatementService {
   }
 
   /**
-   * Обновляет isActual через API для всех записей с указанным inv_number
-   * @param {number} attachmentId - ID вложения email
-   * @param {string} invNumber - Инвентарный номер
-   * @param {boolean} isActual - Новое значение актуальности
+   * Обновляет isActual через API.
+   * @param {string} receivedAt - дата получения ведомости
+   * @param {string} invNumber - инвентарный номер
+   * @param {boolean} isActual - новое значение
    * @returns {Promise<boolean>}
    */
-  async updateActualInApi(attachmentId, invNumber, isActual) {
+  async updateActualInApi(receivedAt, invNumber, isActual) {
     try {
-      console.log('[StatementService] Отправка запроса:', { attachmentId, invNumber, isActual })
-      
       await this.apiRequest('/statements/update-actual', {
         method: 'POST',
-        body: { attachmentId, invNumber, isActual }
+        body: { receivedAt, invNumber, isActual }
       })
       return true
     } catch (error) {
@@ -249,39 +313,40 @@ export class StatementService {
   }
 
   //============================================================================
-  // ПОЛУЧЕНИЕ ЗАПИСЕЙ ПО ИНВЕНТАРНОМУ НОМЕРУ
+  // ПОИСК ЗАПИСЕЙ ПО ИНВЕНТАРНОМУ НОМЕРУ
   //============================================================================
 
   /**
-   * Получает записи ведомости по инвентарному номеру и партии (для ObjectViewModal)
-   * Возвращает только записи с haveObject = false (объект ещё не создан)
-   * @param {string} inv - Инвентарный номер
-   * @param {string} [partyNumber] - Партия объекта
-   * @param {number} [zavod] - Номер завода (опционально)
-   * @param {string} [sklad] - Код склада (опционально)
+   * Получает записи ведомости по инвентарному номеру (для InvListModal).
+   * Возвращает все записи, без фильтрации по haveObject.
+   * GET /api/statements/by-inv?inv=...&zavod=...&sklad=...&party=...
+   * @param {string} inv - инвентарный номер
+   * @param {string} [partyNumber] - партия объекта
+   * @param {number} [zavod] - номер завода
+   * @param {string} [sklad] - код склада
    * @returns {Promise<Array>} Массив записей ведомости
    */
   async getStatementsByInv(inv, partyNumber, zavod, sklad) {
     if (this.isFlightMode()) {
-      console.log(`[StatementService] Офлайн-режим: поиск записей по inv=${inv}, party=${partyNumber}`)
+      console.log(`[StatementService] Офлайн-режим: поиск записей по inv=${inv}`)
       return this.getStatementsByInvFromCache(inv, partyNumber, zavod, sklad)
     }
 
-    console.log(`[StatementService] Онлайн-режим: поиск записей по inv=${inv}, party=${partyNumber}`)
+    console.log(`[StatementService] Онлайн-режим: поиск записей по inv=${inv}`)
     return this.getStatementsByInvFromApi(inv, partyNumber, zavod, sklad)
   }
 
   /**
-   * Поиск записей ведомости в кэше IndexedDB
-   * @param {string} inv - Инвентарный номер
-   * @param {string} [partyNumber] - Партия объекта
-   * @param {number} [zavod] - Номер завода
-   * @param {string} [sklad] - Код склада
+   * Поиск записей ведомости в кэше IndexedDB.
+   * @param {string} inv - инвентарный номер
+   * @param {string} [partyNumber] - партия объекта
+   * @param {number} [zavod] - номер завода
+   * @param {string} [sklad] - код склада
    * @returns {Promise<Array>}
    */
   async getStatementsByInvFromCache(inv, partyNumber, zavod, sklad) {
     try {
-      const statements = await offlineCache.getProcessedStatementsByInv(inv, partyNumber, zavod, sklad)
+      const statements = await offlineCache.getStatementsByInv(inv, partyNumber, zavod, sklad)
       console.log(`[StatementService] Из кэша найдено записей: ${statements.length}`)
       return statements
     } catch (error) {
@@ -291,11 +356,11 @@ export class StatementService {
   }
 
   /**
-   * Поиск записей ведомости через API
-   * @param {string} inv - Инвентарный номер
-   * @param {string} [partyNumber] - Партия объекта
-   * @param {number} [zavod] - Номер завода
-   * @param {string} [sklad] - Код склада
+   * Поиск записей ведомости через API.
+   * @param {string} inv - инвентарный номер
+   * @param {string} [partyNumber] - партия объекта
+   * @param {number} [zavod] - номер завода
+   * @param {string} [sklad] - код склада
    * @returns {Promise<Array>}
    */
   async getStatementsByInvFromApi(inv, partyNumber, zavod, sklad) {

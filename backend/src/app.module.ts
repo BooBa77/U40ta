@@ -16,6 +16,7 @@ import { ObjectsModule } from './modules/objects/objects.module';
 import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
 import { PhotosModule } from './modules/photos/photos.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { ProposedChangesModule } from './modules/proposed-changes/proposed-changes.module';
 
 @Module({
   imports: [
@@ -105,7 +106,12 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 
     // InventoryModule — инвентаризационные ведомости ревизоров.
     // Парсинг Excel из писем, управление строками, формирование сводных ведомостей.
-    InventoryModule,    
+    InventoryModule,
+
+    // ProposedChangesModule — предлагаемые изменения от гостей.
+    // Гости без доступа МОЛ к складу предлагают правки объектов,
+    // МОЛ подтверждает или отклоняет эти предложения в своей админке.
+    ProposedChangesModule,    
   ],
   
   // providers - массив сервисов, не объявленных в других модулях
