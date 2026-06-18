@@ -24,62 +24,45 @@
         <!-- Контент -->
         <div class="p-6 space-y-4">
           
-          <!-- Поле email с подставленным доменом -->
+          <!-- Поле email: логин + домен вертикально -->
           <div>
             <label for="email-input" class="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
-            <div class="flex items-stretch border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-colors">
-              <!-- Локальная часть (вводит пользователь) -->
-              <input
-                id="email-input"
-                v-model="emailLocalPart"
-                type="text"
-                placeholder="tregubovsy"
-                :disabled="codeSent"
-                class="flex-1 min-w-0 px-4 py-2.5 text-sm bg-transparent outline-none
-                       disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
-                @input="validateEmailLocalPart"
-                @keydown.enter="handleSendCode"
-              />
-              
-              <!-- Разделитель -->
-              <span class="flex items-center px-1 text-gray-400 select-none bg-gray-50 border-l border-gray-300">
-                @
-              </span>
-              
-              <!-- Домен (выпадающий список или ввод) -->
-              <div class="relative">
-                <select
-                  v-model="emailDomain"
-                  :disabled="codeSent"
-                  class="h-full px-3 py-2.5 pr-8 text-sm bg-gray-50 border-l border-gray-300 outline-none appearance-none
-                         disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
-                         hover:bg-gray-100 transition-colors cursor-pointer"
-                  @change="onDomainChange"
-                >
-                  <option 
-                    v-for="domain in domains" 
-                    :key="domain"
-                    :value="domain"
-                  >
-                    {{ domain }}
-                  </option>
-                  <option value="custom">Другой...</option>
-                </select>
-                <!-- Стрелка -->
-                <div class="absolute inset-y-0 right-2 flex items-center pointer-events-none text-gray-400">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
-            </div>
             
-            <!-- Подсказка -->
-            <p class="mt-1 text-xs text-gray-400">
-              Можно ввести любой домен, например @mail.ru
-            </p>
+            <!-- Локальная часть (вводит пользователь) -->
+            <input
+              id="email-input"
+              v-model="emailLocalPart"
+              type="text"
+              placeholder="tregubovsy"
+              :disabled="codeSent"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-t-lg text-sm
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                     disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+                     transition-colors"
+              @input="validateEmailLocalPart"
+              @keydown.enter="handleSendCode"
+            />
+            
+            <!-- Домен (выпадающий список) -->
+            <select
+              v-model="emailDomain"
+              :disabled="codeSent"
+              class="w-full px-4 py-2.5 border border-t-0 border-gray-300 rounded-b-lg text-sm
+                     bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                     disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+                     hover:bg-gray-100 transition-colors cursor-pointer appearance-none"
+              @change="onDomainChange"
+            >
+              <option 
+                v-for="domain in domains" 
+                :key="domain"
+                :value="domain"
+              >
+                @{{ domain }}
+              </option>
+            </select>
             
             <p v-if="emailError" class="mt-1 text-sm text-red-600">
               {{ emailError }}
@@ -234,19 +217,13 @@ export default {
       'irkutsk-dobycha.gazprom.ru',
       'mail.ru',
       'gmail.com',
-      'yandex.ru',
-      'custom'
+      'yandex.ru'
     ]
 
     // ===== Вычисляемые свойства =====
     const fullEmail = computed(() => {
       if (!emailLocalPart.value) return ''
-      let domain = emailDomain.value
-      if (domain === 'custom') {
-        // Если выбран "Другой..." - используем последний введенный пользовательский домен
-        domain = customDomain.value || 'mail.ru'
-      }
-      return `${emailLocalPart.value}@${domain}`
+      return `${emailLocalPart.value}@${emailDomain.value}`
     })
 
     const isEmailValid = computed(() => {
@@ -314,13 +291,8 @@ export default {
      * Обработка смены домена
      */
     const onDomainChange = () => {
-      if (emailDomain.value === 'custom') {
-        // Если выбран "Другой..." - фокус на поле ввода локальной части
-        setTimeout(() => {
-          const input = document.getElementById('email-input')
-          if (input) input.focus()
-        }, 100)
-      }
+      // Просто логируем для отладки
+      console.log('[EmailLoginModal] Выбран домен:', emailDomain.value)
     }
 
     /**
@@ -458,8 +430,6 @@ export default {
         emailLocalPart.value = local
         if (domains.includes(domain)) {
           emailDomain.value = domain
-        } else {
-          emailDomain.value = 'custom'
         }
       }
 
