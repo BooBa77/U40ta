@@ -35,7 +35,7 @@
               id="email-input"
               v-model="emailLocalPart"
               type="text"
-              placeholder="tregubovsy"
+              placeholder="ivanovii"
               :disabled="codeSent"
               class="w-full px-4 py-2.5 border border-gray-300 rounded-t-lg text-sm
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
@@ -90,7 +90,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               <div>
-                <p class="text-sm text-green-800 font-medium">Код отправлен на {{ fullEmail }}</p>
+                <p class="text-sm text-green-800 font-medium">Код отправлен</p>
                 <p class="text-xs text-green-700">Введите код из письма</p>
               </div>
             </div>
@@ -160,7 +160,7 @@
               <div class="w-full border-t border-gray-200"></div>
             </div>
             <div class="relative flex justify-center text-xs">
-              <span class="px-3 bg-white text-gray-500">или</span>
+              <span class="px-3 bg-white text-gray-500"></span>
             </div>
           </div>
 
@@ -170,7 +170,7 @@
                    hover:bg-gray-200 active:bg-gray-300 transition-colors"
             @click="handleClose"
           >
-            Назад к выбору входа
+            Назад
           </button>
 
         </div>

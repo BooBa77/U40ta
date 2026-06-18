@@ -2,15 +2,28 @@
   <div class="login-page">
     <div class="login-container">
       
-      <h1 class="login-title">U40TA</h1>
+      <h1 class="login-title">Учёт МЦ ГДИ</h1>
       
       <p class="login-subtitle">добро пожаловать</p>
 
       <!-- Кнопки входа -->
       <div class="space-y-3">
         
-        <!-- Telegram -->
+        <!-- Сообщение о блокировке Telegram -->
+        <div class="text-center p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+          <p class="text-sm text-yellow-800 font-medium">
+            К сожалению Telegram-авторизация
+          </p>
+          <p class="text-sm text-yellow-800 font-medium">
+            заблокирована правительством
+          </p>
+          <p class="text-xs text-yellow-600 mt-1">
+            Используйте вход по email
+          </p>
+        </div>
+        <!-- Telegram 
         <div ref="telegramWidget" class="flex justify-center"></div>
+        -->
 
         <!-- Разделитель -->
         <div class="relative my-4">
