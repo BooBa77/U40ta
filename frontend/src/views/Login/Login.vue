@@ -18,7 +18,7 @@
             <div class="w-full border-t border-gray-200"></div>
           </div>
           <div class="relative flex justify-center text-xs">
-            <span class="px-3 bg-white text-gray-400">или</span>
+            <span class="px-3 bg-white text-gray-400"></span>
           </div>
         </div>
 
