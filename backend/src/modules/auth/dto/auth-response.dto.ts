@@ -4,5 +4,5 @@
  * Статус авторизации не нужен - все авторизованные получают доступ
  */
 export class AuthResponseDto {
-  access_token: string;
+  access_token!: string;
 }

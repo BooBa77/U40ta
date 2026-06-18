@@ -4,16 +4,45 @@
       
       <h1 class="login-title">U40TA</h1>
       
-      <!-- ТОЛЬКО Telegram Widget -->
-      <div class="telegram-btn-container">
-        <p class="login-subtitle">добро пожаловать</p>
-        <div ref="telegramWidget"></div>
+      <p class="login-subtitle">добро пожаловать</p>
+
+      <!-- Кнопки входа -->
+      <div class="space-y-3">
+        
+        <!-- Telegram -->
+        <div ref="telegramWidget" class="flex justify-center"></div>
+
+        <!-- Разделитель -->
+        <div class="relative my-4">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-gray-200"></div>
+          </div>
+          <div class="relative flex justify-center text-xs">
+            <span class="px-3 bg-white text-gray-400">или</span>
+          </div>
+        </div>
+
+        <!-- Email -->
+        <button
+          class="w-full py-3 px-4 bg-white border-2 border-gray-300 text-gray-700 rounded-xl text-sm font-medium
+                 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          @click="openEmailModal"
+        >
+          Войти по email
+        </button>
       </div>
       
       <!-- PWA Кнопка -->
       <PWAInstallButton />
       
     </div>
+
+    <!-- Email модалка -->
+    <EmailLoginModal
+      :is-open="emailModalOpen"
+      @close="emailModalOpen = false"
+      @success="emailModalOpen = false"
+    />
   </div>
 </template>
 
@@ -21,17 +50,20 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PWAInstallButton from '@/components/ui/PWAInstallButton.vue'
+import EmailLoginModal from './components/EmailLoginModal.vue'
 
 const BOT_USERNAME = 'u40ta_bot'
 
 export default {
   name: 'Login',
   components: {
-    PWAInstallButton
+    PWAInstallButton,
+    EmailLoginModal
   },
   setup() {
     const router = useRouter()
     const telegramWidget = ref(null)
+    const emailModalOpen = ref(false)
 
     // Если уже есть токен - сразу на Home
     const authToken = localStorage.getItem('auth_token')
@@ -102,13 +134,19 @@ export default {
       }
     }
 
+    const openEmailModal = () => {
+      emailModalOpen.value = true
+    }
+
     onMounted(() => {
       initTelegramWidget()
       window.onTelegramAuth = onTelegramAuth
     })
 
     return {
-      telegramWidget
+      telegramWidget,
+      emailModalOpen,
+      openEmailModal
     }
   }
 }

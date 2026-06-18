@@ -1,6 +1,6 @@
 /**
- * Сервис для работы с почтовым ящиком.
- * Проверка новых писем через API.
+ * Сервис для работы с почтой и email-авторизацией.
+ * Включает проверку новых писем и авторизацию по email с подтверждением кода.
  */
 export class EmailService {
   constructor() {
@@ -47,6 +47,99 @@ export class EmailService {
       return await response.json()
     } catch (error) {
       console.error('[EmailService] Ошибка проверки почты:', error)
+      throw error
+    }
+  }
+
+  // ========== Методы для email-авторизации ==========
+
+  /**
+   * Отправить код подтверждения на email.
+   * 
+   * POST /api/auth/email/send-code
+   * 
+   * @param {string} email - email пользователя
+   * @returns {Promise<{ success: boolean; message: string }>}
+   */
+  async sendCode(email) {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/email/send-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Ошибка отправки кода')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('[EmailService] Ошибка отправки кода:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Проверить код и получить JWT токен.
+   * 
+   * POST /api/auth/email/verify
+   * 
+   * @param {string} email - email пользователя
+   * @param {string} code - код подтверждения
+   * @returns {Promise<{ access_token: string }>}
+   */
+  async verifyCode(email, code) {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/email/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, code })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Неверный код подтверждения')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('[EmailService] Ошибка проверки кода:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Проверить статус кода для email.
+   * Используется для восстановления состояния после F5.
+   * 
+   * POST /api/auth/email/check-status
+   * 
+   * @param {string} email - email пользователя
+   * @returns {Promise<{ hasActiveCode: boolean; remainingSeconds: number }>}
+   */
+  async checkCodeStatus(email) {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/email/check-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      })
+
+      if (!response.ok) {
+        throw new Error('Ошибка проверки статуса кода')
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('[EmailService] Ошибка проверки статуса:', error)
       throw error
     }
   }

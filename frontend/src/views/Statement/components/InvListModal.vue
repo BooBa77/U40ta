@@ -64,19 +64,19 @@
                     {{ getLocationDisplay(item) }}
                   </td>
                   <td class="px-3 py-2.5 border-b border-gray-100 text-right">
-                    <!-- Для существующих объектов - кнопка Открыть -->
+                    <!-- Для существующих объектов — кнопка Открыть -->
                     <button 
                       v-if="item.isObject" 
-                      @click="openObjectForm(item)"
+                      @click="openObjectAction(item)"
                       class="px-3 py-1.5 bg-blue-500 text-white border border-blue-600 rounded-md text-xs font-medium
                              active:bg-blue-600"
                     >
                       Открыть
                     </button>
                     
-                    <!-- Для записей ведомости - QrScannerButton -->
+                    <!-- Для записей ведомости без объекта — QrScannerButton -->
                     <QrScannerButton 
-                      v-else-if="hasCamera"
+                      v-else-if="hasCamera && !isExcessContext"
                       @scan="(scannedData) => handleQrScan(scannedData, item)"
                       @error="handleQrError"
                     />
@@ -107,11 +107,20 @@
     @save="handleObjectFormSave"
     @cancel="handleObjectFormCancel"
   />
+
+  <!-- Модалка для объекта вне ведомости (isExcess) -->
+  <ExcessObjectModal
+    v-if="selectedExcessObjectId !== null"
+    :is-open="excessObjectIsOpen"
+    :object-id="selectedExcessObjectId"
+    @back="handleExcessObjectBack"
+  />  
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
+import ExcessObjectModal from './ExcessObjectModal.vue'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import { objectService } from '@/services/object-service'
 import { statementService } from '@/services/statement.service'
@@ -137,6 +146,14 @@ const props = defineProps({
   sklad: {
     type: String,
     required: true
+  },
+  /**
+   * Флаг контекста isExcess.
+   * Если true — все объекты уже существуют, новые не создаются.
+   */
+  isExcessContext: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -154,6 +171,9 @@ const objectFormObjectId = ref(null)
 const objectFormStatementId = ref(null)
 const objectFormInitialData = ref({})
 const objectFormQrCode = ref(null)
+
+const excessObjectIsOpen = ref(false)
+const selectedExcessObjectId = ref(null)
 
 // ============ COMPUTED ============
 const modalTitle = computed(() => {
@@ -188,7 +208,7 @@ const loadData = async () => {
   error.value = ''
   
   try {
-    const [statements, objects] = await Promise.all([
+    const [allStatements, objects] = await Promise.all([
       statementService.getStatementsByInv(
         props.invNumber,
         props.partyNumber,
@@ -203,7 +223,12 @@ const loadData = async () => {
       )
     ])
     
-    statementRows.value = statements
+    const objectCount = objects.length
+    const totalStatements = allStatements.length
+    
+    // Показываем только записи без объекта
+    const excessCount = Math.max(0, totalStatements - objectCount)
+    statementRows.value = allStatements.slice(0, excessCount)
     objectRows.value = objects
     
   } catch (err) {
@@ -230,6 +255,23 @@ const getLocationDisplay = (item) => {
 }
 
 // ============ ОБРАБОТЧИКИ ДЕЙСТВИЙ ============
+
+/**
+ * Открыть действие для объекта.
+ * В контексте isExcess — открывает ExcessObjectModal,
+ * иначе — ObjectFormModal.
+ */
+const openObjectAction = (item) => {
+  if (props.isExcessContext) {
+    console.log("СИНИЙ")
+    selectedExcessObjectId.value = item.objectId
+    excessObjectIsOpen.value = true
+  } else {
+    console.log("ЗЕЛЁНЫЙ")
+    openObjectForm(item)
+  }
+}
+
 const openObjectForm = (item) => {
   objectFormObjectId.value = item.objectId
   objectFormStatementId.value = null
@@ -249,7 +291,7 @@ const handleQrScan = (scannedData, item) => {
 }
 
 const handleQrError = (error) => {
-  console.error('[LocViewModal] Ошибка сканирования QR:', error)
+  console.error('[InvListModal] Ошибка сканирования QR:', error)
 }
 
 // ============ ОБРАБОТЧИКИ OBJECT FORM ============
@@ -263,8 +305,6 @@ const handleObjectFormSave = async (result) => {
     objectFormQrCode.value = null
   }, 300)
   
-  // haveObject вычисляется динамически на бэке,
-  // просто перезагружаем данные
   await loadData()
 }
 
@@ -276,6 +316,15 @@ const handleObjectFormCancel = () => {
     objectFormStatementId.value = null
     objectFormInitialData.value = {}
     objectFormQrCode.value = null
+  }, 300)
+}
+
+// ============ ОБРАБОТЧИКИ EXCESS OBJECT ============
+const handleExcessObjectBack = () => {
+  excessObjectIsOpen.value = false
+  
+  setTimeout(() => {
+    selectedExcessObjectId.value = null
   }, 300)
 }
 
@@ -296,7 +345,6 @@ watch(() => props.isOpen, async (newVal) => {
 </script>
 
 <style scoped>
-/* Анимация появления/исчезновения модалки */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.2s ease;

@@ -4,7 +4,9 @@ import { AuthService } from './services/auth.service';
 import { TelegramAuthService } from './services/telegram-auth.service';
 import { UsersModule } from '../users/users.module';
 import { TelegramUsersModule } from '../telegram-users/telegram-users.module';
-import { JwtAuthModule } from './jwt-auth.module'; // <-- Импортируем JWT модуль
+import { JwtAuthModule } from './jwt-auth.module';
+import { EmailCodeService } from './services/email-code.service';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -12,6 +14,7 @@ import { JwtAuthModule } from './jwt-auth.module'; // <-- Импортируем
     UsersModule,           // Для проверки одобренных пользователей
     TelegramUsersModule,   // Для работы с заявками
     JwtAuthModule,         // Для использования JwtService в AuthService
+    EmailModule,           // Для использования SmtpServic
   ],
   controllers: [
     AuthController,        // Контроллер для обработки HTTP запросов авторизации
@@ -19,8 +22,7 @@ import { JwtAuthModule } from './jwt-auth.module'; // <-- Импортируем
   providers: [
     AuthService,           // Главный сервис авторизации (проверка пользователей + JWT)
     TelegramAuthService,   // Сервис для логики работы с Telegram заявками
-    // JwtAuthGuard больше не регистрируем здесь - он в JwtAuthModule
+    EmailCodeService,      // Сервис для авторизации по email
   ],
-  // Убираем exports - guard теперь экспортируется из JwtAuthModule
 })
 export class AuthModule {}

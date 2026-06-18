@@ -65,6 +65,33 @@ export class UsersService {
   }
 
   /**
+   * Создание пользователя с email (для email-авторизации).
+   * telegramUsersId устанавливается в 0.
+   * 
+   * @param email - email пользователя
+   * @param firstName - имя (из парсинга email)
+   * @param lastName - фамилия (из парсинга email)
+   * @param abr - аббревиатура (из парсинга email)
+   * @returns созданный пользователь
+   */
+  async createWithEmail(email: string, firstName: string, lastName: string, abr: string): Promise<User> {
+    this.logger.log(`Создание пользователя по email: ${email}`);
+    
+    const user = this.usersRepository.create({
+      telegramUsersId: 0, // Для email-пользователей ставим 0
+      firstName,
+      lastName,
+      eMail: email,
+      abr,
+    });
+
+    const savedUser = await this.usersRepository.save(user);
+    
+    this.logger.log(`Пользователь создан по email: ID ${savedUser.id}, abr: ${savedUser.abr}`);
+    return savedUser;
+  }
+
+  /**
    * Поиск пользователя по telegram_users_id.
    * 
    * @param telegramUsersId - ID пользователя в Telegram
@@ -118,6 +145,8 @@ export class UsersService {
    * @returns пользователь или null, если не найден
    */
   async findByEmail(email: string): Promise<User | null> {
+    this.logger.log(`Поиск пользователя по email: ${email}`);
+    
     return await this.usersRepository.findOne({
       where: { eMail: email },
     });

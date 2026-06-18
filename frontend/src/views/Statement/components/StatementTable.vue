@@ -160,14 +160,15 @@ const handleHeaderClick = (columnId) => {
  * @param {Object} row - агрегированная строка
  */
 const handleRowClick = (row) => {
-  if (!row.isActual || row.isExcess) return
+  if (!row.isActual) return
 
   emit('row-click', {
     invNumber: row.invNumber,
     partyNumber: row.partyNumber || null,
     zavod: row.zavod,
     sklad: row.sklad,
-    originalRowIds: row.originalRowIds
+    originalRowIds: row.originalRowIds,
+    isExcess: row.isExcess || false
   })
 }
 

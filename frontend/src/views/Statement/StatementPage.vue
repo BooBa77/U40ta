@@ -71,6 +71,7 @@
         :party-number="selectedItem.partyNumber"
         :zavod="selectedItem.zavod"
         :sklad="selectedItem.sklad"
+        :is-excess-context="selectedItem.isExcess || false"
         @close="handleInvListClose"
       />
 
@@ -197,7 +198,8 @@ const handleRowClick = (groupParams) => {
     invNumber: groupParams.invNumber,
     partyNumber: groupParams.partyNumber,
     zavod: groupParams.zavod,
-    sklad: groupParams.sklad
+    sklad: groupParams.sklad,
+    isExcess: groupParams.isExcess || false
   }
   
   invListIsOpen.value = true
