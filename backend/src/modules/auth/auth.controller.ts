@@ -1,28 +1,7 @@
-import { Controller, Post, Body, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Logger, NotFoundException, BadRequestException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
 import { TelegramLoginDto } from './dto/telegram-login.dto';
-
-/**
- * DTO для запроса кода подтверждения
- */
-class SendCodeDto {
-  email!: string;
-}
-
-/**
- * DTO для проверки кода
- */
-class VerifyCodeDto {
-  email!: string;
-  code!: string;
-}
-
-/**
- * DTO для проверки статуса кода
- */
-class CheckCodeStatusDto {
-  email!: string;
-}
+import { SendCodeDto, VerifyCodeDto, CheckCodeStatusDto } from './dto/email-auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -34,11 +13,10 @@ export class AuthController {
   async telegramLogin(@Body() telegramData: TelegramLoginDto) {
     this.logger.log(`Telegram авторизация: ${telegramData.first_name}`);
 
-    // Просто вызываем сервис, ВСЕГДА получаем токен
     const result = await this.authService.telegramLogin(telegramData);
     
     this.logger.log(`Авторизация успешна: ${telegramData.first_name}`);
-    return result; // Всегда { access_token }
+    return result;
   }
 
   @Post('dev-login')
@@ -58,11 +36,9 @@ export class AuthController {
    * Отправить код подтверждения на email.
    * 
    * POST /api/auth/email/send-code
-   * 
-   * @param body.email - email пользователя
-   * @returns { success: true, message: string }
    */
   @Post('email/send-code')
+  @UsePipes(new ValidationPipe({ transform: true }))
   async sendEmailCode(@Body() body: SendCodeDto) {
     this.logger.log(`Запрос кода для email: ${body.email}`);
     
@@ -82,12 +58,9 @@ export class AuthController {
    * Проверить код и получить JWT токен.
    * 
    * POST /api/auth/email/verify
-   * 
-   * @param body.email - email пользователя
-   * @param body.code - код подтверждения
-   * @returns { access_token: string }
    */
   @Post('email/verify')
+  @UsePipes(new ValidationPipe({ transform: true }))
   async verifyEmailCode(@Body() body: VerifyCodeDto) {
     this.logger.log(`Проверка кода для email: ${body.email}`);
     
@@ -105,14 +78,11 @@ export class AuthController {
 
   /**
    * Проверить статус кода для email.
-   * Используется на фронте для восстановления состояния после F5.
    * 
    * POST /api/auth/email/check-status
-   * 
-   * @param body.email - email пользователя
-   * @returns { hasActiveCode: boolean, remainingSeconds: number }
    */
   @Post('email/check-status')
+  @UsePipes(new ValidationPipe({ transform: true }))
   async checkEmailCodeStatus(@Body() body: CheckCodeStatusDto) {
     this.logger.log(`Проверка статуса кода для email: ${body.email}`);
     

@@ -1,6 +1,6 @@
 <template>
   <div v-if="showInstallButton" class="pwa-section">
-    <p class="pwa-status">Для удобства рекомендуем</p>
+    <p class="pwa-status">При частом использовании рекомендуем</p>
     <BaseButton 
       variant="secondary"
       @click="installPWA"
