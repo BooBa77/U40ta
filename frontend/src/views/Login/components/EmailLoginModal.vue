@@ -24,23 +24,63 @@
         <!-- Контент -->
         <div class="p-6 space-y-4">
           
-          <!-- Поле email -->
+          <!-- Поле email с подставленным доменом -->
           <div>
             <label for="email-input" class="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
-            <input
-              id="email-input"
-              v-model="email"
-              type="email"
-              placeholder="ivanovii@domain.com"
-              :disabled="codeSent"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
-                     transition-colors"
-              @keydown.enter="handleSendCode"
-            />
+            <div class="flex items-stretch border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-colors">
+              <!-- Локальная часть (вводит пользователь) -->
+              <input
+                id="email-input"
+                v-model="emailLocalPart"
+                type="text"
+                placeholder="tregubovsy"
+                :disabled="codeSent"
+                class="flex-1 min-w-0 px-4 py-2.5 text-sm bg-transparent outline-none
+                       disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                @input="validateEmailLocalPart"
+                @keydown.enter="handleSendCode"
+              />
+              
+              <!-- Разделитель -->
+              <span class="flex items-center px-1 text-gray-400 select-none bg-gray-50 border-l border-gray-300">
+                @
+              </span>
+              
+              <!-- Домен (выпадающий список или ввод) -->
+              <div class="relative">
+                <select
+                  v-model="emailDomain"
+                  :disabled="codeSent"
+                  class="h-full px-3 py-2.5 pr-8 text-sm bg-gray-50 border-l border-gray-300 outline-none appearance-none
+                         disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+                         hover:bg-gray-100 transition-colors cursor-pointer"
+                  @change="onDomainChange"
+                >
+                  <option 
+                    v-for="domain in domains" 
+                    :key="domain"
+                    :value="domain"
+                  >
+                    {{ domain }}
+                  </option>
+                  <option value="custom">Другой...</option>
+                </select>
+                <!-- Стрелка -->
+                <div class="absolute inset-y-0 right-2 flex items-center pointer-events-none text-gray-400">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Подсказка -->
+            <p class="mt-1 text-xs text-gray-400">
+              Можно ввести любой домен, например @mail.ru
+            </p>
+            
             <p v-if="emailError" class="mt-1 text-sm text-red-600">
               {{ emailError }}
             </p>
@@ -49,7 +89,7 @@
           <!-- Кнопка отправки кода -->
           <button
             v-if="!codeSent"
-            :disabled="!email || isLoading || !isEmailValid"
+            :disabled="!fullEmail || isLoading || !isEmailValid"
             class="w-full py-2.5 px-4 bg-blue-500 text-white rounded-lg text-sm font-medium
                    hover:bg-blue-600 active:bg-blue-700 transition-colors
                    disabled:opacity-50 disabled:cursor-not-allowed"
@@ -67,7 +107,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               <div>
-                <p class="text-sm text-green-800 font-medium">Код отправлен на {{ email }}</p>
+                <p class="text-sm text-green-800 font-medium">Код отправлен на {{ fullEmail }}</p>
                 <p class="text-xs text-green-700">Введите код из письма</p>
               </div>
             </div>
@@ -88,6 +128,7 @@
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                        transition-colors"
                 @keydown.enter="handleVerifyCode"
+                @input="validateCode"
                 autofocus
               />
               <p v-if="codeError" class="mt-1 text-sm text-red-600">
@@ -136,7 +177,7 @@
               <div class="w-full border-t border-gray-200"></div>
             </div>
             <div class="relative flex justify-center text-xs">
-              <span class="px-3 bg-white text-gray-500"></span>
+              <span class="px-3 bg-white text-gray-500">или</span>
             </div>
           </div>
 
@@ -176,7 +217,8 @@ export default {
     const router = useRouter()
 
     // ===== Состояние =====
-    const email = ref('')
+    const emailLocalPart = ref('')
+    const emailDomain = ref('irkutsk-dobycha.gazprom.ru')
     const code = ref('')
     const isLoading = ref(false)
     const isVerifying = ref(false)
@@ -187,11 +229,36 @@ export default {
     const errorMessage = ref('')
     let timerInterval = null
 
+    // ===== Список доменов =====
+    const domains = [
+      'irkutsk-dobycha.gazprom.ru',
+      'mail.ru',
+      'gmail.com',
+      'yandex.ru',
+      'custom'
+    ]
+
     // ===== Вычисляемые свойства =====
+    const fullEmail = computed(() => {
+      if (!emailLocalPart.value) return ''
+      let domain = emailDomain.value
+      if (domain === 'custom') {
+        // Если выбран "Другой..." - используем последний введенный пользовательский домен
+        domain = customDomain.value || 'mail.ru'
+      }
+      return `${emailLocalPart.value}@${domain}`
+    })
+
     const isEmailValid = computed(() => {
-      if (!email.value) return false
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      return emailRegex.test(email.value)
+      if (!emailLocalPart.value) return false
+      // Разрешаем только латиницу, цифры, точку, дефис и нижнее подчеркивание
+      const localPartRegex = /^[a-zA-Z0-9._-]+$/
+      if (!localPartRegex.test(emailLocalPart.value)) return false
+      
+      // Проверяем длину (минимум 1 символ)
+      if (emailLocalPart.value.length < 1) return false
+      
+      return true
     })
 
     const formattedTime = computed(() => {
@@ -203,41 +270,58 @@ export default {
     // ===== Методы =====
 
     /**
-     * Валидация email
+     * Валидация локальной части email
      */
-    const validateEmail = () => {
-      if (!email.value) {
-        emailError.value = 'Введите email'
+    const validateEmailLocalPart = () => {
+      if (!emailLocalPart.value) {
+        emailError.value = 'Введите логин'
         return false
       }
-      if (!isEmailValid.value) {
-        emailError.value = 'Введите корректный email'
+      
+      // Разрешаем только латиницу, цифры, точку, дефис и нижнее подчеркивание
+      const localPartRegex = /^[a-zA-Z0-9._-]+$/
+      if (!localPartRegex.test(emailLocalPart.value)) {
+        emailError.value = 'Только латиница, цифры, . _ -'
         return false
       }
+      
+      if (emailLocalPart.value.length < 1) {
+        emailError.value = 'Минимум 1 символ'
+        return false
+      }
+      
       emailError.value = ''
       return true
     }
 
     /**
-     * Очистка ошибок при вводе
+     * Валидация кода (только цифры)
      */
-    watch(email, () => {
-      if (emailError.value) {
-        emailError.value = ''
+    const validateCode = () => {
+      // Удаляем все нецифровые символы
+      code.value = code.value.replace(/\D/g, '')
+      
+      if (code.value.length > 0 && !/^\d+$/.test(code.value)) {
+        codeError.value = 'Только цифры'
+        return false
       }
-      if (errorMessage.value) {
-        errorMessage.value = ''
-      }
-    })
+      
+      codeError.value = ''
+      return true
+    }
 
-    watch(code, () => {
-      if (codeError.value) {
-        codeError.value = ''
+    /**
+     * Обработка смены домена
+     */
+    const onDomainChange = () => {
+      if (emailDomain.value === 'custom') {
+        // Если выбран "Другой..." - фокус на поле ввода локальной части
+        setTimeout(() => {
+          const input = document.getElementById('email-input')
+          if (input) input.focus()
+        }, 100)
       }
-      if (errorMessage.value) {
-        errorMessage.value = ''
-      }
-    })
+    }
 
     /**
      * Запуск таймера
@@ -260,16 +344,24 @@ export default {
      * Отправить код
      */
     const handleSendCode = async () => {
-      if (!validateEmail()) return
+      if (!validateEmailLocalPart()) return
+      if (!fullEmail.value) {
+        emailError.value = 'Введите email'
+        return
+      }
       if (isLoading.value) return
 
       isLoading.value = true
       errorMessage.value = ''
 
       try {
-        await emailService.sendCode(email.value)
+        await emailService.sendCode(fullEmail.value)
         codeSent.value = true
         startTimer(300) // 5 минут
+        
+        // Сохраняем email в localStorage для восстановления после F5
+        localStorage.setItem('u40ta_email_login', fullEmail.value)
+        
         // Автофокус на поле кода
         setTimeout(() => {
           const codeInput = document.getElementById('code-input')
@@ -298,10 +390,13 @@ export default {
       errorMessage.value = ''
 
       try {
-        const data = await emailService.verifyCode(email.value, code.value)
+        const data = await emailService.verifyCode(fullEmail.value, code.value)
         
         // Сохраняем токен
         localStorage.setItem('auth_token', data.access_token)
+        
+        // Очищаем сохраненный email
+        localStorage.removeItem('u40ta_email_login')
         
         // Успех
         emit('success')
@@ -339,28 +434,38 @@ export default {
       clearInterval(timerInterval)
       timerInterval = null
       // Сброс состояния
-      email.value = ''
+      emailLocalPart.value = ''
       code.value = ''
       codeSent.value = false
       timer.value = 0
       emailError.value = ''
       codeError.value = ''
       errorMessage.value = ''
+      localStorage.removeItem('u40ta_email_login')
       emit('close')
     }
 
     /**
      * Восстановление состояния после F5
-     * Проверяем, есть ли активный код для email
      */
     const restoreState = async () => {
       const savedEmail = localStorage.getItem('u40ta_email_login')
       if (!savedEmail || !props.isOpen) return
 
+      // Парсим email на локальную часть и домен
+      const [local, domain] = savedEmail.split('@')
+      if (local && domain) {
+        emailLocalPart.value = local
+        if (domains.includes(domain)) {
+          emailDomain.value = domain
+        } else {
+          emailDomain.value = 'custom'
+        }
+      }
+
       try {
         const status = await emailService.checkCodeStatus(savedEmail)
         if (status.hasActiveCode) {
-          email.value = savedEmail
           codeSent.value = true
           startTimer(status.remainingSeconds)
         } else {
@@ -375,10 +480,8 @@ export default {
     // ===== Жизненный цикл =====
     watch(() => props.isOpen, (newVal) => {
       if (newVal) {
-        // Сохраняем email в localStorage для восстановления после F5
         const savedEmail = localStorage.getItem('u40ta_email_login')
         if (savedEmail) {
-          email.value = savedEmail
           restoreState()
         }
         // Автофокус на поле email
@@ -389,20 +492,14 @@ export default {
       }
     })
 
-    // Сохраняем email при его изменении (если код отправлен)
-    watch(email, (newVal) => {
-      if (newVal && codeSent.value) {
-        localStorage.setItem('u40ta_email_login', newVal)
-      }
-    })
-
     onUnmounted(() => {
       clearInterval(timerInterval)
       timerInterval = null
     })
 
     return {
-      email,
+      emailLocalPart,
+      emailDomain,
       code,
       isLoading,
       isVerifying,
@@ -411,13 +508,17 @@ export default {
       emailError,
       codeError,
       errorMessage,
+      domains,
+      fullEmail,
       isEmailValid,
       formattedTime,
+      validateEmailLocalPart,
+      validateCode,
+      onDomainChange,
       handleSendCode,
       handleVerifyCode,
       handleResendCode,
-      handleClose,
-      validateEmail
+      handleClose
     }
   }
 }
