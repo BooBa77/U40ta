@@ -31,17 +31,18 @@ export class QrService {
    */
   async apiRequest(endpoint, options = {}) {
     const token = localStorage.getItem('auth_token')
-    if (!token) {
-      throw new Error('Токен авторизации не найден')
-    }
 
     // Базовые настройки для всех запросов
     const defaultOptions = {
-      method: 'GET', // по умолчанию GET
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
+    }
+
+    // Добавляем токен только если он есть
+    if (token) {
+      defaultOptions.headers['Authorization'] = `Bearer ${token}`
     }
 
     // Объединяем с переданными опциями
