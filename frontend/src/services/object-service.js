@@ -36,13 +36,15 @@ export class ObjectService {
    */
   async apiRequest(endpoint, options = {}) {
     const token = localStorage.getItem('auth_token')
-    if (!token) throw new Error('Токен авторизации не найден')
 
     const headers = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       ...options.headers
     }
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
 
     const body = options.body && typeof options.body !== 'string'
       ? JSON.stringify(options.body)
