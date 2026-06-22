@@ -739,7 +739,10 @@ watch(() => props.isOpen, async (isOpen) => {
     
     if (props.objectId) {
       await loadObject(props.objectId)
-      await loadPhotos(props.objectId)
+      // Гость не загружает существующие фото — нет токена
+      if (!props.guestMode) {
+        await loadPhotos(props.objectId)
+      }
     } else {
       initFromRowData(props.initialData)
       await processInitialQrCode(props.initialQrCode)
