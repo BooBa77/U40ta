@@ -13,7 +13,6 @@ import { UpdateQrOwnerDto } from './dto/update-qr-owner.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('qr-codes')
-@UseGuards(JwtAuthGuard)  // Защищаем все методы контроллера
 export class QrCodesController {
   constructor(private readonly qrCodesService: QrCodesService) {}
 
@@ -25,6 +24,7 @@ export class QrCodesController {
 
   // Создать QR
   @Post()
+  @UseGuards(JwtAuthGuard)
   async create(
     @Body() createQrCodeDto: CreateQrCodeDto)
   {
@@ -33,6 +33,7 @@ export class QrCodesController {
 
   // Переназначить QR
   @Put('update-owner')
+  @UseGuards(JwtAuthGuard)
   async updateOwner(
     @Body() updateQrOwnerDto: UpdateQrOwnerDto) 
   {
