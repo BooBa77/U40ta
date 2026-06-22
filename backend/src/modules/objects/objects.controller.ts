@@ -15,7 +15,6 @@ interface RequestWithUser extends ExpressRequest {
 }
 
 @Controller('objects')
-@UseGuards(JwtAuthGuard)
 export class ObjectsController {
   constructor(
     private readonly objectsService: ObjectsService,
