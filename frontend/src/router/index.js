@@ -21,22 +21,10 @@ const routes = [
     component: Login
   },
   {
-    path: '/scan/:qrCode', // переход на сайт по ссылке с QR-кода
-    name: 'ScanRedirect',
-    component: { template: '<div></div>' }, // Пустой компонент
-    meta: { requiresAuth: true },
-    beforeEnter: (to, from, next) => {
-      // Собираем полный URL
-      const fullUrl = window.location.origin + to.fullPath
-      // Редирект на Home с qr-параметром
-      next({
-        path: '/',
-        query: { 
-          qr: fullUrl,
-          from: 'scan'
-        }
-      })
-    }
+    path: '/scan/:qrCode',
+    name: 'DeepLink',
+    component: () => import('@/views/Guest/DeepLink.vue')
+    // без meta.requiresAuth — гость может зайти
   },
   {
     path: '/statement/:receivedAt',
@@ -69,49 +57,26 @@ const router = createRouter({
   routes
 })
 
-// Навигационный хук для проверки авторизации
+/**
+ * Глобальный навигационный хук
+ * Проверяет авторизацию для маршрутов с requiresAuth
+ */
 router.beforeEach((to, from, next) => {
   const isAuthenticated = localStorage.getItem('auth_token')
-  const isDevelopment = import.meta.env.DEV;
-  
-  // Если это путь /scan/... (вход на сайт по ссылке с QR-кода)
-  if (to.path.startsWith('/scan/')) {
-    // Собираем полный URL
-    const fullUrl = window.location.origin + to.fullPath
-    
-    // Если авторизован — сразу на Home с qr-параметром
-    if (isAuthenticated) {
-      next({
-        path: '/',
-        query: { 
-          qr: fullUrl,
-          from: 'scan'
-        }
-      })
-      return
-    }
-    // Если не авторизован — ТОЛЬКО НА ПРОДЕ сохраняем полный путь
-    // В разработчике — обычный редирект без redirect
-    if (isDevelopment) {
-      next('/dev-login')  // без redirect параметра
-    } else {
-      next(`/login?redirect=${encodeURIComponent(fullUrl)}`)
-    }
-    return
-  }
-  
-  // Остальная логика для других маршрутов
+  const isDevelopment = import.meta.env.DEV
+
+  // Только для маршрутов, требующих авторизации
   if (to.meta.requiresAuth && !isAuthenticated) {
-    // ТОЛЬКО НА ПРОДЕ сохраняем redirect
     if (isDevelopment) {
       next('/dev-login')
     } else {
       const redirectPath = to.fullPath
       next(`/login?redirect=${encodeURIComponent(redirectPath)}`)
     }
-  } else {
-    next()
+    return
   }
+
+  next()
 })
 
 export default router

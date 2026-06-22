@@ -182,14 +182,26 @@
           >
             Отмена
           </button>
+          <!-- Из-за guestMode две кнопки -->
           <button 
-            @click="handleSave"
-            class="flex-1 py-3 px-4 bg-blue-500 text-white border border-blue-500 rounded-md
-                   text-base font-medium active:bg-blue-600 disabled:opacity-50"
+            v-if="guestMode && !hasChanges"
+            @click="handleConfirmOnly"
+            class="flex-1 py-3 px-4 bg-green-500 text-white border border-green-500 rounded-md
+                  text-base font-medium active:bg-green-600 disabled:opacity-50"
             :disabled="isSaving"
           >
-            {{ isSaving ? 'Сохранение...' : 'Сохранить' }}
+            Подтверждаю
           </button>
+
+          <button 
+            v-else
+            @click="handleSave"
+            class="flex-1 py-3 px-4 bg-blue-500 text-white border border-blue-500 rounded-md
+                  text-base font-medium active:bg-blue-600 disabled:opacity-50"
+            :disabled="isSaving"
+          >
+            {{ isSaving ? 'Сохранение...' : (guestMode ? 'Сохранить' : 'Сохранить') }}
+          </button>          
         </div>
 
       </div>
@@ -229,10 +241,11 @@ const props = defineProps({
   isOpen: Boolean,
   objectId: [Number, String, null],
   initialData: { type: Object, default: () => ({}) },
-  initialQrCode: { type: String, default: null }
+  initialQrCode: { type: String, default: null },
+  guestMode: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['save', 'cancel'])
+const emit = defineEmits(['save', 'cancel', 'guest-save', 'guest-need-auth'])
 
 // Состояния
 const isSaving = ref(false)
@@ -404,10 +417,26 @@ const handleCancel = () => {
 }
 
 const handleQrScan = async () => {
+    if (props.guestMode && !localStorage.getItem('auth_token')) { // гостевой режим
+    emit('guest-need-auth', 'qr', {
+      places: getPlacesForSave(),
+      sn: objectData.value.sn || '',
+      comment: comment.value.trim()
+    })
+    return
+  }
   await scanQrCode()
 }
 
 const handlePhotoCapture = async () => {
+  if (props.guestMode && !localStorage.getItem('auth_token')) { // гостевой режим
+    emit('guest-need-auth', 'photo', {
+      places: getPlacesForSave(),
+      sn: objectData.value.sn || '',
+      comment: comment.value.trim()
+    })
+    return
+  }
   try {
     const blob = await takePhoto()
     addPhoto(blob)
@@ -441,6 +470,19 @@ const handlePhotoClick = (index) => {
   }
 }
 
+/**
+ * Есть ли изменения относительно исходных данных
+ */
+const hasChanges = computed(() => {
+  const placesChanged = getPlacesChangeMessage() !== null
+  const snChanged = getSnChangeMessage() !== null
+  const commentFilled = comment.value.trim() !== ''
+  const photosChanged = photos.value.some(p => !p.isDeleted && !p.id) || photos.value.some(p => p.isDeleted && p.id)
+  const qrChanged = pendingQrCodes.value.size > 0
+
+  return placesChanged || snChanged || commentFilled || photosChanged || qrChanged
+})
+
 const getSnChangeMessage = () => {
   const oldSn = originalData.value.sn
   const newSn = objectData.value.sn || ''
@@ -462,6 +504,16 @@ const getPlacesChangeMessage = () => {
 }
 
 const handleSave = async () => {
+  // Гостевой режим — отдаём назад в DeepLink.vue для авторизации
+  if (props.guestMode && !localStorage.getItem('auth_token')) {
+    const changes = {
+      places: getPlacesForSave(),
+      sn: objectData.value.sn || '',
+      comment: comment.value.trim()
+    }
+    emit('guest-save', changes)
+    return
+  }  
   isSaving.value = true
   errorMessage.value = ''
   
@@ -655,6 +707,26 @@ const handleSave = async () => {
     
   } catch (error) {
     errorMessage.value = `Ошибка сохранения: ${error.message}`
+  } finally {
+    isSaving.value = false
+  }
+}
+
+/**
+ * Гость нажал «Подтверждаю» — только updateCheckedAt
+ */
+const handleConfirmOnly = async () => {
+  isSaving.value = true
+  errorMessage.value = ''
+
+  try {
+    if (objectData.value.id) {
+      await objectService.updateCheckedAt(objectData.value.id)
+    }
+    emit('save', { wasCreated: false })
+    resetForm()
+  } catch (error) {
+    errorMessage.value = `Ошибка: ${error.message}`
   } finally {
     isSaving.value = false
   }

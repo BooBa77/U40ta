@@ -56,7 +56,8 @@
   <div v-if="!isFlightMode" class="flex justify-center py-4">
     <button 
       @click="checkEmail"
-      class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition"
+      class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap justify-self-center
+             bg-gray-900 text-white hover:bg-gray-700 active:bg-gray-600"
     >
       Проверить почту
     </button>

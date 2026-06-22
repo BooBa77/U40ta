@@ -12,7 +12,7 @@
         <!-- Сообщение о блокировке Telegram -->
         <div class="text-center p-4 bg-yellow-50 rounded-xl border border-yellow-200">
           <p class="text-sm text-yellow-800 font-medium">
-            К сожалению Telegram-авторизация
+            к сожалению Telegram-авторизация
           </p>
           <p class="text-sm text-yellow-800 font-medium">
             заблокирована правительством
@@ -74,9 +74,12 @@ export default {
     EmailLoginModal
   },
   setup() {
+    alert('Login.vue загружен - проверка билда')
+    
     const router = useRouter()
     const telegramWidget = ref(null)
     const emailModalOpen = ref(false)
+    const DEEP_LINK_STORAGE_KEY = 'deepLinkRestore'
 
     // Если уже есть токен - сразу на Home
     const authToken = localStorage.getItem('auth_token')
@@ -114,41 +117,66 @@ export default {
 
         const data = await response.json()
 
-        // ВСЕГДА получаем токен
         localStorage.setItem('auth_token', data.access_token)
-        // проверяем redirect
+
+        // Проверяем sessionStorage — есть ли deepLinkRestore
+        const deepLinkStorage = getDeepLinkStorage()
+
+        if (deepLinkStorage.redirectPath) {
+          // Показываем уведомление, если оно было сохранено
+          if (deepLinkStorage.notification) {
+            // Уведомление покажем в DeepLink после возврата,
+            // но можно алерт здесь или toast
+            alert(deepLinkStorage.notification)
+            delete deepLinkStorage.notification
+            saveDeepLinkStorage(deepLinkStorage)
+          }
+          router.push(deepLinkStorage.redirectPath)
+          return
+        }
+
+        // Обычная логика redirect из URL (для авторизованных маршрутов)
         if (!import.meta.env.DEV) {
           const urlParams = new URLSearchParams(window.location.search)
           const redirect = urlParams.get('redirect')
           
           if (redirect) {
-            // Если redirect - это полный URL (начинается с http)
             if (redirect.startsWith('http')) {
-              // Это наш QR-код, переходим на Home с qr параметром
               router.push({
                 path: '/',
-                query: { qr: redirect }
+                query: { qr: redirect, from: 'scan' }
               })
               return
             } else {
-              // Обычный путь
               router.push(redirect)
               return
             }
           }
         }
         
-        // Нет redirect или development - на главную
-        router.push('/')        
+        router.push('/')
         
       } catch (error) {
         console.error('Auth error:', error)
         alert('Ошибка авторизации')
       }
-    }
+    }    
 
     const openEmailModal = () => {
       emailModalOpen.value = true
+    }
+
+    const getDeepLinkStorage = () => {
+      try {
+        const raw = sessionStorage.getItem(DEEP_LINK_STORAGE_KEY)
+        return raw ? JSON.parse(raw) : {}
+      } catch {
+        return {}
+      }
+    }
+
+    const saveDeepLinkStorage = (data) => {
+      sessionStorage.setItem(DEEP_LINK_STORAGE_KEY, JSON.stringify(data))
     }
 
     onMounted(() => {

@@ -1,36 +1,76 @@
 <template>
-  <nav v-if="isAuthenticated" class="fixed bottom-0 left-0 right-0 flex justify-between items-center p-2 bg-white border-t border-gray-900 z-100 h-12">
-    <!-- Левая кнопка: Новая инвентаризация (только для ревизора, только онлайн) -->
+  <nav v-if="isAuthenticated" class="fixed bottom-0 left-0 right-0 grid grid-cols-3 items-center p-2 bg-white border-t border-gray-200 z-100 h-14">
+    <!-- Левая: Новая ревизия -->
     <button
       v-if="isRevisor && !isFlightMode"
-      class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-left"
+      class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap justify-self-start
+             bg-[#B81C1C] text-white hover:bg-[#8B1515] active:bg-[#6B1010]"
       @click="$emit('new-inventory')"
     >
-      Новая инвентаризация
+      Новая ревизия
     </button>
-    <div v-else class="w-32"></div>
 
-    <!-- Центральная кнопка: Инструменты МОЛ -->
+    <!-- Центр: МОЛ -->
     <button
       v-if="hasAccessToStatements"
-      class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-center"
+      class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap justify-self-center
+             bg-gray-900 text-white hover:bg-gray-700 active:bg-gray-600"
       @click="handleMOL"
     >
       МОЛ
     </button>
-    <div v-else class="w-32"></div>
 
-    <!-- Правая кнопка: Установить PWA (только онлайн) -->
+    <!-- Правая: PWA -->
     <button
       v-if="showInstall && !isFlightMode"
-      class="px-2 py-1 border border-gray-900 bg-white text-gray-900 font-mono text-sm cursor-pointer transition-all hover:bg-gray-900 hover:text-white whitespace-nowrap text-right"
+      class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap justify-self-end
+             bg-[#a7defa] text-gray-800 hover:bg-[#8bcfe8] active:bg-[#70bfdb]"
       @click="install"
     >
       PWA
     </button>
-    <div v-else class="w-32"></div>
-  </nav>
+  </nav>  
 </template>
+
+<script>
+export default {
+  name: 'BottomMenu',
+  
+  props: {
+    isAuthenticated: {
+      type: Boolean,
+      default: false
+    },
+    isRevisor: {
+      type: Boolean,
+      default: false
+    },
+    hasAccessToStatements: {
+      type: Boolean,
+      default: false
+    },
+    isFlightMode: {
+      type: Boolean,
+      default: false
+    },
+    showInstall: {
+      type: Boolean,
+      default: false
+    }
+  },
+
+  emits: ['new-inventory', 'mol'],
+
+  methods: {
+    handleMOL() {
+      this.$emit('mol')
+    },
+    install() {
+      this.$emit('install')
+    }
+  }
+}
+</script>
 
 <script setup>
 import { computed } from 'vue'

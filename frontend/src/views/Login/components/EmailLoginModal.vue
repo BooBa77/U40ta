@@ -138,7 +138,8 @@
               </span>
               <button
                 v-if="timer <= 0"
-                class="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                class="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium
+                      hover:bg-blue-100 active:bg-blue-200 transition-colors"
                 @click="handleResendCode"
               >
                 Запросить код подтверждения
@@ -198,6 +199,7 @@ export default {
 
   setup(props, { emit }) {
     const router = useRouter()
+    const DEEP_LINK_STORAGE_KEY = 'deepLinkRestore'
 
     // ===== Состояние =====
     const emailLocalPart = ref('')
@@ -245,7 +247,25 @@ export default {
     })
 
     // ===== Методы =====
+    
+    /**
+     * Получить данные глубокой ссылки из sessionStorage
+     * Используется для восстановления контекста после авторизации
+     * @returns {Object} { redirectPath, notification, objectId, changes }
+     */
+    const getDeepLinkStorage = () => {
+      try {
+        const raw = sessionStorage.getItem(DEEP_LINK_STORAGE_KEY)
+        return raw ? JSON.parse(raw) : {}
+      } catch {
+        return {}
+      }
+    }
 
+    const saveDeepLinkStorage = (data) => {
+      sessionStorage.setItem(DEEP_LINK_STORAGE_KEY, JSON.stringify(data))
+    }
+    
     /**
      * Валидация локальной части email
      */
@@ -364,21 +384,47 @@ export default {
       try {
         const data = await emailService.verifyCode(fullEmail.value, code.value)
         
-        // Сохраняем токен
         localStorage.setItem('auth_token', data.access_token)
-        
-        // Очищаем сохраненный email
         localStorage.removeItem('u40ta_email_login')
         
-        // Успех
         emit('success')
         
-        // Редирект на главную
+        // Проверяем sessionStorage — есть ли deepLinkRestore
+        const deepLinkStorage = getDeepLinkStorage()
+
+        if (deepLinkStorage.redirectPath) {
+          if (deepLinkStorage.notification) {
+            alert(deepLinkStorage.notification)
+            delete deepLinkStorage.notification
+            saveDeepLinkStorage(deepLinkStorage)
+          }
+          router.push(deepLinkStorage.redirectPath)
+          return
+        }
+
+        // Обычная логика redirect из URL
+        if (!import.meta.env.DEV) {
+          const urlParams = new URLSearchParams(window.location.search)
+          const redirect = urlParams.get('redirect')
+          
+          if (redirect) {
+            if (redirect.startsWith('http')) {
+              router.push({
+                path: '/',
+                query: { qr: redirect, from: 'scan' }
+              })
+              return
+            } else {
+              router.push(redirect)
+              return
+            }
+          }
+        }
+        
         router.push('/')
       } catch (error) {
         codeError.value = error.message || 'Неверный код'
         code.value = ''
-        // Фокус на поле кода
         setTimeout(() => {
           const codeInput = document.getElementById('code-input')
           if (codeInput) codeInput.focus()
