@@ -64,8 +64,8 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { objectService } from '@/services/object-service'
-import { inventoryBookService } from '@/services/inventory-book.service'
+import { objectService } from '@/services/object.service.js'
+import { inventoryBookService } from '@/services/inventory-book.service.js'
 
 const props = defineProps({
   isOpen: { type: Boolean, required: true },
