@@ -9,7 +9,7 @@
  */
 import { ref, onUnmounted } from 'vue'
 import { statementService } from '@/services/statement.service'
-import { objectService } from '@/services/object-service'
+import { objectService } from '@/services/object.service'
 import { useSSE } from '@/composables/useSSE'
 
 export function useStatementData(receivedAt) {

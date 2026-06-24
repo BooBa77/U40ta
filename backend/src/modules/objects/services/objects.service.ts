@@ -124,6 +124,28 @@ export class ObjectsService {
   }
 
   /**
+   * Получение уникальных комбинаций zavod + sklad из таблицы objects.
+   * Возвращает массив { zavod, sklad }, отсортированный по zavod, sklad.
+   */
+  async getSkladCombinations(): Promise<{ zavod: number; sklad: string }[]> {
+    const result = await this.objectRepository
+      .createQueryBuilder('object')
+      .select('object.zavod', 'zavod')
+      .addSelect('object.sklad', 'sklad')
+      .where('object.sklad IS NOT NULL')
+      .andWhere('object.sklad != :empty', { empty: '' })
+      .distinct(true)
+      .orderBy('object.zavod')
+      .addOrderBy('object.sklad')
+      .getRawMany();
+
+    return result.map(r => ({
+      zavod: Number(r.zavod),
+      sklad: r.sklad
+    }));
+  }
+
+  /**
    * Получение уникальных комбинаций place_ter, place_pos, place_cab, place_user
    * Возвращает массив объектов с полями ter, pos, cab, user
    * ter - обязательно не NULL и не пустое
@@ -189,12 +211,10 @@ export class ObjectsService {
   }
 
   /**
-   * Обновление объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции
-   */
-  /**
    * Обновление объекта со всеми связанными данными (qr-коды, фотографии) в одной транзакции.
    * При синхронизации на выход из оффлайн выполняется в общей транзакции, которая передаётся внешним менеджером manager.
    */
+  
   async update(id: number, dto: UpdateObjectDto, userId: number, manager?: EntityManager): Promise<InventoryObject> {
     const run = async (mgr: EntityManager) => {
       // 1. Находим объект
@@ -203,7 +223,20 @@ export class ObjectsService {
         throw new NotFoundException(`Object with ID ${id} not found`);
       }
 
-      // 2. Обновляем поля, переданные через DTO
+      // 2. Если меняется склад — сбрасываем местоположение
+      if (dto.zavod !== undefined || dto.sklad !== undefined) {
+        const newZavod = dto.zavod ?? object.zavod;
+        const newSklad = dto.sklad ?? object.sklad;
+        
+        if (newZavod !== object.zavod || newSklad !== object.sklad) {
+          object.placeTer = null;
+          object.placePos = null;
+          object.placeCab = null;
+          object.placeUser = null;
+        }
+      }
+
+      // 3. Обновляем поля, переданные через DTO
       Object.assign(object, dto);
 
       if (dto.checkedAt) {
@@ -212,21 +245,21 @@ export class ObjectsService {
 
       const savedObject = await mgr.save(object);
 
-      // 3. Обрабатываем QR-коды (полная замена набора)
+      // 4. Обрабатываем QR-коды (полная замена набора)
       if (dto.qrCodes?.length) {
         for (const qrValue of dto.qrCodes) {
           await this.qrCodesService.save(qrValue, savedObject.id, mgr);
         }
       }
 
-      // 4. Удаляем помеченные фото
+      // 5. Удаляем помеченные фото
       if (dto.photosToDelete?.length) {
         for (const photoId of dto.photosToDelete) {
           await this.photosService.remove(photoId, mgr);
         }
       }
 
-      // 5. Добавляем новые фото
+      // 6. Добавляем новые фото
       if (dto.photosToAdd?.length) {
         for (const photoDto of dto.photosToAdd) {
           const maxBuffer = Buffer.from(photoDto.max, 'base64');

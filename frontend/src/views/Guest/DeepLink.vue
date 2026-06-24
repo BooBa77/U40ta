@@ -78,7 +78,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
-import { qrService } from '@/services/qr-service.js'
+import { qrService } from '@/services/qr.service'
 
 const DEEP_LINK_STORAGE_KEY = 'deepLinkRestore'
 

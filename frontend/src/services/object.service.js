@@ -9,7 +9,7 @@
  * - Фронтовый код и API общаются в camelCase.
  * - IndexedDB хранит данные в camelCase.
  */
-import { offlineCache } from './offline-cache-service'
+import { offlineCache } from './offline-cache.service'
 
 export class ObjectService {
   constructor() {
@@ -237,6 +237,50 @@ export class ObjectService {
     const data = await this.apiRequest(`/objects/by-places?${params}`)
     return data.objects || []
   }
+
+  //============================================================================
+  // ПОЛУЧЕНИЕ КОМБИНАЦИЙ СКЛАДОВ
+  //============================================================================
+
+  /**
+   * Менеджер: получает уникальные комбинации zavod + sklad.
+   * @returns {Promise<Array<{zavod: number, sklad: string}>>}
+   */
+  async getSkladCombinations() {
+    return this.isFlightMode()
+      ? this.getSkladCombinationsFromCache()
+      : this.getSkladCombinationsFromApi()
+  }
+
+  /**
+   * Исполнитель для офлайн: собирает уникальные zavod + sklad из кэша.
+   * @returns {Promise<Array<{zavod: number, sklad: string}>>}
+   */
+  async getSkladCombinationsFromCache() {
+    const objects = await offlineCache.getAllObjects()
+    const map = new Map()
+
+    for (const obj of objects) {
+      if (!obj.sklad) continue
+      const key = `${obj.zavod}|${obj.sklad}`
+      if (!map.has(key)) {
+        map.set(key, { zavod: obj.zavod, sklad: obj.sklad })
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => 
+      a.zavod - b.zavod || a.sklad.localeCompare(b.sklad)
+    )
+  }
+
+  /**
+   * Исполнитель для онлайн: получает комбинации через API.
+   * @returns {Promise<Array<{zavod: number, sklad: string}>>}
+   */
+  async getSkladCombinationsFromApi() {
+    const data = await this.apiRequest('/objects/sklad-combinations')
+    return data.combinations || []
+  }  
 
   //============================================================================
   // ПОЛУЧЕНИЕ МЕСТОПОЛОЖЕНИЙ

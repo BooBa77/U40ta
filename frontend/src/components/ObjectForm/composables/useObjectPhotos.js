@@ -13,7 +13,7 @@
  */
 
 import { ref } from 'vue'
-import { photoService } from '@/services/photo-service.js'
+import { photoService } from '@/services/photo.service'
 
 /**
  * Создаёт квадратную версию изображения (cover-эффект)

@@ -1,5 +1,5 @@
 import Dexie from 'dexie'
-import { offlineSyncService } from './offline-sync-service'
+import { offlineSyncService } from './offline-sync.service'
 
 class OfflineCacheService {
   constructor() {
@@ -339,18 +339,23 @@ class OfflineCacheService {
    * @param {string} [sklad] - Код склада
    * @returns {Promise<Array>}
    */
-  async findObjectsByInv(inv, zavod, sklad) {
-    let collection = this.db.objects.where('invNumber').equals(inv)
-    let objects = await collection.toArray()
+  async findObjectsByInv(inv, partyNumber, zavod, sklad) {
+    const allObjects = await this.db.objects.toArray()
+    let objects = allObjects.filter(obj => obj.invNumber === inv)
     
-    if (zavod !== undefined || sklad !== undefined) {
-      objects = objects.filter(obj => {
-        if (zavod !== undefined && obj.zavod !== zavod) return false
-        if (sklad !== undefined && obj.sklad !== sklad) return false
-        return true
-      })
+    if (partyNumber !== undefined && partyNumber !== null && partyNumber !== '') {
+      objects = objects.filter(obj => obj.partyNumber === partyNumber)
     }
     
+    if (zavod !== undefined && zavod !== null) {
+      objects = objects.filter(obj => obj.zavod === zavod)
+    }
+    
+    if (sklad !== undefined && sklad !== null && sklad !== '') {
+      objects = objects.filter(obj => obj.sklad === sklad)
+    }
+    
+    console.log(`[OfflineCache] findObjectsByInv: inv=${inv}, party=${partyNumber}, zavod=${zavod}, sklad=${sklad}, найдено: ${objects.length}`)
     return objects
   }
 

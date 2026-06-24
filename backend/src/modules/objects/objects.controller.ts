@@ -22,7 +22,7 @@ export class ObjectsController {
   ) {}
 
   /**
-   * Поиск объектов по инвкентарному номеру на конкретном складе
+   * Поиск объектов по инвентарному номеру на конкретном складе
    * GET /api/objects/by-inv?inv=...&&zavod=...&sklad=...
    */
   @Get('by-inv')
@@ -97,6 +97,28 @@ export class ObjectsController {
       excludeId ? +excludeId : null,
     );
     return { objects };
+  }
+
+  /**
+   * Получение всех уникальных комбинаций заводов и складов.
+   * GET /api/objects/sklad-combinations
+   */
+  @Get('sklad-combinations')
+  async getSkladCombinations() {
+    try {
+      const combinations = await this.objectsService.getSkladCombinations();
+      return {
+        success: true,
+        combinations
+      };
+    } catch (error) {
+      console.error('[ObjectsController] Ошибка получения комбинаций складов:', error);
+      return {
+        success: false,
+        error: error.message,
+        combinations: []
+      };
+    }
   }
 
   /**
@@ -192,6 +214,7 @@ export class ObjectsController {
    * Все операции выполняются в одной транзакции.
    */
   @Post()
+  @UseGuards(JwtAuthGuard)
   async create(
     @Body() createObjectDto: CreateObjectDto,
     @Req() request: RequestWithUser, // получаем request с пользователем
@@ -238,25 +261,37 @@ export class ObjectsController {
    * Все операции выполняются в одной транзакции.
    */  
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateObjectDto: UpdateObjectDto,
-    @Req() request: RequestWithUser, // получаем request с пользователем    
+    @Req() request: RequestWithUser,
   ) {
     try {
       const userId = request.user?.sub;
       if (!userId) {
         throw new UnauthorizedException('Пользователь не авторизован');
-      }            
+      }
+      
+      // Запоминаем старые zavod/sklad до обновления
+      const oldObject = await this.objectsService.findOne(+id);
+      const oldZavod = oldObject.zavod;
+      const oldSklad = oldObject.sklad;
+      
       const updatedObject = await this.objectsService.update(+id, updateObjectDto, userId);
-      // Уведомляем коллег об изменении объектов на складе
+      
+      // Уведомляем об изменении на старом складе
+      if (oldZavod && oldSklad) {
+        this.appEventsService.notifyObjectsChanged(userId, oldZavod, oldSklad);
+      }
+      
+      // Уведомляем об изменении на новом складе (если изменился)
       if (updatedObject.zavod && updatedObject.sklad) {
-        this.appEventsService.notifyObjectsChanged(
-          userId,
-          updatedObject.zavod,
-          updatedObject.sklad
-        );
-      }      
+        if (updatedObject.zavod !== oldZavod || updatedObject.sklad !== oldSklad) {
+          this.appEventsService.notifyObjectsChanged(userId, updatedObject.zavod, updatedObject.sklad);
+        }
+      }
+      
       return {
         success: true,
         object: updatedObject,

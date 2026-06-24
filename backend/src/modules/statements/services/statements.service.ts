@@ -150,6 +150,7 @@ export class StatementsService {
    */
   async findByInv(
     invNumber: string,
+    receivedAt?: Date,
     zavod?: number,
     sklad?: string,
     partyNumber?: string
@@ -157,6 +158,10 @@ export class StatementsService {
     const queryBuilder = this.statementRepo
       .createQueryBuilder('statement')
       .where('statement.invNumber = :invNumber', { invNumber });
+
+    if (receivedAt) {
+      queryBuilder.andWhere('statement.receivedAt = :receivedAt', { receivedAt });
+    }
 
     if (zavod !== undefined && !isNaN(zavod)) {
       queryBuilder.andWhere('statement.zavod = :zavod', { zavod });

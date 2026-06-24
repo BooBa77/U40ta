@@ -10,7 +10,7 @@
  *
  * Синхронизация офлайн-изменений — в отдельной задаче.
  */
-import { offlineCache } from './offline-cache-service'
+import { offlineCache } from './offline-cache.service'
 
 export class PhotoService {
   constructor() {

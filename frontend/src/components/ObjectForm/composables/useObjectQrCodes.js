@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { useQrCamera } from '@/components/QrScanner/composables/useQrCamera'
-import { qrService } from '@/services/qr-service.js'
+import { qrService } from '@/services/qr.service'
 
 export function useObjectQrCodes(objectData, { onCancel } = {}) {
   const pendingQrCodes = ref(new Set())

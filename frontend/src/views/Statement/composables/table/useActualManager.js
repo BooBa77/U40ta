@@ -5,7 +5,7 @@
  * @param {string} receivedAt - дата получения ведомости в ISO формате
  * @param {Function} reloadCallback - функция перезагрузки данных
  */
-import { statementService } from '@/services/statement.service'
+import { statementService } from '@/services/statement.service.js'
 
 export function useActualManager(receivedAt, reloadCallback) {
   /**

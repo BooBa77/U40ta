@@ -7,8 +7,8 @@
  * - offlineCache — для чтения данных из Dexie
  * - objectService — для запросов к API (findSimilar, getObjectFromApi)
  */
-import { offlineCache } from './offline-cache-service'
-import { objectService } from './object-service'
+import { offlineCache } from './offline-cache.service'
+import { objectService } from './object.service'
 
 class OfflineSyncService {
   constructor() {

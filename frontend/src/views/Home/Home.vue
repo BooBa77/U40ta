@@ -104,12 +104,12 @@ import StatementsSection from './components/StatementsSection.vue'
 import InventoryBooksSection from './components/InventoryBooksSection.vue'
 import InventoryBookEditModal from './components/InventoryBookEditModal.vue'
 import BottomMenu from './components/BottomMenu.vue'
-import { qrService } from '@/services/qr-service.js'
-import { objectService } from '@/services/object-service.js'
+import { qrService } from '@/services/qr.service'
+import { objectService } from '@/services/object.service'
 import { useCamera } from '@/composables/useCamera'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useSSE } from '@/composables/useSSE'
-import { offlineCache } from '@/services/offline-cache-service'
+import { offlineCache } from '@/services/offline-cache.service'
 
 const router = useRouter()
 const route = useRoute()

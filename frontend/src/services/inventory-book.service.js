@@ -5,8 +5,8 @@
  * Онлайн-режим (flightMode = false): все запросы к API
  * Офлайн-режим (flightMode = true): все операции в IndexedDB
  */
-import { offlineCache } from './offline-cache-service'
-import { logsService } from './logs-service'
+import { offlineCache } from './offline-cache.service'
+import { logsService } from './logs.service'
 
 export class InventoryBookService {
   constructor() {

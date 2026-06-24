@@ -5,7 +5,7 @@
  * Онлайн-режим (flightMode = false): все запросы к API
  * Офлайн-режим (flightMode = true): все операции в IndexedDB
  */
-import { offlineCache } from './offline-cache-service'
+import { offlineCache } from './offline-cache.service'
 
 export class QrService {
   constructor() {

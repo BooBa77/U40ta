@@ -67,6 +67,7 @@
       <!-- Модалка InvListModal -->
       <InvListModal
         :is-open="invListIsOpen"
+        :received-at="receivedAt"
         :inv-number="selectedItem.invNumber"
         :party-number="selectedItem.partyNumber"
         :zavod="selectedItem.zavod"
@@ -216,6 +217,9 @@ const handleInvListClose = () => {
       sklad: ''
     }
   }, 300)
+  
+  // При любом закрытии InvListModal перезагружаем таблицу
+  reload()
 }
 
 // === ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ФОРМЫ ИЗ ТАБЛИЦЫ ===
@@ -234,14 +238,6 @@ const handleObjectFormSave = async (result) => {
   resetObjectFormState()
 
   if (result.wasCreated) {
-    if (objectFormStatementId.value) {
-      try {
-        await statementService.updateHaveObject(objectFormStatementId.value)
-      } catch (error) {
-        console.error('[StatementPage] Ошибка обновления ведомости:', error)
-      }
-    }
-    
     reload()
   }
 }

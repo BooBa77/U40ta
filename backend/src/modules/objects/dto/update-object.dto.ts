@@ -10,6 +10,20 @@ class PhotoToAddDto {
 }
 
 export class UpdateObjectDto {
+  @IsInt()
+  @IsOptional()
+  zavod?: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(8)
+  sklad?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  partyNumber?: string;
+
   @IsString()
   @IsOptional()
   @MaxLength(100)

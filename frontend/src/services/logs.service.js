@@ -9,7 +9,7 @@
  * - Фронтовый код и API общаются в camelCase.
  * - IndexedDB хранит данные в camelCase.
  */
-import { offlineCache } from './offline-cache-service'
+import { offlineCache } from './offline-cache.service'
 
 export class LogsService {
   constructor() {

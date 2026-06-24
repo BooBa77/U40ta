@@ -227,9 +227,9 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { objectService } from '@/services/object-service.js'
-import { logsService } from '@/services/logs-service.js'
-import { proposedChangesService } from '@/services/proposed-changes-service.js'
+import { objectService } from '@/services/object.service'
+import { logsService } from '@/services/logs.service'
+import { proposedChangesService } from '@/services/proposed-changes.service'
 import { useObjectPhotos } from './composables/useObjectPhotos'
 import { useObjectQrCodes } from './composables/useObjectQrCodes'
 import { useCamera } from '@/composables/useCamera'

@@ -113,12 +113,12 @@ export class StatementsController {
 
   /**
    * Поиск записей ведомости по инвентарному номеру.
-   * Только записи с haveObject = false (те, по которым нужно создать объект).
    * GET /api/statements/by-inv?inv=...&zavod=...&sklad=...&party=...
    */
   @Get('by-inv')
   async findByInv(
     @Query('inv') inv: string,
+    @Query('receivedAt') receivedAt?: string,
     @Query('zavod') zavod?: string,
     @Query('sklad') sklad?: string,
     @Query('party') party?: string
@@ -137,6 +137,7 @@ export class StatementsController {
 
       const statements = await this.statementsService.findByInv(
         inv.trim(),
+        receivedAt ? new Date(receivedAt) : undefined,
         zavodValue,
         skladValue,
         party?.trim() || undefined

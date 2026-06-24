@@ -113,8 +113,10 @@
     v-if="selectedExcessObjectId !== null"
     :is-open="excessObjectIsOpen"
     :object-id="selectedExcessObjectId"
+    :received-at="receivedAt"
     @back="handleExcessObjectBack"
-  />  
+    @saved="handleExcessObjectSaved"
+  />
 </template>
 
 <script setup>
@@ -122,14 +124,18 @@ import { ref, computed, watch } from 'vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import ExcessObjectModal from './ExcessObjectModal.vue'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
-import { objectService } from '@/services/object-service'
-import { statementService } from '@/services/statement.service'
-import { useCamera } from '@/composables/useCamera'
+import { objectService } from '@/services/object.service.js'
+import { statementService } from '@/services/statement.service.js'
+import { useCamera } from '@/composables/useCamera.js'
 
 const props = defineProps({
   isOpen: {
     type: Boolean,
     required: true
+  },
+  receivedAt: {
+    type: String,
+    default: null
   },
   invNumber: {
     type: String,
@@ -210,6 +216,7 @@ const loadData = async () => {
   try {
     const [allStatements, objects] = await Promise.all([
       statementService.getStatementsByInv(
+        props.receivedAt,
         props.invNumber,
         props.partyNumber,
         props.zavod,
@@ -236,6 +243,12 @@ const loadData = async () => {
   } finally {
     isLoading.value = false
   }
+  console.log('[InvListModal] statementRows:', statementRows.value.length, 'objectRows:', objectRows.value.length)
+  // После загрузки проверяем — если данных нет, закрываем модалку
+  if (statementRows.value.length === 0 && objectRows.value.length === 0) {
+    handleClose()
+    return
+  }  
 }
 
 const getLocationDisplay = (item) => {
@@ -263,11 +276,9 @@ const getLocationDisplay = (item) => {
  */
 const openObjectAction = (item) => {
   if (props.isExcessContext) {
-    console.log("СИНИЙ")
     selectedExcessObjectId.value = item.objectId
     excessObjectIsOpen.value = true
   } else {
-    console.log("ЗЕЛЁНЫЙ")
     openObjectForm(item)
   }
 }
@@ -326,6 +337,17 @@ const handleExcessObjectBack = () => {
   setTimeout(() => {
     selectedExcessObjectId.value = null
   }, 300)
+}
+
+const handleExcessObjectSaved = () => {
+  excessObjectIsOpen.value = false
+  
+  setTimeout(() => {
+    selectedExcessObjectId.value = null
+  }, 300)
+  
+  // Перезагружаем данные — объект мог переместиться на другой склад
+  loadData()
 }
 
 const handleClose = () => {

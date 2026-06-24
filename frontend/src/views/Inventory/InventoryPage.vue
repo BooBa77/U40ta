@@ -136,8 +136,8 @@ import { useInventoryAggregation } from './composables/table/useInventoryAggrega
 import { useTableFilter } from '@/composables/useTableFilter'
 import { useActualManager } from './composables/table/useActualManager'
 import { inventoryBookService } from '@/services/inventory-book.service'
-import { qrService } from '@/services/qr-service'
-import { objectService } from '@/services/object-service'
+import { qrService } from '@/services/qr.service'
+import { objectService } from '@/services/object.service'
 
 const route = useRoute()
 const router = useRouter()

@@ -10,7 +10,7 @@
  * @returns {Object} Объект с агрегированными данными и состоянием загрузки
  */
 import { ref, computed, watch } from 'vue'
-import { objectService } from '@/services/object-service'
+import { objectService } from '@/services/object.service'
 
 export function useInventoryAggregation(rawItems) {
   const systemObjects = ref([])
