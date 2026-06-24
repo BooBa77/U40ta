@@ -72,6 +72,9 @@ export class OfflineSyncService {
           console.log(`[OfflineSyncService] Создан объект: tempId=${obj.id} → realId=${realId}`);
         } else {
           const updateDto: UpdateObjectDto = {
+            zavod: obj.zavod ?? undefined,
+            sklad: obj.sklad ?? undefined,
+            partyNumber: obj.partyNumber ?? undefined,
             sn: obj.sn ?? undefined,
             placeTer: obj.placeTer ?? undefined,
             placePos: obj.placePos ?? undefined,

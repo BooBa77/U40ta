@@ -1,3 +1,5 @@
+// backend/src/modules/email/services/email-processor.service.ts
+
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -48,6 +50,16 @@ export class EmailProcessor {
   ) {}
 
   /**
+   * Нормализует email: приводит к нижнему регистру.
+   * 
+   * @param email - email для нормализации
+   * @returns email в нижнем регистре
+   */
+  private normalizeEmail(email: string): string {
+    return email?.toLowerCase().trim() || '';
+  }
+
+  /**
    * Проанализировать вложение и выполнить действие в зависимости от типа.
    * 
    * ## Процесс
@@ -68,7 +80,10 @@ export class EmailProcessor {
     emailFrom: string,
     emailSubject?: string
   ): Promise<void> {
-    this.logger.log(`Обрабатываем вложение: ${originalFilename}`);
+    // Нормализуем email отправителя
+    const normalizedEmail = this.normalizeEmail(emailFrom);
+    
+    this.logger.log(`Обрабатываем вложение: ${originalFilename}, отправитель: ${normalizedEmail}`);
 
     // ========== Определяем тип ведомости по теме письма ==========
     const isInventory = emailSubject?.toLowerCase().includes('инвентар') || false;
@@ -85,7 +100,7 @@ export class EmailProcessor {
       if (!analysis.isValid) {
         await this.handleInvalidAttachment(
           originalFilename,
-          emailFrom,
+          normalizedEmail,
           isInventory,
           analysis.error
         );
@@ -97,20 +112,20 @@ export class EmailProcessor {
         await this.handleInventoryAttachment(
           fileContent,
           originalFilename,
-          emailFrom,
+          normalizedEmail,
           analysis
         );
       } else {
         await this.handleStatementAttachment(
           fileContent,
           originalFilename,
-          emailFrom,
+          normalizedEmail,
           analysis
         );
       }
 
     } catch (error) {
-      await this.handleProcessingError(originalFilename, emailFrom, error);
+      await this.handleProcessingError(originalFilename, normalizedEmail, error);
       throw error;
     }
   }
@@ -121,7 +136,7 @@ export class EmailProcessor {
    * 
    * @param buffer - содержимое файла
    * @param filename - оригинальное имя файла
-   * @param emailFrom - email отправителя
+   * @param emailFrom - email отправителя (нормализованный)
    * @param analysis - результат анализа (docType)
    */
   private async handleInventoryAttachment(
@@ -157,7 +172,7 @@ export class EmailProcessor {
    * 
    * @param buffer - содержимое файла
    * @param filename - оригинальное имя файла
-   * @param emailFrom - email отправителя
+   * @param emailFrom - email отправителя (нормализованный)
    * @param analysis - результат анализа (docType, description)
    */
   private async handleStatementAttachment(
@@ -168,7 +183,7 @@ export class EmailProcessor {
   ): Promise<void> {
     this.logger.log(`Ведомость МОЛ принята: ${filename}, тип: ${analysis.docType}, описание: ${analysis.description}`);
 
-    // ========== Ищем пользователя по email ==========
+    // ========== Ищем пользователя по email (уже нормализован) ==========
     const user = await this.usersService.findByEmail(emailFrom);
 
     if (!user) {
@@ -240,7 +255,7 @@ export class EmailProcessor {
    * Отправляет уведомление отправителю с причиной отклонения.
    * 
    * @param filename - оригинальное имя файла
-   * @param emailFrom - email отправителя
+   * @param emailFrom - email отправителя (нормализованный)
    * @param isInventory - признак инвентаризационной ведомости
    * @param errorMessage - причина отклонения
    */
@@ -281,7 +296,7 @@ export class EmailProcessor {
    * Отправляет уведомление администратору.
    * 
    * @param filename - оригинальное имя файла
-   * @param emailFrom - email отправителя (для контекста в логах)
+   * @param emailFrom - email отправителя (нормализованный)
    * @param error - объект ошибки
    */
   private async handleProcessingError(
