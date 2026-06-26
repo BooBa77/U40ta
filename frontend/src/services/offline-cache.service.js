@@ -5,16 +5,16 @@ class OfflineCacheService {
   constructor() {
     this.db = new Dexie('u40ta_offline_db')
     
-    // Версия 7: statements вместо processed_statements и email_attachments
-    this.db.version(7).stores({
+    this.db.version(8).stores({
       statements: 'id, userId, receivedAt, docType, description, zavod, sklad, invNumber, partyNumber, buhName, isActual',
       objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser',
       qr_codes: '++id, qrValue, objectId',
       photos: '++id, objectId',
       logs: '++id, source, time, content',
       inventory_books: 'id, createdAt, idOwner',
-      inventory_book_items: 'id, idBook, idInventoryStatement, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto, dateOkManualChecked, dateOkAutoChecked, placeTer, placePos, placeCab, placeUser, rem'
-    })
+      inventory_book_items: 'id, idBook, idInventoryStatement, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto, dateOkManualChecked, dateOkAutoChecked, placeTer, placePos, placeCab, placeUser, rem',
+      proposed_changes: '++id, objectId, changeType, userId, createdAt, isDeleted'
+    })    
   }
 
   // ============================================================================
@@ -171,6 +171,10 @@ class OfflineCacheService {
     }
   }
 
+  // ============================================================================
+  // ОЧИСТКА КЭША
+  // ============================================================================
+
   /**
    * Полностью очищает весь кэш.
    */
@@ -184,7 +188,8 @@ class OfflineCacheService {
       this.db.photos.clear(),
       this.db.logs.clear(),
       this.db.inventory_books.clear(),
-      this.db.inventory_book_items.clear()
+      this.db.inventory_book_items.clear(),
+      this.db.proposed_changes.clear()
     ])
     
     console.log('[OfflineCache] Кэш очищен')
@@ -469,6 +474,80 @@ class OfflineCacheService {
    */
   async deletePhoto(photoId) {
     await this.db.photos.delete(photoId)
+  }
+
+  // ============================================================================
+  // РАБОТА С PROPOSED_CHANGES
+  // ============================================================================
+
+  /**
+   * Кэширует массив предлагаемых изменений для МОЛа.
+   * @param {Array} changes — массив записей proposed_changes
+   */
+  async cacheProposedChanges(changes) {
+    await this.db.proposed_changes.clear()
+    if (changes.length > 0) {
+      const withFlags = changes.map(c => ({
+        ...c,
+        isDeleted: false, // задаём явно. isDeleted не входит в changes
+      }))
+      await this.db.proposed_changes.bulkAdd(withFlags)
+    }
+    console.log(`[OfflineCache] Закэшировано proposed_changes: ${changes.length}`)
+  }
+
+  /**
+   * Получает все предлагаемые изменения из кэша,
+   * исключая помеченные на удаление.
+   * @returns {Promise<Array>}
+   */
+  async getProposedChanges() {
+    const all = await this.db.proposed_changes.toArray()
+    return all.filter(c => !c.isDeleted)
+  }
+
+  /**
+   * Сохраняет предлагаемое изменение в кэш.
+   * Используется пользователем без доступа к складу.
+   * @param {Object} change — запись proposed_changes
+   * @returns {Promise<number>} ID записи в кэше
+   */
+  async addProposedChange(change) {
+    const record = {
+      ...change,
+      isDeleted: false,
+      createdAt: change.createdAt || new Date().toISOString()
+    }
+    return await this.db.proposed_changes.add(record)
+  }
+
+  /**
+   * Помечает предлагаемое изменение как удалённое.
+   * МОЛ после принятия либо отклонения.
+   * @param {number} id — ID записи в кэше
+   */
+  async markProposedChangeDeleted(id) {
+    await this.db.proposed_changes.update(id, { isDeleted: true })
+    console.log(`[OfflineCache] proposed_change ${id} помечен как удалённый`)
+  }
+
+  /**
+   * Получает все предлагаемые изменения, помеченные на удаление.
+   * Используется для удаления на сервере при синхронизации.
+   * @returns {Promise<Array>}
+   */
+  async getDeletedProposedChanges() {
+    const all = await this.db.proposed_changes.toArray()
+    return all.filter(c => c.isDeleted)
+  }
+
+  /**
+   * Физически удаляет запись из кэша.
+   * Вызывается после успешной синхронизации удалённых записей.
+   * @param {number} id — ID записи в кэше
+   */
+  async removeProposedChange(id) {
+    await this.db.proposed_changes.delete(id)
   }
 
   // ============================================================================

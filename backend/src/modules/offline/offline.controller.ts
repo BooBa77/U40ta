@@ -39,6 +39,7 @@ export class OfflineController {
           statements: [],
           qr_codes: [],
           photos: [],
+          proposed_changes: [],
           inventory_books: [],
           inventory_book_items: [],          
           meta: {
@@ -48,6 +49,7 @@ export class OfflineController {
             totalObjects: 0,
             totalQrCodes: 0,
             totalPhotos: 0,
+            totalProposedChanges: 0,
             totalInventoryBooks: 0,
             totalInventoryBookItems: 0,
           }

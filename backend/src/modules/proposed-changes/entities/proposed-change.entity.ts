@@ -17,7 +17,7 @@ export class ProposedChange {
   @Column({ name: 'object_id', type: 'bigint' })
   objectId!: number;
 
-  @Column({ name: 'change_type', type: 'varchar', length: 50 })
+  @Column({ name: 'change_type', type: 'varchar', length: 10 })
   changeType!: string;
 
   @Column({ name: 'proposed_data', type: 'jsonb', nullable: true })
@@ -25,6 +25,21 @@ export class ProposedChange {
 
   @Column({ name: 'user_id', type: 'bigint' })
   userId!: number;
+
+  @Column({ name: 'user_abr', type: 'varchar', length: 3 })
+  userAbr!: string;
+
+  @Column({ name: 'object_buh_name', type: 'varchar', length: 255 })
+  objectBuhName!: string;
+
+  @Column({ name: 'object_inv_number', type: 'varchar', length: 255 })
+  objectInvNumber!: string;
+
+  @Column({ name: 'object_sn', type: 'varchar', length: 100, nullable: true })
+  objectSn!: string | null;
+
+  @Column({ name: 'photo_id', type: 'bigint', nullable: true })
+  photoId!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

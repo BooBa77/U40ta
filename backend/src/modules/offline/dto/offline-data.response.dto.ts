@@ -10,6 +10,7 @@ export interface OfflineDataDto {
   statements: Statement[];
   qr_codes: QrCode[];
   photos: Photo[];
+  proposed_changes: any[];
   inventory_books: InventoryBook[];
   inventory_book_items: InventoryBookItem[];
   meta: {
@@ -19,6 +20,7 @@ export interface OfflineDataDto {
     totalObjects: number;
     totalQrCodes: number;
     totalPhotos: number;
+    totalProposedChanges: number;
     totalInventoryBooks: number;
     totalInventoryBookItems: number;
   };

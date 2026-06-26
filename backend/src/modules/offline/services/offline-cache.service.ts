@@ -8,6 +8,8 @@ import { MolAccess } from 'src/modules/users/entities/mol-access.entity';
 import { InventoryBook } from 'src/modules/inventory/entities/inventory-book.entity';
 import { InventoryBookItem } from 'src/modules/inventory/entities/inventory-book-item.entity';
 import { RevisorAccess } from 'src/modules/inventory/entities/revisor-access.entity';
+import { ProposedChange } from '../../proposed-changes/entities/proposed-change.entity';
+import { Photo } from '../../photos/entities/photos.entity';
 
 @Injectable()
 export class OfflineCacheService {
@@ -32,6 +34,12 @@ export class OfflineCacheService {
 
     @InjectRepository(RevisorAccess)
     private revisorAccessRepo: Repository<RevisorAccess>,
+
+    @InjectRepository(ProposedChange)
+    private proposedChangesRepository: Repository<ProposedChange>,
+
+    @InjectRepository(Photo)
+    private photosRepository: Repository<Photo>,    
   ) {}
 
   /**
@@ -69,8 +77,8 @@ export class OfflineCacheService {
         order: { id: 'ASC' },
       });
 
-      // 5. Фотографии не кэшируем
-      const photos: any[] = [];
+      // 5. Фотографии кэшируем только из proposed_changes
+      let photos: Photo[] = [];
 
       // 6. Получаем инвентаризационные книги и их строки
       let inventoryBooks: InventoryBook[] = [];
@@ -98,12 +106,69 @@ export class OfflineCacheService {
         order: { id: 'ASC' },
       });
 
-      // 8. Формируем ответ
+      // 8. Получаем предлагаемые изменения для складов МОЛа
+      let proposedChanges: ProposedChange[] = [];
+
+      if (userAccess.length > 0) {
+        // Формируем массив условий zavod/sklad для SQL-фильтрации
+        const accessConditions = userAccess.map(a => ({ zavod: a.zavod, sklad: a.sklad }));
+        
+        const entities = await this.proposedChangesRepository
+          .createQueryBuilder('pc')
+          // Джойним objects, потому что у proposed_changes нет zavod/sklad — они есть только в objects
+          .innerJoin('pc.object', 'obj')
+          .where(
+            // Строим SQL: (obj.zavod = :zavod0 AND obj.sklad = :sklad0) OR (obj.zavod = :zavod1 AND ...)
+            accessConditions
+              .map((_, i) => `(obj.zavod = :zavod${i} AND obj.sklad = :sklad${i})`)
+              .join(' OR '),
+            // Подставляем значения: { zavod0: 1, sklad0: 'А', zavod1: 2, sklad1: 'Б' }
+            accessConditions.reduce((params, a, i) => ({
+              ...params,
+              [`zavod${i}`]: a.zavod,
+              [`sklad${i}`]: a.sklad,
+            }), {})
+          )
+          // Сначала новые
+          .orderBy('pc.created_at', 'DESC')
+          .getMany();
+
+        // Преобразуем поля сущности из snake_case БД в camelCase для фронтового Dexie
+        proposedChanges = entities.map(pc => ({
+          id: pc.id,
+          objectId: pc.objectId,
+          changeType: pc.changeType,
+          proposedData: pc.proposedData,
+          userId: pc.userId,
+          userAbr: pc.userAbr,
+          objectBuhName: pc.objectBuhName,
+          objectInvNumber: pc.objectInvNumber,
+          objectSn: pc.objectSn,
+          photoId: pc.photoId,
+          createdAt: pc.createdAt,
+        })) as ProposedChange[];
+        
+        console.log(`OfflineCacheService: загружено proposed_changes: ${proposedChanges.length}`);
+      }
+      // 8.1. Собираем фото из proposed_changes
+      const photoIds = proposedChanges
+        .map(pc => pc.photoId)
+        .filter((id): id is number => id !== null && id !== undefined);
+
+      if (photoIds.length > 0) {
+        photos = await this.photosRepository.find({
+          where: { id: In(photoIds) }
+        });
+        console.log(`OfflineCacheService: загружено proposed-фото: ${photos.length}`);
+      }      
+
+      // 9. Формируем ответ
       return {
         objects: objects,
         statements: statements,
         qr_codes: qrCodes,
         photos: photos,
+        proposed_changes: proposedChanges,
         inventory_books: inventoryBooks,
         inventory_book_items: inventoryBookItems,
         meta: {

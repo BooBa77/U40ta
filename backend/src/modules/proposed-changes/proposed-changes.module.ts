@@ -5,21 +5,16 @@ import { ProposedChange } from './entities/proposed-change.entity';
 import { ProposedChangesController } from './proposed-changes.controller';
 import { ProposedChangesService } from './proposed-changes.service';
 import { UsersModule } from '../users/users.module';
+import { User } from '../users/entities/user.entity';
+import { InventoryObject } from '../objects/entities/object.entity';
+import { PhotosModule } from '../photos/photos.module';
 
-/**
- * Модуль предлагаемых изменений.
- * 
- * ## Назначение
- * Принимает изменения от гостей (пользователей без доступа МОЛ к складу):
- * - Сохранение предложенных изменений в БД
- * - Просмотр списка pending-изменений для МОЛ
- * - Подтверждение/отклонение изменений МОЛом
- */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ProposedChange]),
+    TypeOrmModule.forFeature([ProposedChange, User, InventoryObject]),
     JwtAuthModule,
     UsersModule,
+    PhotosModule,
   ],
   controllers: [ProposedChangesController],
   providers: [ProposedChangesService],

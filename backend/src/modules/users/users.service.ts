@@ -153,6 +153,17 @@ export class UsersService {
   }
 
   /**
+   * Получение всех складов, доступных МОЛу.
+   * 
+   * @param userId — ID пользователя
+   * @returns Массив { zavod, sklad }
+   */
+  async getMolAccess(userId: number): Promise<{ zavod: number; sklad: string }[]> {
+    const accessList = await this.molAccessRepository.find({ where: { userId } });
+    return accessList.map(a => ({ zavod: a.zavod, sklad: a.sklad }));
+  }
+  
+  /**
    * Обновление данных пользователя.
    * При обновлении имени или фамилии автоматически пересчитывает abr.
    * 

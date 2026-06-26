@@ -18,6 +18,8 @@ import { InventoryBook } from '../inventory/entities/inventory-book.entity';
 import { InventoryBookItem } from '../inventory/entities/inventory-book-item.entity';
 import { RevisorAccess } from '../inventory/entities/revisor-access.entity';
 import { InventoryModule } from '../inventory/inventory.module';
+import { ProposedChange } from '../proposed-changes/entities/proposed-change.entity';
+import { ProposedChangesModule } from '../proposed-changes/proposed-changes.module';
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { InventoryModule } from '../inventory/inventory.module';
       InventoryBook,
       InventoryBookItem,
       RevisorAccess,
+      ProposedChange,
     ]),
     JwtAuthModule,
     StatementsModule,
@@ -37,6 +40,7 @@ import { InventoryModule } from '../inventory/inventory.module';
     QrCodesModule,
     PhotosModule,
     InventoryModule,
+    ProposedChangesModule,
   ],
   controllers: [OfflineController],
   providers: [

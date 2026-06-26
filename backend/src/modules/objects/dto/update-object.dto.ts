@@ -9,6 +9,14 @@ class PhotoToAddDto {
   min!: string;
 }
 
+class PhotoToUpdateDto {
+  @IsInt()
+  id!: number;
+
+  @IsInt()
+  objectId!: number;
+}
+
 export class UpdateObjectDto {
   @IsInt()
   @IsOptional()
@@ -68,4 +76,10 @@ export class UpdateObjectDto {
   @Type(() => PhotoToAddDto)
   @IsOptional()
   photosToAdd?: PhotoToAddDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PhotoToUpdateDto)
+  @IsOptional()
+  photosToUpdate?: PhotoToUpdateDto[];
 }

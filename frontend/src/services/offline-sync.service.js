@@ -151,10 +151,20 @@ class OfflineSyncService {
         continue
       }
 
-      // Шаг 2.2-2.4: собираем QR-коды, фото, логи
+      // Шаг 5: собираем QR-коды, фото, логи
       const qrCodes = await offlineCache.getQrCodesByObjectId(objectId)
-      const photos = await offlineCache.getPhotosByObjectId(objectId)
+      const allPhotos = await offlineCache.getPhotosByObjectId(objectId)
       const objectLogs = await this.getLogsByObjectId(objectId)
+
+      // Разделяем фото: с id > 0 уже на сервере — в photosToUpdate (PATCH object_id)
+      //                с id < 0 новые — в photosToAdd (POST)
+      const photosToAdd = allPhotos
+        .filter(p => !p.id || p.id < 0)
+        .map(p => ({ max: p.photoMaxData, min: p.photoMinData }))
+
+      const photosToUpdate = allPhotos
+        .filter(p => p.id && p.id > 0)
+        .map(p => ({ id: p.id, objectId: p.objectId }))
 
       changes.push({
         id: object.id,
@@ -170,7 +180,8 @@ class OfflineSyncService {
         placeUser: object.placeUser,
         checkedAt: object.checkedAt,
         qrCodes: qrCodes.map(qr => qr.qrValue),
-        photosToAdd: photos.map(p => ({ max: p.photoMaxData, min: p.photoMinData })),
+        photosToAdd,
+        photosToUpdate,
         logs: objectLogs.map(l => ({ source: l.source, time: l.time, content: l.content }))
       })
     }
@@ -247,29 +258,93 @@ class OfflineSyncService {
   }
 
   // ============================================================================
+  // ФОРМИРОВАНИЕ PROPOSED CHANGE ACTIONS
+  // ============================================================================
+
+  /**
+   * Подготавливает массив proposedChangeActions для отправки на бэкенд.
+   * 
+   * Смотрит на записи proposed_changes в Dexie:
+   * - id < 0 (создано гостем в офлайне) → action: 'create'
+   * - isDeleted === true (МОЛ принял решение в офлайне) → action: 'delete'
+   * 
+   * @returns {Promise<Array>} массив действий с proposed_changes
+   */
+  async prepareProposedChangeActions() {
+    console.log('[OfflineSyncService] Подготовка proposedChangeActions для синхронизации...')
+
+    // Получаем все записи из кэша
+    const allChanges = await offlineCache.db.proposed_changes.toArray()
+    
+    if (allChanges.length === 0) {
+      console.log('[OfflineSyncService] Нет proposed_changes для синхронизации')
+      return []
+    }
+
+    const actions = []
+
+    for (const change of allChanges) {
+      if (change.id < 0 && !change.isDeleted) {
+        // Гость создал в офлайне — отправляем на создание
+        actions.push({
+          action: 'create',
+          objectId: change.objectId,
+          changeType: change.changeType,
+          proposedData: change.proposedData,
+          userId: change.userId,
+          userAbr: change.userAbr,
+          objectBuhName: change.objectBuhName,
+          objectInvNumber: change.objectInvNumber,
+          objectSn: change.objectSn,
+          photoId: change.photoId
+        })
+      } else if (change.isDeleted) {
+        // МОЛ принял решение в офлайне — отправляем на удаление
+        actions.push({
+          action: 'delete',
+          id: change.id,
+          photoId: change.photoId
+        })
+      }
+    }
+
+    console.log(`[OfflineSyncService] Подготовлено ${actions.length} proposedChangeActions:`,
+      `create: ${actions.filter(a => a.action === 'create').length},`,
+      `delete: ${actions.filter(a => a.action === 'delete').length}`
+    )
+    
+    return actions
+  }
+
+  // ============================================================================
   // ОТПРАВКА CHANGES НА БЭКЕНД
   // ============================================================================
 
   /**
-   * Отправляет подготовленный массив changes на бэкенд.
+   * Отправляет подготовленные изменения на бэкенд.
    * @param {Array} changes — массив объектов для синхронизации
    * @param {Array} inventoryBookItemChanges — массив изменений строк книг
+   * @param {Array} proposedChangeActions — массив действий с proposed_changes
    * @returns {Promise<{success: boolean, message?: string}>}
    */
-  async syncChanges(changes, inventoryBookItemChanges = []) {
+  async syncChanges(changes, inventoryBookItemChanges = [], proposedChangeActions = []) {
     const token = localStorage.getItem('auth_token')
     if (!token) {
       throw new Error('Токен авторизации не найден')
     }
 
-    console.log(`[OfflineSyncService] Отправка ${changes.length} объектов и ${inventoryBookItemChanges.length} строк книг на сервер...`)
+    console.log(`[OfflineSyncService] Отправка на сервер:`)
+    console.log(`  - объектов: ${changes.length}`)
+    console.log(`  - строк книг: ${inventoryBookItemChanges.length}`)
+    console.log(`  - proposed_changes: ${proposedChangeActions.length}`)
 
     const body = { 
       changes,
-      inventoryBookItemChanges 
+      inventoryBookItemChanges,
+      proposedChangeActions
     }
     
-    console.log('[OfflineSyncService] Отправляем на сервер:', JSON.stringify(body, null, 2))
+    console.log('[OfflineSyncService] Тело запроса:', JSON.stringify(body, null, 2))
 
     const response = await fetch(`${this.baseUrl}/offline/sync`, {
       method: 'POST',
@@ -301,7 +376,7 @@ class OfflineSyncService {
   /**
    * Выполняет полный цикл синхронизации при выходе из офлайна:
    * 1. Проверяет, есть ли изменения
-   * 2. Формирует changes и inventoryBookItemChanges
+   * 2. Формирует changes, inventoryBookItemChanges и proposedChangeActions
    * 3. Отправляет на сервер
    * 4. Возвращает результат
    * @returns {Promise<{success: boolean, syncedCount: number, message?: string}>}
@@ -312,16 +387,25 @@ class OfflineSyncService {
     try {
       const changes = await this.prepareChanges()
       const inventoryBookItemChanges = await this.prepareInventoryBookItemChanges()
+      const proposedChangeActions = await this.prepareProposedChangeActions()
 
-      if (changes.length === 0 && inventoryBookItemChanges.length === 0) {
+      if (changes.length === 0 && inventoryBookItemChanges.length === 0 && proposedChangeActions.length === 0) {
         console.log('[OfflineSyncService] Нет изменений для синхронизации')
         return { success: true, syncedCount: 0 }
       }
 
-      const result = await this.syncChanges(changes, inventoryBookItemChanges)
+      const result = await this.syncChanges(changes, inventoryBookItemChanges, proposedChangeActions)
+      
+      // После успешной синхронизации удаляем обработанные proposed_changes из кэша
+      for (const action of proposedChangeActions) {
+        if (action.action === 'delete' && action.id > 0) {
+          await offlineCache.removeProposedChange(action.id)
+        }
+      }
+      
       return { 
         success: true, 
-        syncedCount: changes.length + inventoryBookItemChanges.length, 
+        syncedCount: changes.length + inventoryBookItemChanges.length + proposedChangeActions.length, 
         ...result 
       }
     } catch (error) {

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, Repository, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ObjectsService } from '../../objects/services/objects.service';
 import { LogsService } from '../../logs/logs.service';
@@ -8,11 +8,12 @@ import { CreateObjectDto } from '../../objects/dto/create-object.dto';
 import { UpdateObjectDto } from '../../objects/dto/update-object.dto';
 import { InventoryBookItem } from '../../inventory/entities/inventory-book-item.entity';
 import { InventoryBook } from '../../inventory/entities/inventory-book.entity';
+import { ProposedChange } from '../../proposed-changes/entities/proposed-change.entity';
+import { ProposedChangesService } from '../../proposed-changes/proposed-changes.service';
+import { Photo } from '../../photos/entities/photos.entity';
 
 /**
  * Сервис синхронизации изменений из офлайн-режима.
- * 
- * ## Назначение
  * Применяет изменения, сделанные пользователем в офлайн-режиме,
  * к онлайн-базе данных: создание/обновление объектов,
  * обновление строк инвентаризационных книг.
@@ -27,6 +28,11 @@ export class OfflineSyncService {
     private readonly inventoryBookItemRepository: Repository<InventoryBookItem>,
     @InjectRepository(InventoryBook)
     private readonly inventoryBookRepository: Repository<InventoryBook>,
+    @InjectRepository(ProposedChange)
+    private readonly proposedChangesRepository: Repository<ProposedChange>,
+    private readonly proposedChangesService: ProposedChangesService,
+    @InjectRepository(Photo)
+    private readonly photosRepository: Repository<Photo>,    
   ) {}
 
   /**
@@ -83,6 +89,7 @@ export class OfflineSyncService {
             checkedAt: obj.checkedAt,
             qrCodes: obj.qrCodes,
             photosToAdd: obj.photosToAdd,
+            photosToUpdate: obj.photosToUpdate,
           };
           await this.objectsService.update(obj.id, updateDto, userId, manager);
           realId = obj.id;
@@ -209,6 +216,77 @@ export class OfflineSyncService {
 
           inventoryItemsProcessed++;
         }
+      }
+
+      // ========================================================================
+      // ОБРАБОТКА PROPOSED_CHANGES
+      // ========================================================================
+      if (dto.proposedChangeActions?.length) {
+        let createdCount = 0;
+        let deletedCount = 0;
+        let skippedCount = 0;
+
+        for (const action of dto.proposedChangeActions) {
+          if (action.action === 'create') {
+            // Предложение от неМОЛа, созданное в офлайне — просто сохраняем
+            const entity = manager.create(ProposedChange, {
+              objectId: action.objectId,
+              changeType: action.changeType,
+              proposedData: action.proposedData || null,
+              userId: action.userId || userId,
+              userAbr: action.userAbr,
+              objectBuhName: action.objectBuhName,
+              objectInvNumber: action.objectInvNumber,
+              objectSn: action.objectSn || null,
+              photoId: action.photoId || null,
+            });
+            await manager.save(entity);
+            createdCount++;
+
+          } else if (action.action === 'delete') {
+            const existing = await manager.findOne(ProposedChange, {
+              where: { id: action.id }
+            });
+
+            if (!existing) {
+              console.log(`[OfflineSyncService] proposed_change ${action.id} уже удалён другим МОЛом, пропускаем`);
+              skippedCount++;
+              continue;
+            }
+
+            // Если есть фото — проверяем, утверждено оно или отклонено
+            if (existing.photoId) {
+              const photo = await manager.findOne(Photo, {
+                where: { id: existing.photoId }
+              });
+
+              if (photo) {
+                if (photo.objectId > 0) {
+                  // Фото утверждено (привязано к объекту) — удаляем только запись, фото оставляем
+                  await manager.remove(existing);
+                  console.log(`[OfflineSyncService] proposed_change ${action.id} удалён, фото ${photo.id} оставлено (object_id=${photo.objectId})`);
+                } else {
+                  // Фото отклонено (object_id = 0) — удаляем и запись, и фото
+                  await manager.remove(photo);
+                  await manager.remove(existing);
+                  console.log(`[OfflineSyncService] proposed_change ${action.id} и фото ${photo.id} удалены`);
+                }
+              } else {
+                // Фото уже удалено (невозможный случай) — просто удаляем запись
+                await manager.remove(existing);
+                console.log(`[OfflineSyncService] proposed_change ${action.id} удалён, фото ${existing.photoId} не найден`);
+              }
+            } else {
+              // Это предлагаемое событие не про фото. Просто удаляем запись
+              await manager.remove(existing);
+              console.log(`[OfflineSyncService] proposed_change ${action.id} удалён`);
+            }
+
+            deletedCount++;
+          }
+        }
+
+        console.log(`[OfflineSyncService] proposed_changes: создано ${createdCount}, удалено ${deletedCount}, пропущено ${skippedCount}`);
       }
     });
 
