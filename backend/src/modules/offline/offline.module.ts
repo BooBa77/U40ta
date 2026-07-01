@@ -20,6 +20,7 @@ import { RevisorAccess } from '../inventory/entities/revisor-access.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ProposedChange } from '../proposed-changes/entities/proposed-change.entity';
 import { ProposedChangesModule } from '../proposed-changes/proposed-changes.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ProposedChangesModule } from '../proposed-changes/proposed-changes.modu
       ProposedChange,
     ]),
     JwtAuthModule,
+    UsersModule,
     StatementsModule,
     ObjectsModule,
     QrCodesModule,

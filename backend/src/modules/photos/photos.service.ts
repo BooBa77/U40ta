@@ -87,6 +87,24 @@ export class PhotosService {
   }
 
   /**
+   * Привязывает фото к объекту (меняет objectId при утверждении МОЛом).
+   * @param photoId — ID фото
+   * @param objectId — ID объекта
+   * @param manager — опциональный менеджер транзакции
+   */
+  async attachToObject(photoId: number, objectId: number, manager?: EntityManager): Promise<void> {
+    const repo = manager ? manager.getRepository(Photo) : this.photosRepository;
+    
+    const photo = await repo.findOne({ where: { id: photoId } });
+    if (!photo) {
+      throw new NotFoundException(`Photo with ID ${photoId} not found`);
+    }
+    
+    photo.objectId = objectId;
+    await repo.save(photo);
+  }
+
+  /**
    * Удаляет фото по ID
    * @param id - ID фото
    * @param manager - Опциональный менеджер транзакции для поддержки транзакционности на уровне сервиса

@@ -100,6 +100,36 @@ export class ProposedChangesController {
   }
 
   /**
+   * Утверждение предлагаемого изменения МОЛом.
+   * Применяет изменение к объекту и удаляет запись предложения.
+   * 
+   * ## Логика по типам изменений
+   * - `place` — обновляет местоположение объекта
+   * - `sn` — обновляет серийный номер объекта
+   * - `comment` — добавляет комментарий (сохраняет в логи)
+   * - `photo` — привязывает фото к объекту (меняет object_id с 0 на objectId)
+   * - `qr_code` — привязывает QR-код к объекту
+   * 
+   * POST /api/proposed-changes/:id/approve
+   * 
+   * @param id — ID записи предлагаемого изменения
+   * @param request — запрос с JWT-токеном
+   */
+  @Post(':id/approve')
+  @UseGuards(JwtAuthGuard)
+  async approve(
+    @Param('id') id: string,
+    @Req() request: RequestWithUser,
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Пользователь не авторизован');
+    }
+    await this.proposedChangesService.approve(+id, userId);
+    return { success: true };
+  }
+
+  /**
    * Удаление записи предлагаемого изменения.
    * Вызывается фронтом после применения (approved) или отклонения (rejected).
    * Если запись содержит photo_id и решение rejected — фото удалится каскадно.

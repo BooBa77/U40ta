@@ -11,42 +11,74 @@ import { RevisorAccess } from 'src/modules/inventory/entities/revisor-access.ent
 import { ProposedChange } from '../../proposed-changes/entities/proposed-change.entity';
 import { Photo } from '../../photos/entities/photos.entity';
 
+/**
+ * Сервис кэширования данных для офлайн-режима.
+ * 
+ * ## Назначение
+ * Собирает все данные, необходимые фронту для работы в офлайн-режиме,
+ * из онлайн-базы данных. Данные включают объекты, ведомости, QR-коды,
+ * инвентаризационные книги, предлагаемые изменения и связанные фото.
+ * 
+ * ## Особенности
+ * - Фото кэшируются только из предлагаемых изменений (экономия памяти).
+ *   Обычные фото объектов не кэшируются.
+ * - Предлагаемые изменения фильтруются по складам, доступным пользователю как МОЛ.
+ * - Инвентаризационные книги фильтруются по доступу ревизора.
+ */
 @Injectable()
 export class OfflineCacheService {
   constructor(
     @InjectRepository(Statement)
-    private statementsRepository: Repository<Statement>,
+    private readonly statementsRepository: Repository<Statement>,
 
     @InjectRepository(InventoryObject)
-    private objectsRepository: Repository<InventoryObject>,
+    private readonly objectsRepository: Repository<InventoryObject>,
 
     @InjectRepository(QrCode)
-    private qrCodesRepository: Repository<QrCode>,
+    private readonly qrCodesRepository: Repository<QrCode>,
 
     @InjectRepository(MolAccess)
-    private molAccessRepository: Repository<MolAccess>,
+    private readonly molAccessRepository: Repository<MolAccess>,
 
     @InjectRepository(InventoryBook)
-    private inventoryBookRepo: Repository<InventoryBook>,
+    private readonly inventoryBookRepo: Repository<InventoryBook>,
 
     @InjectRepository(InventoryBookItem)
-    private inventoryBookItemRepo: Repository<InventoryBookItem>,
+    private readonly inventoryBookItemRepo: Repository<InventoryBookItem>,
 
     @InjectRepository(RevisorAccess)
-    private revisorAccessRepo: Repository<RevisorAccess>,
+    private readonly revisorAccessRepo: Repository<RevisorAccess>,
 
     @InjectRepository(ProposedChange)
-    private proposedChangesRepository: Repository<ProposedChange>,
+    private readonly proposedChangesRepository: Repository<ProposedChange>,
 
     @InjectRepository(Photo)
-    private photosRepository: Repository<Photo>,    
+    private readonly photosRepository: Repository<Photo>,
   ) {}
 
   /**
-   * Собирает данные для офлайн-режима для конкретного пользователя.
+   * Собирает все данные для офлайн-режима для конкретного пользователя.
    * 
-   * @param userId - ID пользователя
-   * @returns объект с данными для кэширования на фронте
+   * ## Порядок сбора
+   * 1. Получает склады МОЛа из mol_access
+   * 2. Получает ID книг ревизора из revisor_access
+   * 3. Загружает все объекты
+   * 4. Загружает все QR-коды
+   * 5. Загружает инвентаризационные книги и их строки (если есть доступ ревизора)
+   * 6. Загружает ведомости пользователя
+   * 7. Загружает предлагаемые изменения для складов МОЛа
+   * 8. Загружает фото, связанные с предлагаемыми изменениями
+   * 
+   * @param userId — ID пользователя, для которого собираются данные
+   * @returns объект с полями:
+   *   - objects — все объекты
+   *   - statements — строки ведомостей МОЛ
+   *   - qr_codes — все QR-коды
+   *   - photos — фото из предлагаемых изменений
+   *   - proposed_changes — предлагаемые изменения (в camelCase для Dexie)
+   *   - inventory_books — инвентаризационные книги ревизора
+   *   - inventory_book_items — строки инвентаризационных книг
+   *   - meta — метаданные с количеством по каждой сущности
    */
   async getAllData(userId: number): Promise<any> {
     console.log(`OfflineCacheService: получение данных для пользователя ${userId}`);
@@ -60,7 +92,7 @@ export class OfflineCacheService {
 
       // 2. Получаем ID книг, доступных ревизору
       const revisorAccess = await this.revisorAccessRepo.find({
-        where: { userId: userId },
+        where: { userId },
         select: ['idBook'],
       });
       const bookIds = revisorAccess.map(ra => ra.idBook);
@@ -95,24 +127,24 @@ export class OfflineCacheService {
           order: { id: 'ASC' },
         });
 
-        console.log(`OfflineCacheService: загружено книг: ${inventoryBooks.length}, строк: ${inventoryBookItems.length}`);
+        console.log(
+          `OfflineCacheService: загружено книг: ${inventoryBooks.length}, строк: ${inventoryBookItems.length}`,
+        );
       }
 
       // 7. Получаем ведомости пользователя
-      let statements: Statement[] = [];
-
-      statements = await this.statementsRepository.find({
+      const statements = await this.statementsRepository.find({
         where: { userId },
         order: { id: 'ASC' },
       });
 
       // 8. Получаем предлагаемые изменения для складов МОЛа
-      let proposedChanges: ProposedChange[] = [];
+      let proposedChanges: any[] = [];
 
       if (userAccess.length > 0) {
         // Формируем массив условий zavod/sklad для SQL-фильтрации
         const accessConditions = userAccess.map(a => ({ zavod: a.zavod, sklad: a.sklad }));
-        
+
         const entities = await this.proposedChangesRepository
           .createQueryBuilder('pc')
           // Джойним objects, потому что у proposed_changes нет zavod/sklad — они есть только в objects
@@ -123,11 +155,14 @@ export class OfflineCacheService {
               .map((_, i) => `(obj.zavod = :zavod${i} AND obj.sklad = :sklad${i})`)
               .join(' OR '),
             // Подставляем значения: { zavod0: 1, sklad0: 'А', zavod1: 2, sklad1: 'Б' }
-            accessConditions.reduce((params, a, i) => ({
-              ...params,
-              [`zavod${i}`]: a.zavod,
-              [`sklad${i}`]: a.sklad,
-            }), {})
+            accessConditions.reduce(
+              (params, a, i) => ({
+                ...params,
+                [`zavod${i}`]: a.zavod,
+                [`sklad${i}`]: a.sklad,
+              }),
+              {},
+            ),
           )
           // Сначала новые
           .orderBy('pc.created_at', 'DESC')
@@ -146,10 +181,11 @@ export class OfflineCacheService {
           objectSn: pc.objectSn,
           photoId: pc.photoId,
           createdAt: pc.createdAt,
-        })) as ProposedChange[];
-        
+        }));
+
         console.log(`OfflineCacheService: загружено proposed_changes: ${proposedChanges.length}`);
       }
+
       // 8.1. Собираем фото из proposed_changes
       const photoIds = proposedChanges
         .map(pc => pc.photoId)
@@ -157,17 +193,17 @@ export class OfflineCacheService {
 
       if (photoIds.length > 0) {
         photos = await this.photosRepository.find({
-          where: { id: In(photoIds) }
+          where: { id: In(photoIds) },
         });
         console.log(`OfflineCacheService: загружено proposed-фото: ${photos.length}`);
-      }      
+      }
 
       // 9. Формируем ответ
       return {
-        objects: objects,
-        statements: statements,
+        objects,
+        statements,
         qr_codes: qrCodes,
-        photos: photos,
+        photos,
         proposed_changes: proposedChanges,
         inventory_books: inventoryBooks,
         inventory_book_items: inventoryBookItems,
@@ -177,9 +213,11 @@ export class OfflineCacheService {
           totalStatements: statements.length,
           totalObjects: objects.length,
           totalQrCodes: qrCodes.length,
+          totalPhotos: photos.length,
+          totalProposedChanges: proposedChanges.length,
           totalInventoryBooks: inventoryBooks.length,
           totalInventoryBookItems: inventoryBookItems.length,
-        }
+        },
       };
     } catch (error) {
       console.error('OfflineCacheService: ошибка при получении данных:', error);

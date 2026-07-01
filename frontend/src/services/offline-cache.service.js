@@ -107,12 +107,15 @@ class OfflineCacheService {
   /**
    * Кэширует все данные для офлайн-режима.
    * Предварительно очищает кэш для гарантии актуальности.
-   * @param {Object} data - Объект с данными от бэкенда в camelCase
-   * @param {Array} data.statements - Массив строк ведомостей МОЛ
-   * @param {Array} data.objects - Массив объектов
-   * @param {Array} data.qr_codes - Массив QR-кодов
-   * @param {Array} data.inventory_books - Массив инвентаризационных книг
-   * @param {Array} data.inventory_book_items - Массив строк инвентаризационных книг
+   * 
+   * @param {Object} data — объект с данными от бэкенда в camelCase
+   * @param {Array} data.statements — массив строк ведомостей МОЛ
+   * @param {Array} data.objects — массив объектов
+   * @param {Array} data.qr_codes — массив QR-кодов
+   * @param {Array} data.photos — массив фото из предлагаемых изменений
+   * @param {Array} data.proposed_changes — массив предлагаемых изменений для складов МОЛа
+   * @param {Array} data.inventory_books — массив инвентаризационных книг
+   * @param {Array} data.inventory_book_items — массив строк инвентаризационных книг
    * @returns {Promise<{success: boolean, error: string|null, stats: Object}>}
    */
   async cacheAllData(data) {
@@ -122,6 +125,8 @@ class OfflineCacheService {
       statements = [],
       objects = [],
       qr_codes = [],
+      photos = [],
+      proposed_changes = [],
       inventory_books = [],
       inventory_book_items = []
     } = data
@@ -133,6 +138,8 @@ class OfflineCacheService {
         statements: 0,
         objects: 0,
         qr_codes: 0,
+        photos: 0,
+        proposed_changes: 0,
         inventory_books: 0,
         inventory_book_items: 0
       }
@@ -150,6 +157,20 @@ class OfflineCacheService {
       if (qr_codes.length) {
         await this.db.qr_codes.bulkAdd(qr_codes)
         stats.qr_codes = qr_codes.length
+      }
+
+      if (photos.length) {
+        await this.db.photos.bulkAdd(photos)
+        stats.photos = photos.length
+      }
+
+      if (proposed_changes.length) {
+        const withFlags = proposed_changes.map(c => ({
+          ...c,
+          isDeleted: false
+        }))
+        await this.db.proposed_changes.bulkAdd(withFlags)
+        stats.proposed_changes = proposed_changes.length
       }
 
       if (inventory_books.length) {

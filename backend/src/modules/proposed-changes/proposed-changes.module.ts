@@ -8,6 +8,7 @@ import { UsersModule } from '../users/users.module';
 import { User } from '../users/entities/user.entity';
 import { InventoryObject } from '../objects/entities/object.entity';
 import { PhotosModule } from '../photos/photos.module';
+import { QrCodesModule } from '../qr-codes/qr-codes.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PhotosModule } from '../photos/photos.module';
     JwtAuthModule,
     UsersModule,
     PhotosModule,
+    QrCodesModule,
   ],
   controllers: [ProposedChangesController],
   providers: [ProposedChangesService],

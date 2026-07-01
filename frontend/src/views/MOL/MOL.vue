@@ -9,7 +9,7 @@
       >
         ← Назад
       </button>
-      <h1 class="text-lg font-semibold text-gray-800">Утилиты МОЛ</h1>
+      <h1 class="text-lg font-semibold text-gray-800">Предлагаемые изменения</h1>
     </header>
 
     <!-- Контент -->
@@ -54,16 +54,29 @@
               :key="change.id" 
               class="active:bg-gray-50"
             >
-              <td class="px-2 py-3 border-b border-gray-100 text-center text-gray-500 font-medium">
+              <td class="px-2 py-3 border-b border-gray-100 text-center text-gray-500 font-medium align-top">
                 {{ index + 1 }}
               </td>
               <td class="px-2 py-3 border-b border-gray-100 text-gray-600">
-                <div class="font-medium">{{ change.description }}</div>
-                <div v-if="change.details" class="text-xs text-gray-400 mt-0.5">
-                  {{ change.details }}
+                <!-- Автор и объект -->
+                <div class="text-xs text-gray-400 mb-1">
+                  {{ change.userAbr }} → {{ change.objectBuhName }} ({{ change.objectInvNumber }})
+                </div>
+                <!-- Описание изменения -->
+                <div class="font-medium">{{ formatChangeDescription(change) }}</div>
+                <!-- Миниатюра фото -->
+                <div v-if="change.changeType === 'photo' && change.photoThumbUrl" class="mt-1">
+                  <img 
+                    :src="change.photoThumbUrl" 
+                    class="w-16 h-16 object-cover rounded border border-gray-200 cursor-pointer active:border-blue-500"
+                    @click="openPhotoViewer(change)"
+                  />
+                </div>
+                <div v-else-if="change.changeType === 'photo' && change.isLoadingPhoto" class="mt-1 text-xs text-gray-400 italic">
+                  Загрузка фото...
                 </div>
               </td>
-              <td class="px-2 py-3 border-b border-gray-100 text-center">
+              <td class="px-2 py-3 border-b border-gray-100 text-center align-top">
                 <div class="flex gap-2 justify-center">
                   <button 
                     @click="handleDecision(change.id, 'approved')"
@@ -122,12 +135,42 @@
         {{ isSaving ? 'Сохранение...' : 'Сохранить решения' }}
       </button>
     </footer>
+
+    <!-- Простой просмотрщик фото -->
+    <Transition name="modal">
+      <div 
+        v-if="isPhotoViewerOpen" 
+        class="fixed inset-0 z-[1000] bg-black flex items-center justify-center"
+        @click="closePhotoViewer"
+      >
+        <!-- Кнопка закрытия -->
+        <button 
+          class="fixed top-5 right-5 w-11 h-11 rounded-full 
+                 bg-black/50 text-white text-2xl
+                 flex items-center justify-center
+                 backdrop-blur-sm z-[10001]
+                 active:bg-black/80"
+          @click.stop="closePhotoViewer"
+        >
+          ×
+        </button>
+        
+        <img 
+          v-if="viewerPhotoUrl"
+          :src="viewerPhotoUrl"
+          class="max-w-full max-h-full object-contain select-none"
+          alt="Фото"
+        />
+        <div v-else class="text-white/70">Загрузка...</div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { photoService } from '@/services/photo.service'
 
 const router = useRouter()
 
@@ -147,6 +190,14 @@ const isSaving = ref(false)
 const error = ref(null)
 const proposedChanges = ref([])
 
+// Просмотр фото
+const isPhotoViewerOpen = ref(false)
+const viewerPhotoUrl = ref(null)
+let viewerRevokeFn = null
+
+// Для очистки ObjectURL миниатюр при уходе
+const thumbUrls = ref([])
+
 // ============================================================================
 // ВЫЧИСЛЯЕМЫЕ СВОЙСТВА
 // ============================================================================
@@ -157,47 +208,139 @@ const hasDecisions = computed(() => {
 })
 
 // ============================================================================
+// ФОРМАТИРОВАНИЕ
+// ============================================================================
+
+/**
+ * Форматирует описание изменения для отображения в таблице.
+ * @param {Object} change — запись proposed_change
+ * @returns {string} человекочитаемое описание
+ */
+const formatChangeDescription = (change) => {
+  const data = change.proposedData || {}
+
+  switch (change.changeType) {
+    case 'place': {
+      const parts = [
+        data.placeTer,
+        data.placePos,
+        data.placeCab,
+        data.placeUser
+      ].filter(p => p && p.trim() !== '')
+      return parts.length > 0
+        ? `Перемещение: ${parts.join(' / ')}`
+        : 'Перемещение (местоположение не указано)'
+    }
+
+    case 'sn':
+      return data.sn
+        ? `Смена серийного номера на «${data.sn}»`
+        : 'Очистка серийного номера'
+
+    case 'comment':
+      return `Комментарий: «${data.comment || ''}»`
+
+    case 'photo':
+      return 'Добавление фото'
+
+    case 'qr_code':
+      return `Добавление QR-кода: ${data.qrValue || '—'}`
+
+    default:
+      return `Изменение типа «${change.changeType}»`
+  }
+}
+
+// ============================================================================
+// ЗАГРУЗКА ФОТО
+// ============================================================================
+
+/**
+ * Загружает миниатюры для всех фото-предложений.
+ */
+const loadPhotoThumbnails = async () => {
+  for (const change of proposedChanges.value) {
+    if (change.changeType === 'photo' && change.photoId) {
+      change.isLoadingPhoto = true
+      try {
+        const { url, revoke } = await photoService.createObjectURL(change.photoId, 'thumb')
+        change.photoThumbUrl = url
+        thumbUrls.value.push({ url, revoke })
+      } catch (err) {
+        console.error(`[MOL] Ошибка загрузки миниатюры фото ${change.photoId}:`, err)
+      } finally {
+        change.isLoadingPhoto = false
+      }
+    }
+  }
+}
+
+/**
+ * Открывает просмотрщик фото для предложения.
+ * @param {Object} change — запись proposed_change с changeType === 'photo'
+ */
+const openPhotoViewer = async (change) => {
+  if (change.changeType !== 'photo' || !change.photoId) return
+
+  try {
+    const { url, revoke } = await photoService.createObjectURL(change.photoId, 'full')
+    viewerPhotoUrl.value = url
+    viewerRevokeFn = revoke
+    isPhotoViewerOpen.value = true
+  } catch (err) {
+    console.error(`[MOL] Ошибка загрузки фото ${change.photoId}:`, err)
+  }
+}
+
+/**
+ * Закрывает просмотрщик фото и освобождает URL.
+ */
+const closePhotoViewer = () => {
+  isPhotoViewerOpen.value = false
+  if (viewerRevokeFn) {
+    viewerRevokeFn()
+    viewerRevokeFn = null
+  }
+  viewerPhotoUrl.value = null
+}
+
+// ============================================================================
 // ЗАГРУЗКА ДАННЫХ
 // ============================================================================
 
 /**
- * Загрузка предлагаемых изменений из БД
+ * Загрузка предлагаемых изменений через API.
  */
 const loadProposedChanges = async () => {
   isLoading.value = true
   error.value = null
   
   try {
-    // TODO: заменить на реальный API-запрос
-    // const response = await fetch('/api/proposed-changes')
-    // const data = await response.json()
-    // proposedChanges.value = data.map(change => ({ ...change, decision: null }))
+    const token = localStorage.getItem('auth_token')
+    if (!token) throw new Error('Токен авторизации не найден')
+
+    const response = await fetch('/api/proposed-changes', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Ошибка HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
     
-    // Временные тестовые данные
-    await new Promise(resolve => setTimeout(resolve, 500))
-    proposedChanges.value = [
-      {
-        id: 1,
-        description: 'Перемещение ноутбука HP EliteBook',
-        details: 'Из каб. 301 в каб. 405',
-        decision: null
-      },
-      {
-        id: 2,
-        description: 'Списание монитора Dell U2419H',
-        details: 'Инв. № 456789, причина: неисправен',
-        decision: null
-      },
-      {
-        id: 3,
-        description: 'Вовлечение нового МФУ Kyocera',
-        details: 'В каб. 202, от поставщика ООО "Техника"',
-        decision: null
-      }
-    ]
+    proposedChanges.value = data.map(change => ({
+      ...change,
+      decision: null,
+      photoThumbUrl: null,
+      isLoadingPhoto: false
+    }))
+
+    // Загружаем миниатюры фото
+    await loadPhotoThumbnails()
   } catch (e) {
     error.value = 'Ошибка загрузки данных'
-    console.error(e)
+    console.error('[MOL]', e)
   } finally {
     isLoading.value = false
   }
@@ -208,7 +351,9 @@ const loadProposedChanges = async () => {
 // ============================================================================
 
 /**
- * Обработчик принятия решения (Да/Нет)
+ * Обработчик принятия решения (Да/Нет).
+ * @param {number} changeId — ID записи
+ * @param {string} decision — 'approved' или 'rejected'
  */
 const handleDecision = (changeId, decision) => {
   const change = proposedChanges.value.find(c => c.id === changeId)
@@ -218,38 +363,81 @@ const handleDecision = (changeId, decision) => {
 }
 
 /**
- * Сохранение всех решений
+ * Сохранение всех решений.
+ * Для каждого approved вызывает POST /approve, для rejected — DELETE.
  */
 const handleSaveDecisions = async () => {
   if (!hasDecisions.value || isSaving.value) return
   
   isSaving.value = true
+  error.value = null
   
+  const token = localStorage.getItem('auth_token')
+  if (!token) {
+    error.value = 'Токен авторизации не найден'
+    isSaving.value = false
+    return
+  }
+
+  const decisions = proposedChanges.value.filter(c => c.decision !== null)
+  let successCount = 0
+  let failCount = 0
+
   try {
-    const decisions = proposedChanges.value
-      .filter(change => change.decision !== null)
-      .map(change => ({
-        id: change.id,
-        decision: change.decision
-      }))
+    for (const change of decisions) {
+      try {
+        if (change.decision === 'approved') {
+          const response = await fetch(`/api/proposed-changes/${change.id}/approve`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
+        } else {
+          const response = await fetch(`/api/proposed-changes/${change.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
+        }
+        successCount++
+      } catch (err) {
+        console.error(`[MOL] Ошибка сохранения решения для ${change.id}:`, err)
+        failCount++
+      }
+    }
     
-    // TODO: заменить на реальный API-запрос
-    // await fetch('/api/proposed-changes/decisions', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ decisions })
-    // })
+    console.log(`[MOL] Сохранено: ${successCount}, ошибок: ${failCount}`)
     
-    console.log('Сохранённые решения:', decisions)
-    
-    // Успешно сохранили — можно обновить список или показать уведомление
     await loadProposedChanges()
     
   } catch (e) {
     error.value = 'Ошибка сохранения решений'
-    console.error(e)
+    console.error('[MOL]', e)
   } finally {
     isSaving.value = false
+  }
+}
+
+// ============================================================================
+// ОЧИСТКА РЕСУРСОВ
+// ============================================================================
+
+/**
+ * Освобождает все созданные ObjectURL.
+ */
+const cleanupUrls = () => {
+  for (const { url, revoke } of thumbUrls.value) {
+    if (revoke) revoke()
+  }
+  thumbUrls.value = []
+  
+  if (viewerRevokeFn) {
+    viewerRevokeFn()
+    viewerRevokeFn = null
   }
 }
 
@@ -260,4 +448,21 @@ const handleSaveDecisions = async () => {
 onMounted(() => {
   loadProposedChanges()
 })
+
+onBeforeUnmount(() => {
+  cleanupUrls()
+})
 </script>
+
+<style scoped>
+/* Анимация модалки */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+</style>
