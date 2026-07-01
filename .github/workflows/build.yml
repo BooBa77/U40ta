@@ -6,8 +6,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_BACKEND: ${{ github.repository_owner }}/u40ta-backend
-  IMAGE_FRONTEND: ${{ github.repository_owner }}/u40ta-frontend  
+  IMAGE_BACKEND: booba77/u40ta-backend
+  IMAGE_FRONTEND: booba77/u40ta-frontend
 
 jobs:
   build:
