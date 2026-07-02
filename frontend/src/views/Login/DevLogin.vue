@@ -1,14 +1,19 @@
 <template>
-  <div class="dev-login">
-    <h1>Вход для разработки</h1>
+  <div class="max-w-md mx-auto mt-12 p-6 text-center bg-white rounded-lg shadow-lg">
+    <h1 class="text-2xl font-bold mb-6">Вход для разработки</h1>
     
     <!-- Выпадающий список пользователей -->
-    <div class="user-selection">
-      <label>Выберите пользователя:</label>
-      <select v-model="selectedUserId">
+    <div class="mb-4 text-left">
+      <label class="block mb-2 font-medium text-gray-700">
+        Выберите пользователя:
+      </label>
+      <select 
+        v-model="selectedUserId"
+        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm transition-colors duration-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+      >
         <option value="">-- Выберите пользователя --</option>
         <option v-for="user in users" :key="user.id" :value="user.id">
-          Пользователь #{{ user.id }}
+          {{ user.label }}
         </option>
       </select>
     </div>
@@ -18,14 +23,18 @@
       @click="login" 
       :disabled="!selectedUserId" 
       variant="primary"
-      class="login-btn"
+      class="w-full mt-4"
     >
       Войти
     </BaseButton>
 
     <!-- Сообщения -->
-    <div v-if="error" class="error">{{ error }}</div>
-    <div v-if="loading" class="loading">Выполняется вход...</div>
+    <div v-if="error" class="mt-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md text-sm">
+      {{ error }}
+    </div>
+    <div v-if="loading" class="mt-4 p-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-sm">
+      Выполняется вход...
+    </div>
   </div>
 </template>
 
@@ -35,13 +44,31 @@ import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
 const router = useRouter()
-const users = ref([])
 const selectedUserId = ref('')
 const error = ref('')
 const loading = ref(false)
 const isProduction = import.meta.env.PROD
 
-// Функция определения устройства
+/**
+ * Статический список пользователей для dev-режима
+ * ID соответствуют реальным пользователям в базе данных
+ */
+const users = ref([
+  { id: 1, label: 'Пользователь 1' },
+  { id: 2, label: 'Пользователь 2' },
+  { id: 3, label: 'Пользователь 3' },
+  { id: 4, label: 'Пользователь 4' },
+  { id: 5, label: 'Пользователь 5' },
+  { id: 6, label: 'Пользователь 6' },
+  { id: 7, label: 'Пользователь 7' },
+  { id: 8, label: 'Пользователь 8' },
+  { id: 9, label: 'Пользователь 9' },
+  { id: 10, label: 'Пользователь 10' }
+])
+
+/**
+ * Определяет тип устройства (мобильное/десктоп) и сохраняет в localStorage
+ */
 const detectDevice = async () => {
   const userAgent = navigator.userAgent
   const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
@@ -50,21 +77,10 @@ const detectDevice = async () => {
   localStorage.setItem('device_isMobile', JSON.stringify(isMobile))
 }
 
-// Загрузка списка пользователей
-const loadUsers = async () => {
-  try {
-    const response = await fetch('/api/users')
-    if (response.ok) {
-      users.value = await response.json()
-    } else {
-      error.value = 'Ошибка загрузки пользователей'
-    }
-  } catch (err) {
-    error.value = 'Ошибка соединения с сервером'
-  }
-}
-
-// Вход выбранного пользователя
+/**
+ * Выполняет вход выбранного пользователя через dev-login endpoint
+ * При успехе сохраняет токен и перенаправляет на главную
+ */
 const login = async () => {
   if (!selectedUserId.value) return
 
@@ -103,70 +119,5 @@ onMounted(async () => {
     return
   }
   await detectDevice()
-  await loadUsers()
 })
 </script>
-
-<style scoped>
-.dev-login {
-  max-width: 400px;
-  margin: 50px auto;
-  padding: var(--spacing);
-  text-align: center;
-  background: white;
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-.user-selection {
-  margin: var(--spacing-lg) 0;
-  text-align: left;
-}
-
-.user-selection label {
-  display: block;
-  margin-bottom: var(--spacing-sm);
-  font-weight: 500;
-  color: var(--color-text);
-}
-
-select {
-  width: 100%;
-  padding: var(--spacing-sm);
-  border: var(--border-width) solid var(--border-color);
-  border-radius: var(--border-radius);
-  font-size: 14px;
-  transition: border-color var(--transition);
-}
-
-select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-secondary);
-}
-
-.login-btn {
-  width: 100%;
-  margin-top: var(--spacing);
-}
-
-.error {
-  margin: var(--spacing) 0;
-  padding: var(--spacing-sm);
-  background-color: #ffebee;
-  color: #c62828;
-  border: 1px solid #ffcdd2;
-  border-radius: var(--border-radius);
-  font-size: 14px;
-}
-
-.loading {
-  margin: var(--spacing) 0;
-  padding: var(--spacing-sm);
-  background-color: #e3f2fd;
-  color: #1565c0;
-  border: 1px solid #bbdefb;
-  border-radius: var(--border-radius);
-  font-size: 14px;
-}
-</style>

@@ -5,7 +5,6 @@ import { ProposedChange } from './entities/proposed-change.entity';
 import { User } from '../users/entities/user.entity';
 import { InventoryObject } from '../objects/entities/object.entity';
 import { PhotosService } from '../photos/photos.service';
-import { QrCodesService } from '../qr-codes/qr-codes.service';
 import { Photo } from '../photos/entities/photos.entity';
 
 /**
@@ -33,7 +32,6 @@ export class ProposedChangesService {
     @InjectRepository(InventoryObject)
     private readonly objectsRepository: Repository<InventoryObject>,
     private readonly photosService: PhotosService,
-    private readonly qrCodesService: QrCodesService,
   ) {}
 
   /**
@@ -222,13 +220,6 @@ export class ProposedChangesService {
         if (change.photoId) {
           await this.photosService.attachToObject(change.photoId, object.id);
           this.logger.log(`Фото ${change.photoId} привязано к объекту ${object.id}`);
-        }
-        break;
-
-      case 'qr_code':
-        if (change.proposedData?.qrValue) {
-          await this.qrCodesService.save(change.proposedData.qrValue, object.id);
-          this.logger.log(`QR-код ${change.proposedData.qrValue} привязан к объекту ${object.id}`);
         }
         break;
 

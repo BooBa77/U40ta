@@ -9,7 +9,7 @@
       >
         ← Назад
       </button>
-      <h1 class="text-lg font-semibold text-gray-800">Предлагаемые изменения</h1>
+      <h1 class="text-lg font-semibold text-gray-800">инструменты МОЛ</h1>
     </header>
 
     <!-- Контент -->
@@ -37,10 +37,10 @@
         <table class="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th class="bg-gray-50 px-2 py-3 text-left font-semibold text-gray-800 border-b-2 border-gray-200 w-[40px] text-center">
+              <th class="bg-gray-50 px-2 py-3 text-center font-semibold text-gray-800 border-b-2 border-gray-200 w-[40px] text-center">
                 №
               </th>
-              <th class="bg-gray-50 px-2 py-3 text-left font-semibold text-gray-800 border-b-2 border-gray-200">
+              <th class="bg-gray-50 px-2 py-3 text-center font-semibold text-gray-800 border-b-2 border-gray-200">
                 Предлагаемое изменение
               </th>
               <th class="bg-gray-50 px-2 py-3 text-center font-semibold text-gray-800 border-b-2 border-gray-200 w-[120px]">
@@ -56,11 +56,11 @@
             >
               <td class="px-2 py-3 border-b border-gray-100 text-center text-gray-500 font-medium align-top">
                 {{ index + 1 }}
+                <div class="text-[11px] text-blue-400 mt-0.5">{{ change.userAbr }}</div>
               </td>
               <td class="px-2 py-3 border-b border-gray-100 text-gray-600">
-                <!-- Автор и объект -->
                 <div class="text-xs text-gray-400 mb-1">
-                  {{ change.userAbr }} → {{ change.objectBuhName }} ({{ change.objectInvNumber }})
+                  {{ change.objectBuhName }} ({{ change.objectInvNumber }})
                 </div>
                 <!-- Описание изменения -->
                 <div class="font-medium">{{ formatChangeDescription(change) }}</div>
@@ -80,7 +80,6 @@
                 <div class="flex gap-2 justify-center">
                   <button 
                     @click="handleDecision(change.id, 'approved')"
-                    :disabled="change.decision !== null"
                     :class="[
                       'px-3 py-1.5 rounded-md text-xs font-medium transition',
                       change.decision === 'approved'
@@ -94,7 +93,6 @@
                   </button>
                   <button 
                     @click="handleDecision(change.id, 'rejected')"
-                    :disabled="change.decision !== null"
                     :class="[
                       'px-3 py-1.5 rounded-md text-xs font-medium transition',
                       change.decision === 'rejected'
@@ -234,11 +232,11 @@ const formatChangeDescription = (change) => {
 
     case 'sn':
       return data.sn
-        ? `Смена серийного номера на «${data.sn}»`
-        : 'Очистка серийного номера'
+        ? `Смена s/n на «${data.sn}»`
+        : 'Очистка s/n'
 
     case 'comment':
-      return `Комментарий: «${data.comment || ''}»`
+      return `«${data.comment || ''}»`
 
     case 'photo':
       return 'Добавление фото'
@@ -357,7 +355,11 @@ const loadProposedChanges = async () => {
  */
 const handleDecision = (changeId, decision) => {
   const change = proposedChanges.value.find(c => c.id === changeId)
-  if (change && change.decision === null) {
+  if (!change) return
+  // Если нажата та же кнопка повторно — отменить решение
+  if (change.decision === decision) {
+    change.decision = null
+  } else {
     change.decision = decision
   }
 }

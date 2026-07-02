@@ -23,14 +23,20 @@ export class AuthService {
   /**
    * Авторизация в режиме разработки
    * Пользователя выбираем из списка на странице DevLogin.vue
-   * Оставляем без изменений для обратной совместимости
+   * 
+   * @param userId - ID пользователя из таблицы users
+   * @returns JWT токен для аутентификации
+   * @throws NotFoundException если пользователь не найден
    */
   async devLogin(userId: number): Promise<AuthResponseDto> {
     this.logger.log(`Dev-авторизация для пользователя ID: ${userId}`);
     
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new NotFoundException('Пользователь не найден');
+    let user;
+    try {
+      user = await this.usersService.findById(userId);
+    } catch (error) {
+      this.logger.warn(`Пользователь с ID ${userId} не найден в таблице users`);
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
     
     const token = await this.generateJwtToken(user);

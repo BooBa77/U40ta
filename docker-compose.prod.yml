@@ -1,0 +1,52 @@
+services:
+  frontend:
+    image: ghcr.io/booba77/u40ta-frontend:latest
+    ports:
+      - "127.0.0.1:8080:80"
+    restart: unless-stopped
+
+  backend:
+    image: ghcr.io/booba77/u40ta-backend:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - EMAIL_IMAP_USER=${EMAIL_IMAP_USER}
+      - EMAIL_IMAP_PASSWORD=${EMAIL_IMAP_PASSWORD}
+      - EMAIL_IMAP_HOST=${EMAIL_IMAP_HOST}
+      - EMAIL_IMAP_PORT=${EMAIL_IMAP_PORT}
+      - EMAIL_IMAP_TLS=${EMAIL_IMAP_TLS}
+      - EMAIL_SMTP_USER=${EMAIL_SMTP_USER}
+      - EMAIL_SMTP_PASSWORD=${EMAIL_SMTP_PASSWORD}
+      - EMAIL_SMTP_HOST=${EMAIL_SMTP_HOST}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT}
+      - EMAIL_SMTP_SECURE=${EMAIL_SMTP_SECURE}
+      - EMAIL_SMTP_FROM=${EMAIL_SMTP_FROM}
+      - EMAIL_ATTACHMENTS_PATH=${EMAIL_ATTACHMENTS_PATH}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

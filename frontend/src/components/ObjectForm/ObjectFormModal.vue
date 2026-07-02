@@ -620,19 +620,11 @@ const handleSave = async () => {
       // Новые фото
       for (const photo of photosToAdd) {
         proposedChanges.push({
-          changeType: 'photo_add',
+          changeType: 'photo',
           proposedData: {
             photoMaxData: photo.max,
             photoMinData: photo.min
           }
-        })
-      }
-
-      // Новые QR-коды
-      for (const qrValue of newQrCodes) {
-        proposedChanges.push({
-          changeType: 'qr_code',
-          proposedData: { qrValue }
         })
       }
 

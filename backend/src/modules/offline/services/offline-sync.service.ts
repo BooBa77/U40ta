@@ -21,6 +21,7 @@ import { ProposedChange } from '../../proposed-changes/entities/proposed-change.
  * ## Логика обработки объектов
  * Для каждого объекта из пакета синхронизации:
  * - Проверяется доступ пользователя к складу объекта (МОЛ / неМОЛ).
+ * - Новые объекты (id < 0) может создавать только МОЛ. НеМОЛ пропускается.
  * - Если пользователь МОЛ — изменения применяются напрямую к объекту (create / update).
  * - Если пользователь неМОЛ — изменения трансформируются в предлагаемые (proposed_changes)
  *   для последующего рассмотрения МОЛом.
@@ -51,6 +52,7 @@ export class OfflineSyncService {
    * 
    * ## Порядок обработки
    * 1. Обработка объектов — создание/обновление для МОЛа, proposed_changes для неМОЛа.
+   *    Новые объекты (id < 0) от неМОЛа пропускаются.
    * 2. Обработка строк инвентаризационных книг — сверка дат подтверждений.
    * 3. Обработка явных proposed_changes — создание/удаление предложений.
    * 
@@ -80,6 +82,15 @@ export class OfflineSyncService {
           obj.zavod,
           obj.sklad,
         );
+
+        // Новые объекты может создавать только МОЛ
+        if (!isMol && obj.id < 0) {
+          console.warn(
+            `[OfflineSyncService] Пропущен новый объект tempId=${obj.id} — ` +
+            `пользователь не МОЛ склада ${obj.zavod}/${obj.sklad}`,
+          );
+          continue;
+        }
 
         if (isMol) {
           await this.applyObjectChange(manager, userId, obj);
@@ -179,8 +190,9 @@ export class OfflineSyncService {
   /**
    * Трансформирует изменения неМОЛа в предлагаемые (proposed_changes).
    * Анализирует логи объекта и создаёт по одной записи proposed_changes
-   * на каждый тип изменения (место, SN, QR, фото, комментарий).
+   * на каждый тип изменения (место, SN, фото, комментарий).
    * Фото создаются с object_id = 0.
+   * QR-коды не передаются — неМОЛ не может предлагать QR-коды.
    * 
    * @param manager — менеджер транзакции
    * @param userId — ID пользователя
@@ -215,13 +227,6 @@ export class OfflineSyncService {
             await this.handleObjectHistoryLog(
               manager, userId, userAbr, obj, log, objectBuhName,
               objectInvNumber, objectSn, addedTypes,
-            );
-            break;
-
-          case 'qr-code-history':
-            await this.handleQrCodeHistoryLog(
-              manager, userId, userAbr, obj, log, objectBuhName,
-              objectInvNumber, objectSn,
             );
             break;
 
@@ -319,42 +324,6 @@ export class OfflineSyncService {
       await manager.save(entity);
       addedTypes.add('comment');
       console.log(`[OfflineSyncService] неМОЛ: created proposed_change type=comment`);
-    }
-  }
-
-  /**
-   * Обрабатывает лог типа qr-code-history.
-   * Создаёт proposed_change для добавленного QR-кода.
-   */
-  private async handleQrCodeHistoryLog(
-    manager: EntityManager,
-    userId: number,
-    userAbr: string,
-    obj: any,
-    log: any,
-    objectBuhName: string,
-    objectInvNumber: string,
-    objectSn: string | null,
-  ): Promise<void> {
-    const content = log.content || {};
-    const qrValue = content.qrValue;
-
-    if (qrValue) {
-      const entity = manager.create(ProposedChange, {
-        objectId: obj.id,
-        changeType: 'qr_code',
-        proposedData: { qrValue },
-        userId,
-        userAbr,
-        objectBuhName,
-        objectInvNumber,
-        objectSn,
-        photoId: null,
-      });
-      await manager.save(entity);
-      console.log(
-        `[OfflineSyncService] неМОЛ: created proposed_change type=qr_code value=${qrValue}`,
-      );
     }
   }
 
@@ -572,10 +541,6 @@ export class OfflineSyncService {
    * - `create` — создание предложения от неМОЛа (создано в офлайне)
    * - `delete` — удаление предложения после решения МОЛа.
    *   Логика удаления фото делегирована в ProposedChangesService.remove.
-   * 
-   * @param manager — менеджер транзакции
-   * @param userId — ID пользователя
-   * @param actions — массив действий с proposed_changes
    */
   private async applyProposedChangeActions(
     manager: EntityManager,
