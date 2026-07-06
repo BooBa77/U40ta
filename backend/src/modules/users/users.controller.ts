@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Param, Req } from '@nestjs/common';
+import { Controller, Get, UseGuards, Param, Req, UnauthorizedException } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -46,6 +46,19 @@ export class UsersController {
   async getMyId(@Req() request: RequestWithUser) {
     const userId = request.user?.sub;
     return { userId: userId || null };
+  }
+
+  /**
+   * GET /api/users/me/mol-access — получение складов, доступных текущему МОЛу.
+   * Возвращает массив доступных { zavod, sklad } из таблицы mol_access.
+   */
+  @Get('me/mol-access')
+  async getMyMolAccess(@Req() request: RequestWithUser) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Пользователь не авторизован');
+    }
+    return this.usersService.getMolAccess(userId);
   }
 
   /**
