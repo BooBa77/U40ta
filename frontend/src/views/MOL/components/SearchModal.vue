@@ -60,6 +60,10 @@
             <table v-if="filteredData.length > 0" class="w-full border-collapse text-sm">
               <thead>
                 <tr>
+                  <!-- Колонка с порядковым номером -->
+                  <th class="bg-gray-50 px-1 py-2.5 text-center font-semibold text-gray-800 border-b-2 border-gray-200 w-[36px] shrink-0">
+                    №
+                  </th>                    
                   <th
                     v-for="col in visibleColumns"
                     :key="col.id"
@@ -78,10 +82,14 @@
               </thead>
               <tbody>
                 <tr
-                  v-for="obj in filteredData"
+                  v-for="(obj, index) in filteredData"
                   :key="obj.id"
                   class="border-b border-gray-100 active:bg-gray-50"
                 >
+                  <!-- Порядковый номер строки -->
+                  <td class="px-1 py-2 text-center text-gray-400 text-xs shrink-0">
+                    {{ index + 1 }}
+                  </td>                
                   <td
                     v-for="col in visibleColumns"
                     :key="col.id"
@@ -179,21 +187,21 @@ const emit = defineEmits(['close'])
 
 const allColumns = [
   // Экран 1
-  { id: 'zavod',        label: 'Завод',       getValue: (row) => row.zavod,              width: '45px',  filterable: true,  screen: 0 },
-  { id: 'sklad',        label: 'Склад',       getValue: (row) => row.sklad,              width: '65px',  filterable: true,  screen: 0 },
-  { id: 'invNumber',    label: 'Инв. номер',  getValue: (row) => row.invNumber,          width: undefined, filterable: true,  screen: 0 },
-  { id: 'partyNumber',  label: 'Партия',      getValue: (row) => row.partyNumber,        width: '85px',  filterable: true,  screen: 0 },
+  { id: 'zavod',        label: 'завод',       getValue: (row) => row.zavod,              width: undefined,  filterable: true,  screen: 0 },
+  { id: 'sklad',        label: 'склад',       getValue: (row) => row.sklad,              width: undefined,  filterable: true,  screen: 0 },
+  { id: 'invNumber',    label: 'инв. номер',  getValue: (row) => row.invNumber,          width: undefined, filterable: true,  screen: 0 },
+  { id: 'partyNumber',  label: 'партия',      getValue: (row) => row.partyNumber,        width: undefined,  filterable: true,  screen: 0 },
   // Экран 2
-  { id: 'buhName',      label: 'Наименование', getValue: (row) => row.buhName,           width: undefined, filterable: true,  screen: 1 },
-  { id: 'sn',           label: 'S/N',         getValue: (row) => row.sn,                 width: '100px', filterable: true,  screen: 1 },
+  { id: 'buhName',      label: 'наименование', getValue: (row) => row.buhName,           width: undefined, filterable: true,  screen: 1 },
+  { id: 'sn',           label: 's/n',         getValue: (row) => row.sn,                 width: undefined, filterable: true,  screen: 1 },
   // Экран 3
-  { id: 'placeTer',     label: 'Территория',  getValue: (row) => row.placeTer,           width: '60px',  filterable: true,  screen: 2 },
-  { id: 'placePos',     label: 'Позиция',     getValue: (row) => row.placePos,           width: '60px',  filterable: true,  screen: 2 },
-  { id: 'placeCab',     label: 'Кабинет',     getValue: (row) => row.placeCab,           width: '55px',  filterable: true,  screen: 2 },
-  { id: 'placeUser',    label: 'Пользователь', getValue: (row) => row.placeUser,         width: undefined, filterable: true,  screen: 2 },
+  { id: 'placeTer',     label: 'тер.',  getValue: (row) => row.placeTer,           width: undefined,  filterable: true,  screen: 2 },
+  { id: 'placePos',     label: 'поз.',     getValue: (row) => row.placePos,           width: undefined,  filterable: true,  screen: 2 },
+  { id: 'placeCab',     label: 'каб.',     getValue: (row) => row.placeCab,           width: undefined,  filterable: true,  screen: 2 },
+  { id: 'placeUser',    label: 'пол-ль', getValue: (row) => row.placeUser,         width: undefined, filterable: true,  screen: 2 },
   // Экран 4
-  { id: 'checkedAt',    label: 'Проверен',    getValue: (row) => formatDate(row.checkedAt), width: '90px', filterable: false, screen: 3 },
-  { id: 'isWrittenOff', label: 'Списан',      getValue: (row) => row.isWrittenOff ? 'Да' : 'Нет', width: '70px', filterable: false, screen: 3 },
+  { id: 'checkedAt',    label: 'проверен',    getValue: (row) => formatDate(row.checkedAt), width: '90px', filterable: false, screen: 3 },
+  { id: 'isWrittenOff', label: 'списан',      getValue: (row) => row.isWrittenOff ? 'Да' : 'Нет', width: '70px', filterable: false, screen: 3 },
 ]
 
 /**
