@@ -63,7 +63,7 @@
                   <!-- Колонка с порядковым номером -->
                   <th class="bg-gray-50 px-1 py-2.5 text-center font-semibold text-gray-800 border-b-2 border-gray-200 w-[36px] shrink-0">
                     №
-                  </th>                    
+                  </th>
                   <th
                     v-for="col in visibleColumns"
                     :key="col.id"
@@ -84,12 +84,13 @@
                 <tr
                   v-for="(obj, index) in filteredData"
                   :key="obj.id"
-                  class="border-b border-gray-100 active:bg-gray-50"
+                  class="border-b border-gray-100 active:bg-gray-50 cursor-pointer"
+                  @click="handleRowClick(obj)"
                 >
                   <!-- Порядковый номер строки -->
                   <td class="px-1 py-2 text-center text-gray-400 text-xs shrink-0">
                     {{ index + 1 }}
-                  </td>                
+                  </td>
                   <td
                     v-for="col in visibleColumns"
                     :key="col.id"
@@ -150,15 +151,25 @@
     :options="filterModalState.options"
     :selected-values="filterModalState.selectedValues"
     :is-loading="filterModalState.isLoading"
-    @apply="applyFilter"
+    @apply="handleApplyFilter"
     @close="closeFilterModal"
     @reset="resetCurrentFilter"
+  />
+
+  <!-- Модалка ObjectForm -->
+  <ObjectFormModal
+    :is-open="objectFormIsOpen"
+    :object-id="objectFormObjectId"
+    :initial-data="objectFormInitialData"
+    @save="handleObjectFormSave"
+    @cancel="handleObjectFormCancel"
   />
 </template>
 
 <script setup>
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
+import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import { objectService } from '@/services/object.service'
 import { useTableFilter } from '@/composables/useTableFilter'
 
@@ -187,21 +198,21 @@ const emit = defineEmits(['close'])
 
 const allColumns = [
   // Экран 1
-  { id: 'zavod',        label: 'завод',       getValue: (row) => row.zavod,              width: undefined,  filterable: true,  screen: 0 },
-  { id: 'sklad',        label: 'склад',       getValue: (row) => row.sklad,              width: undefined,  filterable: true,  screen: 0 },
-  { id: 'invNumber',    label: 'инв. номер',  getValue: (row) => row.invNumber,          width: undefined, filterable: true,  screen: 0 },
-  { id: 'partyNumber',  label: 'партия',      getValue: (row) => row.partyNumber,        width: undefined,  filterable: true,  screen: 0 },
+  { id: 'zavod',        label: 'Завод',       getValue: (row) => row.zavod,              width: '45px',  filterable: true,  screen: 0 },
+  { id: 'sklad',        label: 'Склад',       getValue: (row) => row.sklad,              width: '65px',  filterable: true,  screen: 0 },
+  { id: 'invNumber',    label: 'Инв. номер',  getValue: (row) => row.invNumber,          width: undefined, filterable: true,  screen: 0 },
+  { id: 'partyNumber',  label: 'Партия',      getValue: (row) => row.partyNumber,        width: '85px',  filterable: true,  screen: 0 },
   // Экран 2
-  { id: 'buhName',      label: 'наименование', getValue: (row) => row.buhName,           width: undefined, filterable: true,  screen: 1 },
-  { id: 'sn',           label: 's/n',         getValue: (row) => row.sn,                 width: undefined, filterable: true,  screen: 1 },
+  { id: 'buhName',      label: 'Наименование', getValue: (row) => row.buhName,           width: undefined, filterable: true,  screen: 1 },
+  { id: 'sn',           label: 'S/N',         getValue: (row) => row.sn,                 width: '100px', filterable: true,  screen: 1 },
   // Экран 3
-  { id: 'placeTer',     label: 'тер.',  getValue: (row) => row.placeTer,           width: undefined,  filterable: true,  screen: 2 },
-  { id: 'placePos',     label: 'поз.',     getValue: (row) => row.placePos,           width: undefined,  filterable: true,  screen: 2 },
-  { id: 'placeCab',     label: 'каб.',     getValue: (row) => row.placeCab,           width: undefined,  filterable: true,  screen: 2 },
-  { id: 'placeUser',    label: 'пол-ль', getValue: (row) => row.placeUser,         width: undefined, filterable: true,  screen: 2 },
+  { id: 'placeTer',     label: 'Территория',  getValue: (row) => row.placeTer,           width: '60px',  filterable: true,  screen: 2 },
+  { id: 'placePos',     label: 'Позиция',     getValue: (row) => row.placePos,           width: '60px',  filterable: true,  screen: 2 },
+  { id: 'placeCab',     label: 'Кабинет',     getValue: (row) => row.placeCab,           width: '55px',  filterable: true,  screen: 2 },
+  { id: 'placeUser',    label: 'Пользователь', getValue: (row) => row.placeUser,         width: undefined, filterable: true,  screen: 2 },
   // Экран 4
-  { id: 'checkedAt',    label: 'проверен',    getValue: (row) => formatDate(row.checkedAt), width: '90px', filterable: false, screen: 3 },
-  { id: 'isWrittenOff', label: 'списан',      getValue: (row) => row.isWrittenOff ? 'Да' : 'Нет', width: '70px', filterable: false, screen: 3 },
+  { id: 'checkedAt',    label: 'Проверен',    getValue: (row) => formatDate(row.checkedAt), width: '90px', filterable: false, screen: 3 },
+  { id: 'isWrittenOff', label: 'Списан',      getValue: (row) => row.isWrittenOff ? 'Да' : 'Нет', width: '70px', filterable: false, screen: 3 },
 ]
 
 /**
@@ -230,6 +241,14 @@ const isLoading = ref(false)
 const error = ref(null)
 const allObjects = ref([])
 const currentScreenIndex = ref(0)
+
+// ============================================================================
+// СОСТОЯНИЕ OBJECT FORM
+// ============================================================================
+
+const objectFormIsOpen = ref(false)
+const objectFormObjectId = ref(null)
+const objectFormInitialData = ref({})
 
 // ============================================================================
 // ФИЛЬТРЫ (useTableFilter)
@@ -298,27 +317,20 @@ const loadObjects = async () => {
 
       allObjects.value = allResults
     } else {
-      // Онлайн: получаем user_id из JWT и список доступных складов
+      // Онлайн: получаем список доступных складов МОЛа и загружаем объекты по каждому
       const token = localStorage.getItem('auth_token')
       if (!token) throw new Error('Токен авторизации не найден')
 
-      // Извлекаем user_id из payload JWT (второй сегмент)
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      const userId = payload.sub
-
-      if (!userId) throw new Error('Не удалось получить ID пользователя из токена')
-
-      // Получаем список складов МОЛа
-      const molResponse = await fetch(`/api/users/me/mol-access`, {
+      const molResponse = await fetch('/api/users/me/mol-access', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
 
-      if (!molResponse.ok) throw new Error(`Ошибка получения списка складов: HTTP ${molResponse.status}`)
+      if (!molResponse.ok) {
+        throw new Error(`Ошибка получения списка складов: HTTP ${molResponse.status}`)
+      }
 
-      const molData = await molResponse.json()
-      const sklads = molData.sklads || molData || []
+      const sklads = await molResponse.json()
 
-      // Загружаем объекты по каждому складу
       const allResults = []
       for (const { zavod, sklad } of sklads) {
         const objects = await objectService.getObjectsBySklad(zavod, sklad)
@@ -422,7 +434,7 @@ const restoreFilters = () => {
 }
 
 // ============================================================================
-// ОБРАБОТЧИКИ
+// ОБРАБОТЧИКИ ФИЛЬТРОВ
 // ============================================================================
 
 /**
@@ -449,6 +461,56 @@ const handleResetAllFilters = () => {
   resetAllFilters()
   saveFilters()
 }
+
+// ============================================================================
+// ОБРАБОТЧИКИ OBJECT FORM
+// ============================================================================
+
+/**
+ * Открытие ObjectFormModal при клике по строке таблицы.
+ * @param {Object} obj — объект из filteredData
+ */
+const handleRowClick = (obj) => {
+  objectFormObjectId.value = obj.id
+  objectFormInitialData.value = {}
+  objectFormIsOpen.value = true
+}
+
+/**
+ * Сохранение ObjectForm.
+ * @param {Object} result — { wasCreated: boolean }
+ */
+const handleObjectFormSave = (result) => {
+  objectFormIsOpen.value = false
+  resetObjectFormState()
+
+  // Если был создан новый объект — перезагружаем данные
+  if (result.wasCreated) {
+    loadObjects()
+  }
+}
+
+/**
+ * Отмена ObjectForm.
+ */
+const handleObjectFormCancel = () => {
+  objectFormIsOpen.value = false
+  resetObjectFormState()
+}
+
+/**
+ * Сброс состояния ObjectForm.
+ */
+const resetObjectFormState = () => {
+  setTimeout(() => {
+    objectFormObjectId.value = null
+    objectFormInitialData.value = {}
+  }, 300)
+}
+
+// ============================================================================
+// ОБРАБОТЧИКИ МОДАЛКИ
+// ============================================================================
 
 /**
  * Закрытие модалки поиска.

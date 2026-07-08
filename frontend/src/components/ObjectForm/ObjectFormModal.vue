@@ -200,7 +200,7 @@
                   text-base font-medium active:bg-blue-600 disabled:opacity-50"
             :disabled="isSaving"
           >
-            {{ isSaving ? 'Сохранение...' : (guestMode ? 'Сохранить' : 'Сохранить') }}
+            {{ isSaving ? 'Сохранение...' : (guestMode ? 'Подтверждаю' : 'Подтверждаю') }}
           </button>          
         </div>
 

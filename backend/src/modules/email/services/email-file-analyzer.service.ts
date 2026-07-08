@@ -2,8 +2,36 @@ import { Injectable } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { LogsService } from '../../logs/logs.service';
 
+/**
+ * Сервис анализа Excel-файлов, поступающих по электронной почте.
+ * 
+ * ## Назначение
+ * Определяет тип документа (ОСВ или ОС) по заголовкам колонок, извлекает
+ * информацию о складах из всех строк и формирует описание ведомости.
+ * 
+ * ## Поддерживаемые типы документов
+ * - **ОСВ** (оборотно-сальдовая ведомость) — колонки: Завод, Склад, КрТекстМатериала,
+ *   Материал, Партия, Запас на конец периода
+ * - **ОС** (основные средства) — колонки: Название, Инвентарный номер, МОЛ
+ * 
+ * ## Результат анализа
+ * Для валидного файла возвращает:
+ * - `isValid: true`
+ * - `docType` — тип документа ('ОСВ' или 'ОС')
+ * - `description` — описание ведомости, например "ОСВ s010,s017" или "ОС s010"
+ * 
+ * ## Принцип работы
+ * Принимает Buffer с содержимым Excel-файла, не зависит от файловой системы.
+ * 
+ * ## Использование
+ * Вызывается из EmailProcessor.analyzeAttachment() для каждого вложения.
+ */
 @Injectable()
 export class EmailFileAnalyzer {
+  /**
+   * Обязательные колонки для документа типа ОСВ (оборотно-сальдовая ведомость).
+   * Файл считается ОСВ, если в первой строке присутствуют ВСЕ эти колонки.
+   */
   private readonly osvColumns = [
     'Завод',
     'Склад',
@@ -13,6 +41,10 @@ export class EmailFileAnalyzer {
     'Запас на конец периода'
   ];
 
+  /**
+   * Обязательные колонки для документа типа ОС (основные средства).
+   * Файл считается ОС, если в первой строке присутствуют ВСЕ эти колонки.
+   */
   private readonly osColumns = [
     'МОЛ',
     'Название',
@@ -21,6 +53,24 @@ export class EmailFileAnalyzer {
 
   constructor(private readonly logsService: LogsService) {}
 
+  /**
+   * Проанализировать Excel-файл из Buffer.
+   * 
+   * ## Этапы анализа
+   * 1. Чтение Excel из Buffer через библиотеку xlsx
+   * 2. Проверка, что файл содержит хотя бы один лист
+   * 3. Проверка, что файл не пустой (есть строки данных)
+   * 4. Определение типа документа по колонкам первой строки
+   * 5. Сбор уникальных складов из всех строк
+   * 6. Формирование description
+   * 
+   * ## Результат
+   * - Для валидного файла: `{ isValid: true, docType, description }`
+   * - Для невалидного: `{ isValid: false, error }`
+   * 
+   * @param buffer - содержимое Excel-файла в виде Buffer
+   * @returns Объект с результатом анализа
+   */
   async analyzeExcel(buffer: Buffer): Promise<{
     isValid: boolean;
     docType?: string;
@@ -28,16 +78,12 @@ export class EmailFileAnalyzer {
     error?: string;
   }> {
     try {
-      console.log('=== EMAIL FILE ANALYZER ===');
-      
-      // Этап 1: Чтение Excel из Buffer
+      // ========== Этап 1: Чтение Excel из Buffer ==========
       const workbook = XLSX.read(buffer, { type: 'buffer' });
-      console.log(`📄 Прочитан Excel, количество листов: ${workbook.SheetNames.length}`);
-      console.log(`📄 Имена листов: ${workbook.SheetNames.join(', ')}`);
 
+      // ========== Этап 2: Проверка наличия листов ==========
       const firstSheetName = workbook.SheetNames[0];
       if (!firstSheetName) {
-        console.log('❌ Файл не содержит листов');
         return {
           isValid: false,
           error: 'Файл не содержит листов'
@@ -47,54 +93,29 @@ export class EmailFileAnalyzer {
       const worksheet = workbook.Sheets[firstSheetName];
       const data: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-      console.log(`📊 Количество строк данных: ${data.length}`);
-
+      // ========== Этап 3: Проверка что файл не пустой ==========
       if (data.length === 0) {
-        console.log('❌ Файл пустой (нет данных)');
         return {
           isValid: false,
           error: 'Файл пустой (нет данных)'
         };
       }
 
-      // Этап 4: Определение типа документа
+      // ========== Этап 4: Определение типа документа ==========
       const firstRow = data[0];
-      console.log('🔍 Первая строка данных:', JSON.stringify(firstRow, null, 2));
-      console.log('🔍 Ключи (колонки) первой строки:', Object.keys(firstRow));
 
-      // Проверка на ОСВ
-      const hasOsvColumns = this.hasRequiredColumns(firstRow, this.osvColumns);
-      console.log(`📋 Проверка ОСВ: ${hasOsvColumns}`);
-      if (!hasOsvColumns) {
-        console.log(`📋 Отсутствуют колонки ОСВ:`, this.osvColumns.filter(col => !(col in firstRow)));
-      }
-
-      if (hasOsvColumns) {
-        console.log('✅ Файл определён как ОСВ');
+      if (this.hasRequiredColumns(firstRow, this.osvColumns)) {
         return this.analyzeOsv(data);
       }
 
-      // Проверка на ОС
-      const hasOsColumns = this.hasRequiredColumns(firstRow, this.osColumns);
-      console.log(`📋 Проверка ОС: ${hasOsColumns}`);
-      if (!hasOsColumns) {
-        console.log(`📋 Отсутствуют колонки ОС:`, this.osColumns.filter(col => !(col in firstRow)));
-      }
-
-      if (hasOsColumns) {
-        console.log('✅ Файл определён как ОС');
+      if (this.hasRequiredColumns(firstRow, this.osColumns)) {
         return this.analyzeOs(data);
       }
 
-      // Ни один тип не подошёл
-      console.log('❌ Файл не соответствует ни ОСВ, ни ОС');
-      console.log(`❌ Ожидаемые колонки ОСВ: ${this.osvColumns.join(', ')}`);
-      console.log(`❌ Ожидаемые колонки ОС: ${this.osColumns.join(', ')}`);
-      console.log(`❌ Фактические колонки: ${Object.keys(firstRow).join(', ')}`);
-
+      // ========== Ни один тип не подошёл ==========
       return {
         isValid: false,
-        error: `Некорректная структура данных. Ожидаются колонки для ОСВ (${this.osvColumns.join(', ')}) или для ОС (${this.osColumns.join(', ')})`
+        error: `Некорректная структура данных. Файл должен содержать колонки для ОСВ (${this.osvColumns.join(', ')}) или для ОС (${this.osColumns.join(', ')})`
       };
 
     } catch (error) {
@@ -103,7 +124,7 @@ export class EmailFileAnalyzer {
         errorMessage = 'Формат файла не поддерживается';
       }
 
-      console.error(`❌ Ошибка анализа Excel: ${error.message}`, error.stack);
+      console.error(`Ошибка анализа Excel: ${error.message}`, error.stack);
 
       this.logsService.log('backend', null, {
         action: 'excel_analysis',
@@ -119,6 +140,13 @@ export class EmailFileAnalyzer {
     }
   }
 
+  /**
+   * Проверить наличие всех требуемых колонок в строке.
+   * 
+   * @param row - объект строки Excel (ключи — названия колонок)
+   * @param requiredColumns - массив названий обязательных колонок
+   * @returns true если ВСЕ требуемые колонки присутствуют, иначе false
+   */
   private hasRequiredColumns(row: any, requiredColumns: string[]): boolean {
     for (const column of requiredColumns) {
       if (!(column in row)) {
@@ -128,6 +156,13 @@ export class EmailFileAnalyzer {
     return true;
   }
 
+  /**
+   * Проанализировать документ ОСВ.
+   * Собирает уникальные склады из колонки "Склад" и формирует description.
+   * 
+   * @param data - массив строк Excel
+   * @returns Результат анализа с docType='ОСВ' и description
+   */
   private analyzeOsv(data: any[]): {
     isValid: boolean;
     docType?: string;
@@ -153,8 +188,6 @@ export class EmailFileAnalyzer {
     const sortedSklads = Array.from(sklads).sort();
     const description = `ОСВ ${sortedSklads.join(',')}`;
 
-    console.log(`📝 Результат ОСВ: ${description}, склады: ${sortedSklads.join(', ')}`);
-
     this.logsService.log('backend', null, {
       action: 'excel_analysis',
       result: 'success',
@@ -170,6 +203,13 @@ export class EmailFileAnalyzer {
     };
   }
 
+  /**
+   * Проанализировать документ ОС.
+   * Собирает уникальные склады из колонки "МОЛ" и формирует description.
+   * 
+   * @param data - массив строк Excel
+   * @returns Результат анализа с docType='ОС' и description
+   */
   private analyzeOs(data: any[]): {
     isValid: boolean;
     docType?: string;
@@ -194,8 +234,6 @@ export class EmailFileAnalyzer {
 
     const sortedSklads = Array.from(sklads).sort();
     const description = `ОС ${sortedSklads.join(',')}`;
-
-    console.log(`📝 Результат ОС: ${description}, МОЛ: ${sortedSklads.join(', ')}`);
 
     this.logsService.log('backend', null, {
       action: 'excel_analysis',
