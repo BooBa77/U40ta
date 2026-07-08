@@ -36,9 +36,9 @@ export class Statement {
   @Column({ name: 'inv_number', type: 'varchar', length: 255 })
   invNumber!: string;
 
-  /** Номер партии. Может быть NULL для основных средств */
-  @Column({ name: 'party_number', type: 'varchar', length: 255, nullable: true })
-  partyNumber!: string | null;
+  /** Номер партии. Для ОС всегда "-" */
+  @Column({ name: 'party_number', type: 'varchar', length: 255, nullable: false, default: '-' })
+  partyNumber!: string;
 
   /** Бухгалтерское наименование объекта */
   @Column({ name: 'buh_name', type: 'text' })

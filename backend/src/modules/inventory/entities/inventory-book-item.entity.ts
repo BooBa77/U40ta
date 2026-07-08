@@ -42,7 +42,7 @@ export class InventoryBookItem {
   invNumber!: string;
 
   @Column({ name: 'party_number', type: 'varchar', length: 255, nullable: true })
-  partyNumber!: string | null;
+  partyNumber!: string;
 
   @Column({ name: 'buh_name', type: 'text' })
   buhName!: string;

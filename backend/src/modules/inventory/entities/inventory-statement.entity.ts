@@ -60,10 +60,10 @@ export class InventoryStatement {
 
   /**
    * Номер партии.
-   * Может быть NULL для основных средств.
+   * Может быть "-" для основных средств.
    */
-  @Column({ name: 'party_number', type: 'varchar', length: 255, nullable: true })
-  partyNumber!: string | null;
+  @Column({ name: 'party_number', type: 'varchar', length: 255, nullable: false, default: '-' })
+  partyNumber!: string;
 
   /**
    * Бухгалтерское наименование объекта.

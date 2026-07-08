@@ -55,10 +55,9 @@ export class StatementParser {
    * Обязательные колонки для ОС.
    */
   private readonly osColumns = [
-    'Основное средство',
+    'МОЛ',
     'Название',
     'Инвентарный номер',
-    'МОЛ'
   ];
 
   constructor(
@@ -129,7 +128,7 @@ export class StatementParser {
   private parseExcel(
     buffer: Buffer,
     docType: string
-  ): Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string | null; buhName: string }> {
+  ): Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string; buhName: string }> {
     // Читаем Excel из Buffer
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const firstSheetName = workbook.SheetNames[0];
@@ -155,8 +154,8 @@ export class StatementParser {
    */
   private parseOsvRows(
     data: any[]
-  ): Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string | null; buhName: string }> {
-    const rows: Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string | null; buhName: string }> = [];
+  ): Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string; buhName: string }> {
+    const rows: Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string; buhName: string }> = [];
 
     for (const row of data) {
       // Извлекаем zavod
@@ -185,7 +184,7 @@ export class StatementParser {
       }
 
       // Извлекаем partyNumber
-      const partyNumber = row['Партия']?.toString()?.trim() || null;
+      const partyNumber = row['Партия']?.toString()?.trim() || '-';
 
       // Пропускаем строки с пустым складом
       if (!sklad) {
@@ -214,14 +213,14 @@ export class StatementParser {
   /**
    * Парсит строки ОС (основные средства).
    * 
-   * Колонки: Основное средство, Название, Инвентарный номер, МОЛ.
+   * Колонки: МОЛ, Название, Инвентарный номер.
    * Каждая строка с непустым Инвентарным номером создаёт запись.
-   * zavod всегда 0, partyNumber всегда null.
+   * zavod всегда 0, partyNumber всегда '-'.
    */
   private parseOsRows(
     data: any[]
-  ): Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string | null; buhName: string }> {
-    const rows: Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string | null; buhName: string }> = [];
+  ): Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string; buhName: string }> {
+    const rows: Array<{ zavod: number; sklad: string; invNumber: string; partyNumber: string; buhName: string }> = [];
 
     for (const row of data) {
       const buhName = row['Название']?.toString()?.trim() || '';
@@ -237,7 +236,7 @@ export class StatementParser {
         zavod: 0,
         sklad,
         invNumber,
-        partyNumber: null,
+        partyNumber: '-',
         buhName
       });
     }

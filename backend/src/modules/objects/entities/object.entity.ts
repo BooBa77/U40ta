@@ -17,8 +17,8 @@ export class InventoryObject {
   @Column({ name: 'inv_number', type: 'varchar', length: 255, nullable: false })
   invNumber!: string;
 
-  @Column({ name: 'party_number', type: 'varchar', length: 255, nullable: true })
-  partyNumber!: string | null;
+  @Column({ name: 'party_number', type: 'varchar', length: 255, nullable: false, default: '-' })
+  partyNumber!: string;
 
   @Column({ name: 'sn', type: 'varchar', length: 100, nullable: true })
   sn!: string | null;

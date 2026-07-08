@@ -28,7 +28,7 @@ export class CreateObjectDto {
   @IsString()
   @IsOptional()
   @MaxLength(255)
-  partyNumber?: string | null;
+  partyNumber?: string;
 
   @IsString()
   @IsOptional()
