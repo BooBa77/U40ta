@@ -17,6 +17,7 @@ import { QrCodesModule } from './modules/qr-codes/qr-codes.module';
 import { PhotosModule } from './modules/photos/photos.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProposedChangesModule } from './modules/proposed-changes/proposed-changes.module';
+import { MolModule } from './modules/mol/mol.module';
 
 @Module({
   imports: [
@@ -111,7 +112,11 @@ import { ProposedChangesModule } from './modules/proposed-changes/proposed-chang
     // ProposedChangesModule — предлагаемые изменения от гостей.
     // Гости без доступа МОЛ к складу предлагают правки объектов,
     // МОЛ подтверждает или отклоняет эти предложения в своей админке.
-    ProposedChangesModule,    
+    ProposedChangesModule,
+    
+    // MolModule - инструменты МОЛа
+    // Экспорт таблицы объектов.
+    MolModule,
   ],
   
   // providers - массив сервисов, не объявленных в других модулях

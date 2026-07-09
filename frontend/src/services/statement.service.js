@@ -77,11 +77,9 @@ export class StatementService {
    */
   async getList() {
     if (this.isFlightMode()) {
-      console.log('[StatementService] Офлайн-режим: получение списка ведомостей из кэша')
       return this.getListFromCache()
     }
 
-    console.log('[StatementService] Онлайн-режим: получение списка ведомостей с сервера')
     return this.getListFromApi()
   }
 

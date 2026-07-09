@@ -96,7 +96,6 @@ export class StatementsService {
       .addSelect('COUNT(o.id)', 'objectCount')
       .where('s.userId = :userId', { userId })
       .andWhere('s.receivedAt = :receivedAt', { receivedAt })
-      .andWhere('s.isActual = true')
       .groupBy('s.id')
       .orderBy('s.invNumber', 'ASC')
       .getRawMany();

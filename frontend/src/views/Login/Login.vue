@@ -74,8 +74,7 @@ export default {
     EmailLoginModal
   },
   setup() {
-    alert('Login.vue загружен - проверка билда')
-    
+  
     const router = useRouter()
     const telegramWidget = ref(null)
     const emailModalOpen = ref(false)
