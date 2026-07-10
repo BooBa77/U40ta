@@ -49,7 +49,7 @@ export class UsersService {
    * @returns созданный пользователь
    */
   async create(createUserDto: CreateUserDto): Promise<User> {
-    this.logger.log(`Создание пользователя системы для TelegramUsersId: ${createUserDto.telegramUsersId}`);
+    this.logger.log(`Создание пользователя системы`);
     
     const abr = this.generateAbr(createUserDto.firstName, createUserDto.lastName);
 
@@ -65,8 +65,7 @@ export class UsersService {
   }
 
   /**
-   * Создание пользователя с email (для email-авторизации).
-   * telegramUsersId устанавливается в 0.
+   * Создание пользователя.
    * 
    * @param email - email пользователя
    * @param firstName - имя (из парсинга email)
@@ -78,7 +77,6 @@ export class UsersService {
     this.logger.log(`Создание пользователя по email: ${email}`);
     
     const user = this.usersRepository.create({
-      telegramUsersId: 0, // Для email-пользователей ставим 0
       firstName,
       lastName,
       eMail: email,
@@ -89,23 +87,6 @@ export class UsersService {
     
     this.logger.log(`Пользователь создан по email: ID ${savedUser.id}, abr: ${savedUser.abr}`);
     return savedUser;
-  }
-
-  /**
-   * Поиск пользователя по telegram_users_id.
-   * 
-   * @param telegramUsersId - ID пользователя в Telegram
-   * @returns пользователь или null
-   */
-  async findByTelegramUsersId(telegramUsersId: number): Promise<User | null> {
-    this.logger.log(`Поиск пользователя системы по TelegramUsersId: ${telegramUsersId}`);
-    
-    const user = await this.usersRepository.findOne({
-      where: { telegramUsersId },
-    });
-    
-    this.logger.log(`Пользователь системы ${user ? 'найден' : 'не найден'}`);
-    return user;
   }
 
   /**
@@ -209,45 +190,6 @@ export class UsersService {
     await this.usersRepository.delete(id);
     
     this.logger.log(`Пользователь системы с ID ${id} удален`);
-  }
-
-  /**
-   * Найти или создать пользователя системы.
-   * Утилитарный метод для упрощения работы в AuthService.
-   * 
-   * @param telegramUsersId - ID пользователя в Telegram
-   * @param firstName - имя
-   * @param lastName - фамилия
-   * @returns существующий или созданный пользователь
-   */
-  async findOrCreate(telegramUsersId: number, firstName: string, lastName: string): Promise<User> {
-    this.logger.log(`Поиск или создание пользователя системы для TelegramUsersId: ${telegramUsersId}`);
-    
-    let user = await this.findByTelegramUsersId(telegramUsersId);
-    
-    if (!user) {
-      this.logger.log(`Создание нового пользователя системы: ${firstName} ${lastName}`);
-      
-      user = await this.create({
-        telegramUsersId,
-        firstName,
-        lastName,
-      });
-    }
-    
-    return user;
-  }
-
-  /**
-   * Поиск пользователя по telegram_id.
-   * Удобный метод для AuthService. Ищет сначала в telegram_users, затем в users.
-   * 
-   * @param telegramId - ID пользователя в Telegram
-   * @returns пользователь или null
-   */
-  async findByTelegramId(telegramId: number): Promise<User | null> {
-    this.logger.log(`Поиск пользователя системы по Telegram ID: ${telegramId}`);
-    return null;
   }
 
   /**

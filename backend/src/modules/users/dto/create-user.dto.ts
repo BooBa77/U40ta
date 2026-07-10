@@ -1,4 +1,4 @@
-import { IsNumber, IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsNumber, IsString, IsNotEmpty, IsEmail } from 'class-validator';
 
 /**
  * DTO для создания пользователя системы
@@ -6,16 +6,13 @@ import { IsNumber, IsString, IsOptional, IsEmail } from 'class-validator';
  * Поле abr генерируется в сервисе на основе first_name и last_name
  */
 export class CreateUserDto {
-  @IsNumber()
-  telegramUsersId!: number;
-
   @IsString()
   firstName!: string;
 
   @IsString()
   lastName!: string;
 
-  @IsOptional()
   @IsEmail({}, { message: 'Некорректный формат email' })
-  eMail?: string;
+  @IsNotEmpty({ message: 'Email обязателен' })
+  eMail!: string;
 }

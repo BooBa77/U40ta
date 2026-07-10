@@ -1,3 +1,5 @@
+<!-- frontend/src/views/Login/components/EmailLoginModal.vue -->
+
 <template>
   <Transition name="modal">
     <div 
@@ -24,48 +26,39 @@
         <!-- Контент -->
         <div class="p-6 space-y-4">
           
-          <!-- Поле email: логин + домен вертикально -->
+          <!-- Поле email с подсказкой домена -->
           <div>
             <label for="email-input" class="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
-            
-            <!-- Локальная часть (вводит пользователь) -->
-            <input
-              id="email-input"
-              v-model="emailLocalPart"
-              type="text"
-              placeholder="ivanovii"
-              :disabled="codeSent"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-t-lg text-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
-                     transition-colors"
-              @input="validateEmailLocalPart"
-              @keydown.enter="handleSendCode"
-            />
-            
-            <!-- Домен (выпадающий список) -->
-            <select
-              v-model="emailDomain"
-              :disabled="codeSent"
-              class="w-full px-4 py-2.5 border border-t-0 border-gray-300 rounded-b-lg text-sm
-                     bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                     disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
-                     hover:bg-gray-100 transition-colors cursor-pointer appearance-none"
-              @change="onDomainChange"
-            >
-              <option 
-                v-for="domain in domains" 
-                :key="domain"
-                :value="domain"
+            <div class="relative">
+              <input
+                id="email-input"
+                v-model="emailLocalPart"
+                type="text"
+                placeholder="логин"
+                :disabled="codeSent"
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+                       transition-colors"
+                @input="validateEmailLocalPart"
+                @keydown.enter="handleSendCode"
+                autofocus
+              />
+              <!-- Подсказка с доменом -->
+              <span 
+                class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none select-none transition-opacity duration-200"
+                :class="{ 'opacity-0': emailLocalPart.length > 0 }"
               >
-                @{{ domain }}
-              </option>
-            </select>
-            
+                @irkutsk-dobycha.gazprom.ru
+              </span>
+            </div>
             <p v-if="emailError" class="mt-1 text-sm text-red-600">
               {{ emailError }}
+            </p>
+            <p class="mt-1 text-xs text-gray-400">
+              Введите логин, домен подставится автоматически
             </p>
           </div>
 
@@ -90,7 +83,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               <div>
-                <p class="text-sm text-green-800 font-medium">Код отправлен</p>
+                <p class="text-sm text-green-800 font-medium">Код отправлен на {{ fullEmail }}</p>
                 <p class="text-xs text-green-700">Введите код из письма</p>
               </div>
             </div>
@@ -106,13 +99,11 @@
                 type="text"
                 inputmode="numeric"
                 maxlength="4"
-                placeholder="1234"
                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-center text-2xl tracking-[0.5em] font-mono
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                        transition-colors"
                 @keydown.enter="handleVerifyCode"
                 @input="validateCode"
-                autofocus
               />
               <p v-if="codeError" class="mt-1 text-sm text-red-600">
                 {{ codeError }}
@@ -139,7 +130,7 @@
               <button
                 v-if="timer <= 0"
                 class="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium
-                      hover:bg-blue-100 active:bg-blue-200 transition-colors"
+                       hover:bg-blue-100 active:bg-blue-200 transition-colors"
                 @click="handleResendCode"
               >
                 Запросить код подтверждения
@@ -161,7 +152,7 @@
               <div class="w-full border-t border-gray-200"></div>
             </div>
             <div class="relative flex justify-center text-xs">
-              <span class="px-3 bg-white text-gray-500"></span>
+              <span class="px-3 bg-white text-gray-500">или</span>
             </div>
           </div>
 
@@ -171,7 +162,7 @@
                    hover:bg-gray-200 active:bg-gray-300 transition-colors"
             @click="handleClose"
           >
-            Назад
+            Назад к выбору входа
           </button>
 
         </div>
@@ -184,6 +175,8 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { emailService } from '@/services/email.service'
+
+const CORPORATE_DOMAIN = 'irkutsk-dobycha.gazprom.ru'
 
 export default {
   name: 'EmailLoginModal',
@@ -199,11 +192,9 @@ export default {
 
   setup(props, { emit }) {
     const router = useRouter()
-    const DEEP_LINK_STORAGE_KEY = 'deepLinkRestore'
 
     // ===== Состояние =====
     const emailLocalPart = ref('')
-    const emailDomain = ref('irkutsk-dobycha.gazprom.ru')
     const code = ref('')
     const isLoading = ref(false)
     const isVerifying = ref(false)
@@ -214,18 +205,10 @@ export default {
     const errorMessage = ref('')
     let timerInterval = null
 
-    // ===== Список доменов =====
-    const domains = [
-      'irkutsk-dobycha.gazprom.ru',
-      'mail.ru',
-      'gmail.com',
-      'yandex.ru'
-    ]
-
     // ===== Вычисляемые свойства =====
     const fullEmail = computed(() => {
       if (!emailLocalPart.value) return ''
-      return `${emailLocalPart.value}@${emailDomain.value}`
+      return `${emailLocalPart.value}@${CORPORATE_DOMAIN}`
     })
 
     const isEmailValid = computed(() => {
@@ -233,10 +216,7 @@ export default {
       // Разрешаем только латиницу, цифры, точку, дефис и нижнее подчеркивание
       const localPartRegex = /^[a-zA-Z0-9._-]+$/
       if (!localPartRegex.test(emailLocalPart.value)) return false
-      
-      // Проверяем длину (минимум 1 символ)
       if (emailLocalPart.value.length < 1) return false
-      
       return true
     })
 
@@ -247,25 +227,7 @@ export default {
     })
 
     // ===== Методы =====
-    
-    /**
-     * Получить данные глубокой ссылки из sessionStorage
-     * Используется для восстановления контекста после авторизации
-     * @returns {Object} { redirectPath, notification, objectId, changes }
-     */
-    const getDeepLinkStorage = () => {
-      try {
-        const raw = sessionStorage.getItem(DEEP_LINK_STORAGE_KEY)
-        return raw ? JSON.parse(raw) : {}
-      } catch {
-        return {}
-      }
-    }
 
-    const saveDeepLinkStorage = (data) => {
-      sessionStorage.setItem(DEEP_LINK_STORAGE_KEY, JSON.stringify(data))
-    }
-    
     /**
      * Валидация локальной части email
      */
@@ -275,7 +237,6 @@ export default {
         return false
       }
       
-      // Разрешаем только латиницу, цифры, точку, дефис и нижнее подчеркивание
       const localPartRegex = /^[a-zA-Z0-9._-]+$/
       if (!localPartRegex.test(emailLocalPart.value)) {
         emailError.value = 'Только латиница, цифры, . _ -'
@@ -295,24 +256,13 @@ export default {
      * Валидация кода (только цифры)
      */
     const validateCode = () => {
-      // Удаляем все нецифровые символы
       code.value = code.value.replace(/\D/g, '')
-      
       if (code.value.length > 0 && !/^\d+$/.test(code.value)) {
         codeError.value = 'Только цифры'
         return false
       }
-      
       codeError.value = ''
       return true
-    }
-
-    /**
-     * Обработка смены домена
-     */
-    const onDomainChange = () => {
-      // Просто логируем для отладки
-      console.log('[EmailLoginModal] Выбран домен:', emailDomain.value)
     }
 
     /**
@@ -338,7 +288,7 @@ export default {
     const handleSendCode = async () => {
       if (!validateEmailLocalPart()) return
       if (!fullEmail.value) {
-        emailError.value = 'Введите email'
+        emailError.value = 'Введите логин'
         return
       }
       if (isLoading.value) return
@@ -349,12 +299,10 @@ export default {
       try {
         await emailService.sendCode(fullEmail.value)
         codeSent.value = true
-        startTimer(300) // 5 минут
+        startTimer(300)
         
-        // Сохраняем email в localStorage для восстановления после F5
         localStorage.setItem('u40ta_email_login', fullEmail.value)
         
-        // Автофокус на поле кода
         setTimeout(() => {
           const codeInput = document.getElementById('code-input')
           if (codeInput) codeInput.focus()
@@ -388,39 +336,6 @@ export default {
         localStorage.removeItem('u40ta_email_login')
         
         emit('success')
-        
-        // Проверяем sessionStorage — есть ли deepLinkRestore
-        const deepLinkStorage = getDeepLinkStorage()
-
-        if (deepLinkStorage.redirectPath) {
-          if (deepLinkStorage.notification) {
-            alert(deepLinkStorage.notification)
-            delete deepLinkStorage.notification
-            saveDeepLinkStorage(deepLinkStorage)
-          }
-          router.push(deepLinkStorage.redirectPath)
-          return
-        }
-
-        // Обычная логика redirect из URL
-        if (!import.meta.env.DEV) {
-          const urlParams = new URLSearchParams(window.location.search)
-          const redirect = urlParams.get('redirect')
-          
-          if (redirect) {
-            if (redirect.startsWith('http')) {
-              router.push({
-                path: '/',
-                query: { qr: redirect, from: 'scan' }
-              })
-              return
-            } else {
-              router.push(redirect)
-              return
-            }
-          }
-        }
-        
         router.push('/')
       } catch (error) {
         codeError.value = error.message || 'Неверный код'
@@ -451,7 +366,6 @@ export default {
       if (isLoading.value || isVerifying.value) return
       clearInterval(timerInterval)
       timerInterval = null
-      // Сброс состояния
       emailLocalPart.value = ''
       code.value = ''
       codeSent.value = false
@@ -470,13 +384,9 @@ export default {
       const savedEmail = localStorage.getItem('u40ta_email_login')
       if (!savedEmail || !props.isOpen) return
 
-      // Парсим email на локальную часть и домен
-      const [local, domain] = savedEmail.split('@')
-      if (local && domain) {
+      const [local] = savedEmail.split('@')
+      if (local) {
         emailLocalPart.value = local
-        if (domains.includes(domain)) {
-          emailDomain.value = domain
-        }
       }
 
       try {
@@ -500,7 +410,6 @@ export default {
         if (savedEmail) {
           restoreState()
         }
-        // Автофокус на поле email
         setTimeout(() => {
           const emailInput = document.getElementById('email-input')
           if (emailInput) emailInput.focus()
@@ -515,7 +424,6 @@ export default {
 
     return {
       emailLocalPart,
-      emailDomain,
       code,
       isLoading,
       isVerifying,
@@ -524,13 +432,11 @@ export default {
       emailError,
       codeError,
       errorMessage,
-      domains,
       fullEmail,
       isEmailValid,
       formattedTime,
       validateEmailLocalPart,
       validateCode,
-      onDomainChange,
       handleSendCode,
       handleVerifyCode,
       handleResendCode,

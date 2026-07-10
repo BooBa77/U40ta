@@ -1,6 +1,5 @@
 import { Controller, Post, Body, Logger, NotFoundException, BadRequestException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
-import { TelegramLoginDto } from './dto/telegram-login.dto';
 import { SendCodeDto, VerifyCodeDto, CheckCodeStatusDto } from './dto/email-auth.dto';
 
 @Controller('auth')
@@ -8,16 +7,6 @@ export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
   constructor(private readonly authService: AuthService) {}
-
-  @Post('telegram')
-  async telegramLogin(@Body() telegramData: TelegramLoginDto) {
-    this.logger.log(`Telegram авторизация: ${telegramData.first_name}`);
-
-    const result = await this.authService.telegramLogin(telegramData);
-    
-    this.logger.log(`Авторизация успешна: ${telegramData.first_name}`);
-    return result;
-  }
 
   @Post('dev-login')
   async devLogin(@Body() { userId }: { userId: number }) {

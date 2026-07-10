@@ -2,7 +2,6 @@
 
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { TelegramAuthService } from './telegram-auth.service';
 import { UsersService } from '../../users/users.service';
 import { AuthResponseDto } from '../dto/auth-response.dto';
 import { EmailCodeService } from './email-code.service';
@@ -13,7 +12,6 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private telegramAuthService: TelegramAuthService,
     private usersService: UsersService,
     private jwtService: JwtService,
     private emailCodeService: EmailCodeService,
@@ -42,41 +40,6 @@ export class AuthService {
     const token = await this.generateJwtToken(user);
     
     this.logger.log(`Dev-авторизация успешна для пользователя: ${user.firstName}`);
-    return { access_token: token };
-  }
-
-  /**
-   * Основной метод обработки Telegram авторизации
-   * всегда создает/находит пользователя и возвращает токен
-   * нет состояния "ожидания одобрения" - все становятся гостями
-   */
-  async telegramLogin(loginData: any): Promise<AuthResponseDto> {
-    this.logger.log(`=== Telegram авторизация START ===`);
-    this.logger.log(`Данные от Telegram: ${JSON.stringify({
-      id: loginData.id,
-      first_name: loginData.first_name,
-      last_name: loginData.last_name
-    })}`);
-
-    // 1. Обрабатываем данные Telegram (находим или создаем в telegram_users)
-    const telegramAuthResult = await this.telegramAuthService.processTelegramData(loginData);
-    this.logger.log(`Пользователь Telegram: ID ${telegramAuthResult.user.id}, новый: ${telegramAuthResult.isNew}`);
-
-    // 2. Находим или создаем пользователя в основной таблице users
-    const user = await this.usersService.findOrCreate(
-      telegramAuthResult.user.id, // telegram_users.id передаем как telegramUsersId
-      loginData.first_name,
-      loginData.last_name || ''
-    );
-    
-    this.logger.log(`Пользователь системы: ID ${user.id}, abr: ${user.abr}`);
-
-    // 3. Генерируем JWT токен для пользователя
-    const token = await this.generateJwtToken(user);
-    
-    this.logger.log(`=== Telegram авторизация SUCCESS ===`);
-    this.logger.log(`Токен сгенерирован для пользователя: ${user.firstName} ${user.lastName}`);
-    
     return { access_token: token };
   }
 
@@ -159,7 +122,6 @@ export class AuthService {
       this.logger.log(`Создание нового пользователя для email: ${normalizedEmail}`);
       
       user = await this.usersService.create({
-        telegramUsersId: 0, // Временное значение, т.к. telegram_users_id обязателен
         firstName: userData.firstName,
         lastName: userData.lastName,
         eMail: normalizedEmail,
@@ -256,7 +218,7 @@ export class AuthService {
       abr: user.abr,                   // Аббревиатура для подписей
       firstName: user.firstName,       // Имя пользователя
       lastName: user.lastName,         // Фамилия пользователя
-      telegramUsersId: user.telegramUsersId, // Ссылка на telegram_users
+      email: user.eMail,               // Email пользователя
     };
 
     this.logger.debug(`Payload JWT: ${JSON.stringify(payload)}`);
@@ -266,7 +228,7 @@ export class AuthService {
     
     this.logger.log(`JWT токен успешно сгенерирован`);
     return token;
-  }
+  }  
 
   /**
    * Валидация JWT токена (для внутреннего использования)

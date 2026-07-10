@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppEventsModule } from './modules/app-events/app-events.module'; // SSE
-import { TelegramUsersModule } from './modules/telegram-users/telegram-users.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { LogsModule } from './modules/logs/logs.module';
@@ -68,17 +67,13 @@ import { MolModule } from './modules/mol/mol.module';
     // AppEventsModule - система реального времени (SSE) для мгновенных уведомлений клиентов
     // Объединяет уведомления из разных модулей: email, файлы, пользователи
     AppEventsModule,
-
-    // TelegramUsersModule - модуль для работы с заявками на авторизацию от пользователей Telegram
-    // Содержит сущность telegram_users и сервисы для работы с ней
-    TelegramUsersModule,
     
     // UsersModule - модуль для работы с пользователями системы
     // Содержит сущность users и сервисы для работы с ней
     UsersModule,
     
     // AuthModule - модуль аутентификации и авторизации
-    // Обрабатывает логику входа через Telegram и другие методы
+    // Обрабатывает логику входа
     AuthModule,
 
     // EmailModule - модуль работы с электронной почтой

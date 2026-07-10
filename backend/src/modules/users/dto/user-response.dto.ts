@@ -7,9 +7,8 @@ import { Exclude, Expose } from 'class-transformer';
 @Exclude()
 export class UserResponseDto {
   @Expose() id!: number;
-  @Expose() telegramUsersId!: number;
   @Expose() firstName!: string;
   @Expose() lastName!: string;
   @Expose() abr!: string;
-  @Expose() eMail!: string | null;
+  @Expose() eMail!: string;
 }
