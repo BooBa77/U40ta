@@ -31,6 +31,7 @@
             <label for="email-input" class="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
+            <!--
             <div class="relative">
               <input
                 id="email-input"
@@ -46,7 +47,6 @@
                 @keydown.enter="handleSendCode"
                 autofocus
               />
-              <!-- Подсказка с доменом -->
               <span 
                 class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none select-none transition-opacity duration-200"
                 :class="{ 'opacity-0': emailLocalPart.length > 0 }"
@@ -54,6 +54,26 @@
                 @irkutsk-dobycha.gazprom.ru
               </span>
             </div>
+            -->
+            <div class="relative">
+              <input
+                id="email-input"
+                v-model="emailLocalPart"
+                type="text"
+                placeholder="логин"
+                :disabled="codeSent"
+                class="w-full px-4 py-2.5 pr-52 border border-gray-300 rounded-lg text-sm
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                      disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+                      transition-colors"
+                @input="validateEmailLocalPart"
+                @keydown.enter="handleSendCode"
+              />
+              <!-- Домен всегда виден справа -->
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none select-none">
+                @irkutsk-dobycha.gazprom.ru
+              </span>
+            </div>            
             <p v-if="emailError" class="mt-1 text-sm text-red-600">
               {{ emailError }}
             </p>
