@@ -172,6 +172,9 @@ const statementRows = ref([])
 const objectRows = ref([])
 const { hasCamera } = useCamera()
 
+/** Флаг: были ли изменения в модалке (создан объект, перемещён и т.д.) */
+const hasChanges = ref(false)
+
 const objectFormIsOpen = ref(false)
 const objectFormObjectId = ref(null)
 const objectFormStatementId = ref(null)
@@ -243,7 +246,7 @@ const loadData = async () => {
   } finally {
     isLoading.value = false
   }
-  console.log('[InvListModal] statementRows:', statementRows.value.length, 'objectRows:', objectRows.value.length)
+
   // После загрузки проверяем — если данных нет, закрываем модалку
   if (statementRows.value.length === 0 && objectRows.value.length === 0) {
     handleClose()
@@ -316,6 +319,9 @@ const handleObjectFormSave = async (result) => {
     objectFormQrCode.value = null
   }, 300)
   
+  // Объект был создан или изменён — отмечаем флаг
+  hasChanges.value = true
+  
   await loadData()
 }
 
@@ -346,17 +352,26 @@ const handleExcessObjectSaved = () => {
     selectedExcessObjectId.value = null
   }, 300)
   
+  // Объект изменён (перемещён, вовлечён) — отмечаем флаг
+  hasChanges.value = true
+  
   // Перезагружаем данные — объект мог переместиться на другой склад
   loadData()
 }
 
+/**
+ * Закрытие модалки.
+ * Передаёт родителю флаг hasChanges, чтобы тот знал, нужен ли reload.
+ */
 const handleClose = () => {
-  emit('close')
+  emit('close', { hasChanges: hasChanges.value })
 }
 
 // ============ WATCH ============
 watch(() => props.isOpen, async (newVal) => {
   if (newVal) {
+    // Сбрасываем флаг изменений при открытии
+    hasChanges.value = false
     await loadData()
   } else {
     statementRows.value = []

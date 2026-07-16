@@ -1,5 +1,8 @@
 <template>
-  <div class="statement-table flex-1 min-h-[300px] max-h-full border border-gray-200 rounded-lg bg-white overflow-auto relative">
+  <div 
+    ref="tableContainer"
+    class="statement-table flex-1 min-h-[300px] max-h-full border border-gray-200 rounded-lg bg-white overflow-auto relative"
+  >
     <table class="w-full border-collapse table-fixed min-w-[350px]">
       <thead class="sticky top-0 z-10 bg-gray-50">
         <tr>
@@ -7,7 +10,7 @@
             class="w-8 px-2 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200"
           >
             👁️
-            <span class="sr-only">Актуально</span>
+            <span class="sr-only">Актуальность</span>
           </th>
           <th 
             @click="handleHeaderClick('inv_party_combined')"
@@ -40,15 +43,21 @@
           class="cursor-pointer transition-colors"
           @click="handleRowClick(row)"
         >
-          <td class="w-8 px-2 py-2 border-b border-gray-100 text-center align-middle" @click.stop>
-            <input 
+          <!-- Колонка актуальности: иконка глаза вместо чекбокса -->
+          <td 
+            class="w-8 px-2 py-2 border-b border-gray-100 text-center align-middle" 
+            @click.stop
+          >
+            <span
               v-if="!row.isExcess"
-              type="checkbox" 
-              :checked="row.isActual"
-              @change="handleActualChange(row, $event.target.checked)"
-              class="w-4 h-4 accent-blue-500 cursor-pointer"
-            />
+              @click="handleActualChange(row, !row.isActual)"
+              class="cursor-pointer text-lg select-none leading-none"
+              :title="row.isActual ? 'Скрыть строку' : 'Вернуть строку'"
+            >
+              {{ row.isActual ? '👁️' : '🙈' }}
+            </span>
           </td>
+
           <td class="px-2 py-2 border-b border-gray-100 align-middle">
             <div class="inv-party-cell leading-tight">
               <div class="inv-number font-medium mb-0.5">{{ row.invNumber || '—' }}</div>
@@ -76,8 +85,11 @@
 <script setup>
 /**
  * Компонент таблицы ведомости МОЛ.
- * Отображает сгруппированные строки с цветовой индикацией и чекбоксами актуальности.
+ * Отображает сгруппированные строки с цветовой индикацией и иконками актуальности.
+ * Поддерживает сохранение позиции скролла при перерисовке через механизм якорей.
  */
+
+import { ref, nextTick } from 'vue'
 
 const props = defineProps({
   /**
@@ -116,6 +128,9 @@ const emit = defineEmits([
   'actual-change',
   'row-click'
 ])
+
+/** Ссылка на контейнер таблицы для скролла */
+const tableContainer = ref(null)
 
 /**
  * CSS-класс строки на основе группы.
@@ -156,7 +171,7 @@ const handleHeaderClick = (columnId) => {
 
 /**
  * Обработчик клика по строке.
- * isExcess строки не кликабельны.
+ * Неактуальные строки (серые) не кликабельны.
  * @param {Object} row - агрегированная строка
  */
 const handleRowClick = (row) => {
@@ -172,15 +187,127 @@ const handleRowClick = (row) => {
   })
 }
 
+// ============================================================
+//  ЛОГИКА ЯКОРЯ ДЛЯ СОХРАНЕНИЯ ПОЗИЦИИ СКРОЛЛА
+//
+//  Типы якорей:
+//  - 'return_to_active' — возврат строки из серых в активные.
+//    Якорь ищется по invNumber (первая найденная строка).
+//  - 'hide_to_inactive' — скрытие строки в серые.
+//    Якорь ищется по invNumber + partyNumber + groupColor.
+//  - 'modal_close' — закрытие InvListModal.
+//    Якорь ищется по invNumber + partyNumber
+//    (groupColor мог измениться после создания объекта).
+// ============================================================
+
 /**
- * Обработчик изменения чекбокса актуальности.
- * @param {Object} row - агрегированная строка
- * @param {boolean} checked - новое состояние чекбокса
+ * Находит якорь для последующего скролла после перерисовки.
+ * Вызывается ПЕРЕД эмитом actual-change.
+ * 
+ * @param {Object} row - строка, в которой изменился флаг актуальности
+ * @param {boolean} newActual - новое значение isActual
+ * @returns {Object|null} объект якоря или null, если скролл не нужен
  */
-const handleActualChange = (row, checked) => {
-  emit('actual-change', {
-    invNumber: row.invNumber,
-    isActual: checked
+const findAnchor = (row, newActual) => {
+  // Случай 1: возвращаем строку в активные (isActual = true)
+  // После перерисовки она может развалиться на несколько строк
+  // (разные party), якорь — любая строка с этим invNumber
+  if (newActual) {
+    return {
+      type: 'return_to_active',
+      invNumber: row.invNumber
+    }
+  }
+
+  // Случай 2: скрываем строку (isActual = false)
+  // Ищем в текущем массиве ближайшую сверху строку,
+  // которая НЕ будет скрыта (isActual или isExcess) и имеет другой invNumber.
+  // Серых выше быть не может — они всегда в конце таблицы.
+  const currentIndex = props.statements.findIndex(
+    s => s.invNumber === row.invNumber &&
+         s.partyNumber === row.partyNumber &&
+         s.isActual
+  )
+
+  if (currentIndex === -1) return null
+
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    const candidate = props.statements[i]
+    if (
+      candidate.invNumber !== row.invNumber &&
+      (candidate.isActual || candidate.isExcess)
+    ) {
+      return {
+        type: 'hide_to_inactive',
+        invNumber: candidate.invNumber,
+        partyNumber: candidate.partyNumber,
+        groupColor: candidate.groupColor
+      }
+    }
+  }
+
+  // Дошли до верха таблицы — якоря нет, скролл не нужен
+  return null
+}
+
+/**
+ * Скроллит к строке-якорю после перерисовки таблицы.
+ * Вызывается родителем (StatementPage) после reload() и nextTick.
+ * Ищет строку по данным (props.statements), затем скроллит DOM-элемент.
+ * 
+ * @param {Object} anchor - объект якоря, сформированный findAnchor или вручную
+ */
+const scrollToAnchor = (anchor) => {
+  if (!anchor || !tableContainer.value) return
+
+  nextTick(() => {
+    const rows = tableContainer.value.querySelectorAll('tbody tr')
+    const statementsData = props.statements
+
+    let targetIndex = -1
+
+    if (anchor.type === 'return_to_active') {
+      // Ищем первую строку с совпадающим invNumber
+      targetIndex = statementsData.findIndex(s => s.invNumber === anchor.invNumber)
+
+    } else if (anchor.type === 'hide_to_inactive') {
+      // Ищем точное совпадение inv + party + groupColor
+      targetIndex = statementsData.findIndex(
+        s => s.invNumber === anchor.invNumber &&
+             s.partyNumber === anchor.partyNumber &&
+             s.groupColor === anchor.groupColor
+      )
+
+    } else if (anchor.type === 'modal_close') {
+      // Ищем совпадение inv + party, groupColor мог измениться
+      targetIndex = statementsData.findIndex(
+        s => s.invNumber === anchor.invNumber &&
+             s.partyNumber === anchor.partyNumber
+      )
+    }
+
+    if (targetIndex !== -1 && rows[targetIndex]) {
+      rows[targetIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
   })
 }
+
+/**
+ * Обработчик изменения актуальности (клик по иконке глаза).
+ * Находит якорь и эмитит событие в родителя.
+ * 
+ * @param {Object} row - агрегированная строка
+ * @param {boolean} checked - новое состояние isActual
+ */
+const handleActualChange = (row, checked) => {
+  const anchor = findAnchor(row, checked)
+  emit('actual-change', {
+    invNumber: row.invNumber,
+    isActual: checked,
+    anchor
+  })
+}
+
+// Отдаём метод скролла родителю
+defineExpose({ scrollToAnchor })
 </script>

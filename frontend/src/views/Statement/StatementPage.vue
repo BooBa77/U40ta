@@ -78,6 +78,7 @@
 
       <!-- Таблица -->
       <StatementTable 
+        ref="statementTableRef"
         :key="JSON.stringify(activeFiltersForTable)"
         v-if="statementsLength > 0"
         :statements="tableStatements"
@@ -85,7 +86,7 @@
         :active-filters="activeFiltersForTable"
         :has-party-or-quantity="hasPartyOrQuantity"
         @filter-click="handleFilterClick"
-        @actual-change="actualManager.handleActualChange"
+        @actual-change="handleActualChangeWithAnchor"
         @qr-scan="openObjectFormFromRowData"
         @row-click="handleRowClick"
       />
@@ -97,7 +98,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatementTable from './components/StatementTable.vue'
 import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
@@ -166,6 +167,10 @@ const selectedItem = ref({
   sklad: ''
 })
 
+// === REF НА ТАБЛИЦУ ===
+/** Ссылка на компонент StatementTable для вызова scrollToAnchor */
+const statementTableRef = ref(null)
+
 // === COMPUTED-ОБЕРТКИ ===
 const statementsLength = computed(() => tableStatements.value?.length || 0)
 const tableStatements = computed(() => tableFilteredData.value)
@@ -193,7 +198,10 @@ const statementTitle = computed(() => {
   return statements.value[0].description || ''
 })
 
-// === ОБРАБОТЧИК КЛИКА ПО СТРОКЕ ТАБЛИЦЫ ===
+// ============================================================
+//  ОБРАБОТЧИК КЛИКА ПО СТРОКЕ ТАБЛИЦЫ
+// ============================================================
+
 const handleRowClick = (groupParams) => {
   selectedItem.value = {
     invNumber: groupParams.invNumber,
@@ -206,7 +214,22 @@ const handleRowClick = (groupParams) => {
   invListIsOpen.value = true
 }
 
-const handleInvListClose = () => {
+/**
+ * Обработчик закрытия InvListModal.
+ * Если в модалке были изменения — перезагружает данные и скроллит к якорю.
+ * Если изменений не было — просто закрывает без reload.
+ * 
+ * @param {Object} params - параметры из модалки
+ * @param {boolean} params.hasChanges - были ли изменения в модалке
+ */
+const handleInvListClose = async ({ hasChanges } = {}) => {
+  // Запоминаем якорь до возможной перерисовки
+  const anchor = {
+    type: 'modal_close',
+    invNumber: selectedItem.value.invNumber,
+    partyNumber: selectedItem.value.partyNumber
+  }
+
   invListIsOpen.value = false
   
   setTimeout(() => {
@@ -218,8 +241,37 @@ const handleInvListClose = () => {
     }
   }, 300)
   
-  // При любом закрытии InvListModal перезагружаем таблицу
-  reload()
+  // Перезагружаем данные только если были изменения
+  if (hasChanges) {
+    await reload()
+    await nextTick()
+    
+    if (statementTableRef.value) {
+      statementTableRef.value.scrollToAnchor(anchor)
+    }
+  }
+}
+
+// ============================================================
+//  ОБРАБОТЧИК ИЗМЕНЕНИЯ АКТУАЛЬНОСТИ (с якорем)
+// ============================================================
+
+/**
+ * Обработчик изменения актуальности с сохранением позиции скролла.
+ * Вызывает actualManager, затем скроллит к якорю после перерисовки.
+ * 
+ * @param {Object} params
+ * @param {string} params.invNumber - инвентарный номер
+ * @param {boolean} params.isActual - новое значение
+ * @param {Object|null} params.anchor - якорь, найденный в StatementTable
+ */
+const handleActualChangeWithAnchor = async ({ invNumber, isActual, anchor }) => {
+  await actualManager.handleActualChange({ invNumber, isActual })
+  await nextTick()
+  
+  if (anchor && statementTableRef.value) {
+    statementTableRef.value.scrollToAnchor(anchor)
+  }
 }
 
 // === ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ФОРМЫ ИЗ ТАБЛИЦЫ ===

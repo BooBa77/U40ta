@@ -11,6 +11,8 @@ export function useActualManager(receivedAt, reloadCallback) {
   /**
    * Обработчик изменения статуса актуальности.
    * Устанавливает isActual для всех строк с указанным инв.номером.
+   * Возвращает промис от перезагрузки данных.
+   * 
    * @param {Object} params - параметры обновления
    * @param {string} params.invNumber - инвентарный номер
    * @param {boolean} params.isActual - новое значение актуальности
@@ -25,7 +27,7 @@ export function useActualManager(receivedAt, reloadCallback) {
       )
       
       if (reloadCallback && typeof reloadCallback === 'function') {
-        reloadCallback()
+        return reloadCallback()
       }
     } catch (error) {
       console.error('[useActualManager] Ошибка обновления актуальности:', error)
