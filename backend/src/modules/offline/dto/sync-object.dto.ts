@@ -26,6 +26,7 @@ export class SyncObjectDto {
   placePos?: string | null;
   placeCab?: string | null;
   placeUser?: string | null;
+  rem?: string | null; 
   qrCodes?: string[];
   photosToAdd?: SyncPhotoDto[];
   logs?: SyncLogDto[];

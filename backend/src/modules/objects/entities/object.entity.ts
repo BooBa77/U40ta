@@ -40,4 +40,7 @@ export class InventoryObject {
 
   @Column({ name: 'place_user', type: 'varchar', length: 100, nullable: true })
   placeUser!: string | null;
+
+  @Column({ name: 'rem', type: 'text', nullable: true })
+  rem!: string | null;  
 }

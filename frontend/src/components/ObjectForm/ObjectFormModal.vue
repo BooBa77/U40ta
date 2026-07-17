@@ -113,6 +113,14 @@
               <button 
                 class="flex-1 py-2.5 bg-blue-500 text-white rounded-md text-sm font-medium
                        active:bg-blue-600 disabled:bg-blue-300"
+                @click="handleHistoryOpen" 
+                :disabled="isSaving"
+              >
+                История
+              </button>
+              <button 
+                class="flex-1 py-2.5 bg-blue-500 text-white rounded-md text-sm font-medium
+                       active:bg-blue-600 disabled:bg-blue-300"
                 @click="handlePhotoCapture" 
                 :disabled="isSaving"
               >
@@ -155,7 +163,7 @@
           <!-- 5. Комментарий -->
           <div>
             <textarea
-              v-model="comment"
+              v-model="objectData.rem"
               placeholder="Комментарий"
               class="input-base resize-y min-h-[70px] leading-relaxed"
               rows="3"
@@ -208,6 +216,12 @@
     </div>
   </Transition>
 
+  <HistoryModal
+    :is-open="isHistoryOpen"
+    :object-id="objectData.id"
+    @close="isHistoryOpen = false"
+  />
+
   <PhotoViewerModal
     :is-open="isPhotoViewerOpen"
     :photos="availablePhotos"
@@ -234,6 +248,7 @@ import { useObjectPhotos } from './composables/useObjectPhotos'
 import { useObjectQrCodes } from './composables/useObjectQrCodes'
 import { useCamera } from '@/composables/useCamera'
 import { useObjectPlaces } from './composables/useObjectPlaces'
+import HistoryModal from './components/HistoryModal.vue'
 import PhotoViewerModal from './components/PhotoViewerModal.vue'
 import BulkMoveModal from './components/BulkMoveModal.vue'
 
@@ -250,7 +265,9 @@ const emit = defineEmits(['save', 'cancel', 'guest-save', 'guest-need-auth'])
 // Состояния
 const isSaving = ref(false)
 const errorMessage = ref('')
-const comment = ref('')
+const showGuestSuccessMessage = ref(false)
+const isHistoryOpen = ref(false)
+const handleHistoryOpen = () => {isHistoryOpen.value = true}
 const { hasCamera, takePhoto } = useCamera()
 const isPhotoViewerOpen = ref(false)
 const photoViewerStartIndex = ref(0)
@@ -262,7 +279,8 @@ const objectData = ref({
   sklad: '',
   zavod: '',
   partyNumber: '',
-  sn: ''
+  sn: '',
+  rem: ''
 })
 
 const {
@@ -305,6 +323,7 @@ const {
 
 const originalData = ref({
   sn: '',
+  rem: '',
   placesString: '',
   placesObject: {
     placeTer: '',
@@ -352,6 +371,7 @@ const captureOriginalData = () => {
   
   originalData.value = {
     sn: objectData.value.sn || '',
+    rem: objectData.value.rem || '',
     placesString: formatPlacesToString(placesForSave),
     placesObject: { ...placesForSave }
   }
@@ -367,7 +387,8 @@ const loadObject = async (id) => {
       sklad: object.sklad || '',
       zavod: object.zavod || 0,
       partyNumber: object.partyNumber || '',
-      sn: object.sn || ''
+      sn: object.sn || '',
+      rem: object.rem || ''
     }
 
     setPlacesFromObject(object)
@@ -387,7 +408,8 @@ const initFromRowData = (data) => {
     sklad: data.sklad || '',
     zavod: data.zavod || 0,
     partyNumber: data.partyNumber || '',
-    sn: data.sn || ''
+    sn: data.sn || '',
+    rem: data.rem || ''
   }
   
   captureOriginalData()
@@ -401,9 +423,9 @@ const resetForm = () => {
     sklad: '',
     zavod: '',
     partyNumber: '',
-    sn: ''
+    sn: '',
+    rem: ''
   }
-  comment.value = ''
   errorMessage.value = ''
   isSaving.value = false
   resetPlaces()
@@ -421,7 +443,7 @@ const handleQrScan = async () => {
     emit('guest-need-auth', 'qr', {
       places: getPlacesForSave(),
       sn: objectData.value.sn || '',
-      comment: comment.value.trim()
+      comment: objectData.value.rem.trim()
     })
     return
   }
@@ -433,7 +455,7 @@ const handlePhotoCapture = async () => {
     emit('guest-need-auth', 'photo', {
       places: getPlacesForSave(),
       sn: objectData.value.sn || '',
-      comment: comment.value.trim()
+      comment: objectData.value.rem.trim()
     })
     return
   }
@@ -476,7 +498,7 @@ const handlePhotoClick = (index) => {
 const hasChanges = computed(() => {
   const placesChanged = getPlacesChangeMessage() !== null
   const snChanged = getSnChangeMessage() !== null
-  const commentFilled = comment.value.trim() !== ''
+  const commentFilled = objectData.value.rem !== originalData.value.rem
   const photosChanged = photos.value.some(p => !p.isDeleted && !p.id) || photos.value.some(p => p.isDeleted && p.id)
   const qrChanged = pendingQrCodes.value.size > 0
 
@@ -498,9 +520,8 @@ const getPlacesChangeMessage = () => {
   const newPlaces = formatPlacesToString(getPlacesForSave())
   
   if (oldPlaces === newPlaces) return null
-  if (!oldPlaces && newPlaces) return `установлено на ${newPlaces}`
   if (oldPlaces && !newPlaces) return `ушло в запас`
-  return `теперь у: ${newPlaces}`
+  return newPlaces
 }
 
 const handleSave = async () => {
@@ -509,7 +530,7 @@ const handleSave = async () => {
     const changes = {
       places: getPlacesForSave(),
       sn: objectData.value.sn || '',
-      comment: comment.value.trim()
+      comment: objectData.value.rem.trim()
     }
     emit('guest-save', changes)
     return
@@ -525,6 +546,7 @@ const handleSave = async () => {
 
     const { toAdd: photosToAdd, toDelete: photosToDelete } = await prepareForSave()
     const newQrCodes = Array.from(pendingQrCodes.value)
+    const remChanged = objectData.value.rem !== originalData.value.rem
 
     // ---------- ОСНОВНОЙ ОБЪЕКТ ----------
     
@@ -570,11 +592,14 @@ const handleSave = async () => {
         await logsService.addObjectHistory(savedId, entry.eventType, entry.storyLine)
       }
 
-      if (comment.value.trim()) {
-        await logsService.addObjectHistory(savedId, 'comment', comment.value.trim())
+      // Комментарий: пишем в лог и обновляем объект, если изменился
+      if (remChanged) {
+        const remValue = objectData.value.rem.trim()
+        const remStoryLine = remValue || 'очистка комментария'
+        await logsService.addObjectHistory(savedId, 'comment', remStoryLine)
       }
 
-      const hasAnyChanges = historyEntries.length > 0 || comment.value.trim()
+      const hasAnyChanges = historyEntries.length > 0 || remChanged
 
       if (hasAnyChanges) {
         await objectService.updateCheckedAt(savedId)
@@ -610,10 +635,11 @@ const handleSave = async () => {
       }
 
       // Комментарий
-      if (comment.value.trim()) {
+      const remChanged = objectData.value.rem !== originalData.value.rem
+      if (remChanged) {
         proposedChanges.push({
           changeType: 'comment',
-          proposedData: { comment: comment.value.trim() }
+          proposedData: { comment: objectData.value.rem.trim() }
         })
       }
 
@@ -664,11 +690,12 @@ const handleSave = async () => {
                 placeUser: newPlaces.placeUser
               })
 
-              const storyLine = `теперь у: ${formatPlacesToString(newPlaces)}`
+              const storyLine = formatPlacesToString(newPlaces)
               await logsService.addObjectHistory(obj.id, 'place_changed', storyLine)
 
-              if (comment.value.trim()) {
-                await logsService.addObjectHistory(obj.id, 'comment', comment.value.trim())
+              if (remChanged) {
+                const remStoryLine = objectData.value.rem.trim()
+                await logsService.addObjectHistory(obj.id, 'comment', remStoryLine)
               }
 
               await objectService.updateCheckedAt(obj.id)
@@ -679,10 +706,10 @@ const handleSave = async () => {
                 proposedData: newPlaces
               }]
 
-              if (comment.value.trim()) {
+              if (remChanged) {
                 relatedChanges.push({
                   changeType: 'comment',
-                  proposedData: { comment: comment.value.trim() }
+                  proposedData: { comment: objectData.value.rem.trim() }
                 })
               }
 

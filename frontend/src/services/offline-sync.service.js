@@ -178,6 +178,7 @@ class OfflineSyncService {
         placePos: object.placePos,
         placeCab: object.placeCab,
         placeUser: object.placeUser,
+        rem: object.rem,
         checkedAt: object.checkedAt,
         qrCodes: qrCodes.map(qr => qr.qrValue),
         photosToAdd,

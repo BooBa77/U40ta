@@ -61,6 +61,10 @@ export class UpdateObjectDto {
   @IsOptional()
   checkedAt?: string;
 
+  @IsString()
+  @IsOptional()
+  rem?: string | null;
+  
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

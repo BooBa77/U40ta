@@ -158,6 +158,7 @@ export class OfflineSyncService {
         placePos: obj.placePos ?? null,
         placeCab: obj.placeCab ?? null,
         placeUser: obj.placeUser ?? null,
+        rem: obj.rem ?? null,
         qrCodes: obj.qrCodes,
         photosToAdd: obj.photosToAdd,
       };
@@ -174,6 +175,7 @@ export class OfflineSyncService {
         placePos: obj.placePos ?? undefined,
         placeCab: obj.placeCab ?? undefined,
         placeUser: obj.placeUser ?? undefined,
+        rem: obj.rem ?? undefined,
         checkedAt: obj.checkedAt,
         qrCodes: obj.qrCodes,
         photosToAdd: obj.photosToAdd,

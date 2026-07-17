@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Req, UseGuards } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LogsService } from './logs.service';
@@ -17,9 +17,22 @@ export class LogsController {
     @Req() req: RequestWithUser,
     @Body() body: { content: any },
   ) {
-    // source принудительно 'frontend' — пользователь не может это подменить
     this.logsService.log('frontend', req.user?.sub || null, body.content);
     return { success: true };
+  }
+
+  /**
+   * Получение истории изменений объекта
+   * GET /api/logs/object-history/:objectId
+   */
+  @Get('object-history/:objectId')
+  @UseGuards(JwtAuthGuard)
+  async getObjectHistory(@Param('objectId') objectId: string) {
+    const history = await this.logsService.getObjectHistory(Number(objectId));
+    return {
+      success: true,
+      history,
+    };
   }
 
   @Post('object-history')

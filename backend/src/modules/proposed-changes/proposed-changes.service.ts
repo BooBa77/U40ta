@@ -209,13 +209,13 @@ export class ProposedChangesService {
         break;
 
       case 'comment':
-        // Комментарий утверждён — здесь можно добавить запись в логи объекта.
-        // Пока просто логируем факт утверждения.
-        this.logger.log(
-          `Утверждён комментарий к объекту ${object.id}: ${change.proposedData?.comment || ''}`,
-        );
+        // Комментарий утверждён
+        if (change.proposedData?.comment !== undefined) {
+          object.rem = change.proposedData.comment || null;
+          await this.objectsRepository.save(object);
+          this.logger.log(`Обновлён комментарий объекта ${object.id}: "${change.proposedData.comment}"`);
+        }
         break;
-
       case 'photo':
         if (change.photoId) {
           await this.photosService.attachToObject(change.photoId, object.id);

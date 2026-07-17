@@ -7,7 +7,7 @@ class OfflineCacheService {
     
     this.db.version(8).stores({
       statements: 'id, userId, receivedAt, docType, description, zavod, sklad, invNumber, partyNumber, buhName, isActual',
-      objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser',
+      objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser, rem',
       qr_codes: '++id, qrValue, objectId',
       photos: '++id, objectId',
       logs: '++id, source, time, content',

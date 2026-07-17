@@ -55,6 +55,10 @@ export class CreateObjectDto {
   @MaxLength(100)
   placeUser?: string | null;
 
+  @IsString()
+  @IsOptional()
+  rem?: string | null;  
+
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
