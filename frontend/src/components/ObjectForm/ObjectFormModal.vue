@@ -100,7 +100,7 @@
           </div>
 
           <!-- 4. Кнопки действий и карусель фото -->
-          <div class="flex flex-col gap-3 min-h-[60px]">
+          <div class="flex flex-col gap-3">
             <div v-if="hasCamera" class="flex gap-2">
               <button 
                 class="flex-1 py-2.5 bg-blue-500 text-white rounded-md text-sm font-medium
@@ -108,7 +108,7 @@
                 @click="handleQrScan" 
                 :disabled="isSaving"
               >
-                Добавить QR-код
+                Добавить QR
               </button>
               <button 
                 class="flex-1 py-2.5 bg-blue-500 text-white rounded-md text-sm font-medium
@@ -131,7 +131,7 @@
             <!-- Карусель -->
             <div 
               v-if="photos && photos.length > 0" 
-              class="flex gap-2 overflow-x-auto py-1 items-center min-h-[70px]"
+              class="flex gap-2 overflow-x-auto py-1 items-center"
             >
               <div 
                 v-for="(photo, index) in photos" 
