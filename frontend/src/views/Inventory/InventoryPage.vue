@@ -72,12 +72,13 @@
 
       <!-- Таблица -->
       <InventoryBookTable 
+        ref="inventoryBookTableRef"
         :key="JSON.stringify(activeFiltersForTable)"
         :items="filteredItems"
         :get-row-class="getRowClass"
         :active-filters="activeFiltersForTable"
         @filter-click="handleFilterClick"
-        @actual-change="actualManager.handleActualChange"
+        @actual-change="handleActualChangeWithAnchor"
         @row-click="handleRowClick"
       />
     </div>
@@ -122,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
@@ -152,6 +153,10 @@ const bookName = ref('Загрузка...')
 
 // === МЕНЕДЖЕР АКТУАЛЬНОСТИ ===
 const actualManager = useActualManager(bookId, reload)
+
+// === REF НА ТАБЛИЦУ ===
+/** Ссылка на компонент InventoryBookTable для вызова scrollToAnchor */
+const inventoryBookTableRef = ref(null)
 
 onMounted(async () => {
   try {
@@ -229,6 +234,28 @@ const activeFiltersForTable = computed(() => {
   return result
 })
 
+// ============================================================
+//  ОБРАБОТЧИК ИЗМЕНЕНИЯ АКТУАЛЬНОСТИ (с якорем)
+// ============================================================
+
+/**
+ * Обработчик изменения актуальности с сохранением позиции скролла.
+ * Вызывает actualManager, затем скроллит к якорю после перерисовки.
+ * 
+ * @param {Object} params
+ * @param {string} params.invNumber - инвентарный номер
+ * @param {boolean} params.isActual - новое значение
+ * @param {Object|null} params.anchor - якорь, найденный в InventoryBookTable
+ */
+const handleActualChangeWithAnchor = async ({ invNumber, isActual, anchor }) => {
+  await actualManager.handleActualChange({ invNumber, isActual })
+  await nextTick()
+  
+  if (anchor && inventoryBookTableRef.value) {
+    inventoryBookTableRef.value.scrollToAnchor(anchor)
+  }
+}
+
 // === ОБРАБОТЧИКИ ===
 const goBack = () => {
   resetAllFilters()
@@ -260,7 +287,26 @@ const handleRowClick = (groupParams) => {
   invListIsOpen.value = true
 }
 
-const handleInvListClose = () => {
+// ============================================================
+//  ОБРАБОТЧИК ЗАКРЫТИЯ InvListModal (с якорем)
+// ============================================================
+
+/**
+ * Обработчик закрытия InvListModal.
+ * Если в модалке были изменения — перезагружает данные и скроллит к якорю.
+ * Если изменений не было — просто закрывает без reload.
+ * 
+ * @param {Object} params - параметры из модалки
+ * @param {boolean} params.hasChanges - были ли изменения в модалке
+ */
+const handleInvListClose = async ({ hasChanges } = {}) => {
+  // Запоминаем якорь до возможной перерисовки
+  const anchor = {
+    type: 'modal_close',
+    invNumber: selectedItem.value.invNumber,
+    partyNumber: selectedItem.value.partyNumber
+  }
+
   invListIsOpen.value = false
   
   setTimeout(() => {
@@ -271,6 +317,16 @@ const handleInvListClose = () => {
       sklad: ''
     }
   }, 300)
+  
+  // Перезагружаем данные только если были изменения
+  if (hasChanges) {
+    await reload()
+    await nextTick()
+    
+    if (inventoryBookTableRef.value) {
+      inventoryBookTableRef.value.scrollToAnchor(anchor)
+    }
+  }
 }
 
 // === ОБРАБОТЧИК ИЗ InvListModal (ручной режим) ===
@@ -299,13 +355,35 @@ const handleOpenCheckModalFromList = (payload) => {
   checkModalIsOpen.value = true
 }
 
-// === ОБРАБОТЧИКИ InventoryCheckModal ===
+// ============================================================
+//  ОБРАБОТЧИКИ InventoryCheckModal (с якорем)
+// ============================================================
+
+/**
+ * Обработчик сохранения в InventoryCheckModal.
+ * Перезагружает данные и скроллит к якорю.
+ * Если модалка открывалась из InvListModal — закрывает и её.
+ */
 const handleCheckSave = async () => {
+  // Запоминаем якорь до перерисовки
+  const anchor = {
+    type: 'modal_close',
+    invNumber: checkModalInvNumber.value,
+    partyNumber: checkModalPartyNumber.value
+  }
+
   checkModalIsOpen.value = false
-  await reload()
+  
   // Если модалка открывалась из InvListModal, закрываем и её
   if (invListIsOpen.value) {
     invListIsOpen.value = false
+  }
+
+  await reload()
+  await nextTick()
+  
+  if (inventoryBookTableRef.value) {
+    inventoryBookTableRef.value.scrollToAnchor(anchor)
   }
 }
 

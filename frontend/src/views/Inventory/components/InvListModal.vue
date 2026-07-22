@@ -83,6 +83,9 @@ const error = ref('')
 const bookItemRows = ref([])
 const objectRows = ref([])
 
+/** Флаг: были ли изменения в модалке (подтверждение/отмена) */
+const hasChanges = ref(false)
+
 const modalTitle = computed(() => `Инв. № ${props.invNumber} / Склад ${props.sklad}`)
 
 const getLocationDisplay = (item) => {
@@ -239,10 +242,18 @@ const openCheckModal = (item) => {
   })
 }
 
-const handleClose = () => emit('close')
+/**
+ * Закрытие модалки.
+ * Передаёт родителю флаг hasChanges, чтобы тот знал, нужен ли reload.
+ */
+const handleClose = () => {
+  emit('close', { hasChanges: hasChanges.value })
+}
 
 watch(() => props.isOpen, async (newVal) => {
   if (newVal) {
+    // Сбрасываем флаг изменений при открытии
+    hasChanges.value = false
     await loadData()
   } else {
     bookItemRows.value = []
@@ -269,4 +280,4 @@ watch(() => props.isOpen, async (newVal) => {
 .modal-leave-to .modal-container {
   transform: scale(0.95) translateY(-5px);
 }
-</style>  
+</style>

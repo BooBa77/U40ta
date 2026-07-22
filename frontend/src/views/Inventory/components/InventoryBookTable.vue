@@ -1,5 +1,8 @@
 <template>
-  <div class="statement-table flex-1 min-h-[300px] max-h-full border border-gray-200 rounded-lg bg-white overflow-auto relative">
+  <div 
+    ref="tableContainer"
+    class="statement-table flex-1 min-h-[300px] max-h-full border border-gray-200 rounded-lg bg-white overflow-auto relative"
+  >
     <table class="w-full border-collapse table-fixed min-w-[350px]">
       <thead class="sticky top-0 z-10 bg-gray-50">
         <tr>
@@ -7,7 +10,7 @@
             class="w-8 px-2 py-3 text-left font-semibold text-sm text-gray-700 border-b-2 border-gray-200"
           >
             👁️
-            <span class="sr-only">Актуально</span>
+            <span class="sr-only">Актуальность</span>
           </th>
           <th 
             @click="handleHeaderClick('inv_party_combined')"
@@ -40,24 +43,28 @@
           class="cursor-pointer transition-colors"
           @click="handleRowClick(row)"
         >
-          <td class="w-8 px-2 py-2 border-b border-gray-100 text-center align-middle" @click.stop>
-            <input 
-              type="checkbox" 
-              :checked="row.isActual"
-              @change="handleActualChange(row, $event.target.checked)"
-              class="w-4 h-4 accent-blue-500 cursor-pointer"
-            />
+          <!-- Колонка актуальности: иконка глаза вместо чекбокса -->
+          <td 
+            class="w-8 px-2 py-2 border-b border-gray-100 text-center align-middle" 
+            @click.stop
+          >
+            <span
+              @click="handleActualChange(row, !row.isActual)"
+              class="cursor-pointer text-lg select-none leading-none"
+              :title="row.isActual ? 'Скрыть строку' : 'Вернуть строку'"
+            >
+              {{ row.isActual ? '👁️' : '🙈' }}
+            </span>
           </td>
+
           <td class="px-2 py-2 border-b border-gray-100 align-middle">
             <div class="inv-party-cell leading-tight">
               <div class="inv-number font-medium mb-0.5">{{ row.invNumber || '—' }}</div>
-              <div class="party-number text-xs text-gray-500">
-                <span v-if="row.showParty && row.partyNumber" class="party-text">
-                  {{ row.partyNumber }}
-                </span>
-                <span v-if="row.displayQuantity" class="quantity-text text-xs font-semibold text-black ml-1">
-                  {{ row.displayQuantity }}
-                </span>
+              <div v-if="row.showParty && row.partyNumber" class="party-number text-xs text-gray-500">
+                {{ row.partyNumber }}
+              </div>
+              <div v-if="row.totalCount > 1" class="quantity-text text-xs font-semibold text-black">
+                {{ row.displayQuantity }}
               </div>
             </div>
           </td>
@@ -76,14 +83,16 @@
 
 <script setup>
 /**
- * Компонент таблицы инвентаризационной книги
- * Отображает сгруппированные строки с цветовой индикацией и чекбоксами актуальности
+ * Компонент таблицы инвентаризационной книги.
+ * Отображает сгруппированные строки с цветовой индикацией и иконками актуальности.
+ * Поддерживает сохранение позиции скролла при перерисовке через механизм якорей.
  */
+
+import { ref, nextTick } from 'vue'
 
 const props = defineProps({
   /**
    * Агрегированные строки книги
-   * @type {import('vue').PropType<Array<Object>>}
    */
   items: {
     type: Array,
@@ -92,9 +101,6 @@ const props = defineProps({
   },
   /**
    * Функция для получения CSS-класса строки
-   * @type {import('vue').PropType<Function>}
-   * @param {Object} row - агрегированная строка
-   * @returns {string} CSS-класс
    */
   getRowClass: {
     type: Function,
@@ -102,25 +108,24 @@ const props = defineProps({
   },
   /**
    * Активные фильтры для подсветки заголовков
-   * @type {import('vue').PropType<Object>}
    */
   activeFilters: {
     type: Object,
     default: () => ({})
-  },
+  }
 })
 
 const emit = defineEmits([
-  /** @param {string} columnId - ID колонки для фильтрации */
   'filter-click',
-  /** @param {Object} params - { invNumber, isActual } */
   'actual-change',
-  /** @param {Object} groupParams - параметры выбранной группы */
   'row-click'
 ])
 
+/** Ссылка на контейнер таблицы для скролла */
+const tableContainer = ref(null)
+
 /**
- * Проверяет, активен ли фильтр для колонки
+ * Проверяет, активен ли фильтр для колонки.
  * @param {string} columnId - ID колонки
  * @returns {boolean}
  */
@@ -137,7 +142,7 @@ const hasFilter = (columnId) => {
 }
 
 /**
- * Обработчик клика по заголовку
+ * Обработчик клика по заголовку.
  * @param {string} columnId - ID колонки
  */
 const handleHeaderClick = (columnId) => {
@@ -145,7 +150,8 @@ const handleHeaderClick = (columnId) => {
 }
 
 /**
- * Обработчик клика по строке
+ * Обработчик клика по строке.
+ * Неактуальные строки (серые) не кликабельны.
  * @param {Object} row - агрегированная строка
  */
 const handleRowClick = (row) => {
@@ -160,17 +166,129 @@ const handleRowClick = (row) => {
   })
 }
 
+// ============================================================
+//  ЛОГИКА ЯКОРЯ ДЛЯ СОХРАНЕНИЯ ПОЗИЦИИ СКРОЛЛА
+//
+//  Типы якорей:
+//  - 'return_to_active' — возврат строки из серых в активные.
+//    Якорь ищется по invNumber (первая найденная строка).
+//  - 'hide_to_inactive' — скрытие строки в серые.
+//    Якорь ищется по invNumber + partyNumber + groupColor.
+//  - 'modal_close' — закрытие InvListModal или InventoryCheckModal.
+//    Якорь ищется по invNumber + partyNumber
+//    (groupColor мог измениться после подтверждения).
+// ============================================================
+
 /**
- * Обработчик изменения чекбокса актуальности
- * @param {Object} row - агрегированная строка
- * @param {boolean} checked - новое состояние чекбокса
+ * Находит якорь для последующего скролла после перерисовки.
+ * Вызывается ПЕРЕД эмитом actual-change.
+ * 
+ * @param {Object} row - строка, в которой изменился флаг актуальности
+ * @param {boolean} newActual - новое значение isActual
+ * @returns {Object|null} объект якоря или null, если скролл не нужен
  */
-const handleActualChange = (row, checked) => {
-  emit('actual-change', {
-    invNumber: row.invNumber,
-    isActual: checked
+const findAnchor = (row, newActual) => {
+  // Случай 1: возвращаем строку в активные (isActual = true)
+  // После перерисовки она может развалиться на несколько строк
+  // (разные party/sklad), якорь — любая строка с этим invNumber
+  if (newActual) {
+    return {
+      type: 'return_to_active',
+      invNumber: row.invNumber
+    }
+  }
+
+  // Случай 2: скрываем строку (isActual = false)
+  // Ищем в текущем массиве ближайшую сверху строку,
+  // которая НЕ будет скрыта (isActual) и имеет другой invNumber.
+  // Серых выше быть не может — они всегда в конце таблицы.
+  const currentIndex = props.items.findIndex(
+    s => s.invNumber === row.invNumber &&
+         s.partyNumber === row.partyNumber &&
+         s.isActual
+  )
+
+  if (currentIndex === -1) return null
+
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    const candidate = props.items[i]
+    if (
+      candidate.invNumber !== row.invNumber &&
+      candidate.isActual
+    ) {
+      return {
+        type: 'hide_to_inactive',
+        invNumber: candidate.invNumber,
+        partyNumber: candidate.partyNumber,
+        groupColor: candidate.groupColor
+      }
+    }
+  }
+
+  // Дошли до верха таблицы — якоря нет, скролл не нужен
+  return null
+}
+
+/**
+ * Скроллит к строке-якорю после перерисовки таблицы.
+ * Вызывается родителем (InventoryPage) после reload() и nextTick.
+ * Ищет строку по данным (props.items), затем скроллит DOM-элемент.
+ * 
+ * @param {Object} anchor - объект якоря, сформированный findAnchor или вручную
+ */
+const scrollToAnchor = (anchor) => {
+  if (!anchor || !tableContainer.value) return
+
+  nextTick(() => {
+    const rows = tableContainer.value.querySelectorAll('tbody tr')
+    const itemsData = props.items
+
+    let targetIndex = -1
+
+    if (anchor.type === 'return_to_active') {
+      // Ищем первую строку с совпадающим invNumber
+      targetIndex = itemsData.findIndex(s => s.invNumber === anchor.invNumber)
+
+    } else if (anchor.type === 'hide_to_inactive') {
+      // Ищем точное совпадение inv + party + groupColor
+      targetIndex = itemsData.findIndex(
+        s => s.invNumber === anchor.invNumber &&
+             s.partyNumber === anchor.partyNumber &&
+             s.groupColor === anchor.groupColor
+      )
+
+    } else if (anchor.type === 'modal_close') {
+      // Ищем совпадение inv + party, groupColor мог измениться
+      targetIndex = itemsData.findIndex(
+        s => s.invNumber === anchor.invNumber &&
+             s.partyNumber === anchor.partyNumber
+      )
+    }
+
+    if (targetIndex !== -1 && rows[targetIndex]) {
+      rows[targetIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
   })
 }
+
+/**
+ * Обработчик изменения актуальности (клик по иконке глаза).
+ * Находит якорь и эмитит событие в родителя.
+ * 
+ * @param {Object} row - агрегированная строка
+ * @param {boolean} checked - новое состояние isActual
+ */
+const handleActualChange = (row, checked) => {
+  const anchor = findAnchor(row, checked)
+  emit('actual-change', {
+    invNumber: row.invNumber,
+    isActual: checked,
+    anchor
+  })
+}
+
+// Отдаём метод скролла родителю
+defineExpose({ scrollToAnchor })
 </script>
 
 <style>
@@ -183,7 +301,6 @@ const handleActualChange = (row, checked) => {
   outline: 2px solid blue;
   outline-offset: -2px;
 }
-
 
 .statement-table {
   @media (max-width: 768px) {
@@ -213,11 +330,6 @@ const handleActualChange = (row, checked) => {
 
   .party-number {
     font-size: 0.75em;
-  }
-
-  input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
   }
 }
 </style>
