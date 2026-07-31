@@ -10,6 +10,7 @@ import { InventoryBookItem } from 'src/modules/inventory/entities/inventory-book
 import { RevisorAccess } from 'src/modules/inventory/entities/revisor-access.entity';
 import { ProposedChange } from '../../proposed-changes/entities/proposed-change.entity';
 import { Photo } from '../../photos/entities/photos.entity';
+import { IgnoreKeyword } from 'src/modules/mol/entities/ignore-keyword.entity';
 
 /**
  * Сервис кэширования данных для офлайн-режима.
@@ -54,6 +55,9 @@ export class OfflineCacheService {
 
     @InjectRepository(Photo)
     private readonly photosRepository: Repository<Photo>,
+
+    @InjectRepository(IgnoreKeyword)
+    private readonly ignoreKeywordRepository: Repository<IgnoreKeyword>,    
   ) {}
 
   /**
@@ -198,7 +202,15 @@ export class OfflineCacheService {
         console.log(`OfflineCacheService: загружено proposed-фото: ${photos.length}`);
       }
 
-      // 9. Формируем ответ
+      // 9. Получаем ключевые слова пользователя
+      const ignoreKeywords = await this.ignoreKeywordRepository.find({
+          where: { userId },
+          order: { keyword: 'ASC' },
+      });
+
+      console.log(`OfflineCacheService: загружено ignore_keywords: ${ignoreKeywords.length}`);
+      
+      // 10. Формируем ответ
       return {
         objects,
         statements,
@@ -207,6 +219,7 @@ export class OfflineCacheService {
         proposed_changes: proposedChanges,
         inventory_books: inventoryBooks,
         inventory_book_items: inventoryBookItems,
+        ignore_keywords: ignoreKeywords.map(k => k.keyword),
         meta: {
           userId,
           fetchedAt: new Date().toISOString(),
@@ -217,6 +230,7 @@ export class OfflineCacheService {
           totalProposedChanges: proposedChanges.length,
           totalInventoryBooks: inventoryBooks.length,
           totalInventoryBookItems: inventoryBookItems.length,
+          totalIgnoreKeywords: ignoreKeywords.length,
         },
       };
     } catch (error) {

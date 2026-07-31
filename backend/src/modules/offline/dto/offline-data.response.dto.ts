@@ -13,6 +13,7 @@ export interface OfflineDataDto {
   proposed_changes: any[];
   inventory_books: InventoryBook[];
   inventory_book_items: InventoryBookItem[];
+  ignore_keywords: string[];
   meta: {
     userId: number;
     fetchedAt: string;
@@ -23,6 +24,7 @@ export interface OfflineDataDto {
     totalProposedChanges: number;
     totalInventoryBooks: number;
     totalInventoryBookItems: number;
+    totalIgnoreKeywords: number;
   };
 }
 

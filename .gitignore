@@ -3,6 +3,7 @@ sync-db.bat
 email-attachments/
 backend/node_modules/
 backend/dist/
+backup
 frontend/node_modules/
 frontend/views/test/
 docs/

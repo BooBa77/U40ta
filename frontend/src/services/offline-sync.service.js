@@ -118,6 +118,7 @@ class OfflineSyncService {
             const candidates = await objectService.findSimilarObjects(
               docType, object.invNumber, object.partyNumber, object.sn
             )
+
             if (candidates.length === 0 || candidates.length > 1) {
               // Нет похожих или несколько — создаём новый
               shouldInclude = true
@@ -157,7 +158,7 @@ class OfflineSyncService {
       const objectLogs = await this.getLogsByObjectId(objectId)
 
       // Разделяем фото: с id > 0 уже на сервере — в photosToUpdate (PATCH object_id)
-      //                с id < 0 новые — в photosToAdd (POST)
+      //                    с id < 0 новые — в photosToAdd (POST)
       const photosToAdd = allPhotos
         .filter(p => !p.id || p.id < 0)
         .map(p => ({ max: p.photoMaxData, min: p.photoMinData }))
@@ -276,7 +277,7 @@ class OfflineSyncService {
 
     // Получаем все записи из кэша
     const allChanges = await offlineCache.db.proposed_changes.toArray()
-    
+
     if (allChanges.length === 0) {
       console.log('[OfflineSyncService] Нет proposed_changes для синхронизации')
       return []
@@ -309,12 +310,32 @@ class OfflineSyncService {
       }
     }
 
-    console.log(`[OfflineSyncService] Подготовлено ${actions.length} proposedChangeActions:`,
+    console.log(
+      `[OfflineSyncService] Подготовлено ${actions.length} proposedChangeActions:`,
       `create: ${actions.filter(a => a.action === 'create').length},`,
       `delete: ${actions.filter(a => a.action === 'delete').length}`
     )
-    
+
     return actions
+  }
+
+  // ============================================================================
+  // ФОРМИРОВАНИЕ IGNORE KEYWORDS
+  // ============================================================================
+
+  /**
+   * Подготавливает массив ignoreKeywords для отправки на бэкенд.
+   * Собирает все игнор-слова из кэша и возвращает массив строк.
+   * 
+   * @returns {Promise<Array<string>>} массив ключевых слов
+   */
+  async prepareIgnoreKeywords() {
+    console.log('[OfflineSyncService] Подготовка ignoreKeywords для синхронизации...')
+
+    const keywords = await offlineCache.getAllIgnoreKeywords()
+
+    console.log(`[OfflineSyncService] Подготовлено ${keywords.length} игнор-слов для синхронизации`)
+    return keywords
   }
 
   // ============================================================================
@@ -326,9 +347,10 @@ class OfflineSyncService {
    * @param {Array} changes — массив объектов для синхронизации
    * @param {Array} inventoryBookItemChanges — массив изменений строк книг
    * @param {Array} proposedChangeActions — массив действий с proposed_changes
+   * @param {Array<string>} ignoreKeywords — массив игнор-слов для полной замены
    * @returns {Promise<{success: boolean, message?: string}>}
    */
-  async syncChanges(changes, inventoryBookItemChanges = [], proposedChangeActions = []) {
+  async syncChanges(changes, inventoryBookItemChanges = [], proposedChangeActions = [], ignoreKeywords = []) {
     const token = localStorage.getItem('auth_token')
     if (!token) {
       throw new Error('Токен авторизации не найден')
@@ -338,13 +360,15 @@ class OfflineSyncService {
     console.log(`  - объектов: ${changes.length}`)
     console.log(`  - строк книг: ${inventoryBookItemChanges.length}`)
     console.log(`  - proposed_changes: ${proposedChangeActions.length}`)
+    console.log(`  - ignore_keywords: ${ignoreKeywords.length}`)
 
     const body = { 
       changes,
       inventoryBookItemChanges,
-      proposedChangeActions
+      proposedChangeActions,
+      ignoreKeywords
     }
-    
+
     console.log('[OfflineSyncService] Тело запроса:', JSON.stringify(body, null, 2))
 
     const response = await fetch(`${this.baseUrl}/offline/sync`, {
@@ -377,7 +401,7 @@ class OfflineSyncService {
   /**
    * Выполняет полный цикл синхронизации при выходе из офлайна:
    * 1. Проверяет, есть ли изменения
-   * 2. Формирует changes, inventoryBookItemChanges и proposedChangeActions
+   * 2. Формирует changes, inventoryBookItemChanges, proposedChangeActions и ignoreKeywords
    * 3. Отправляет на сервер
    * 4. Возвращает результат
    * @returns {Promise<{success: boolean, syncedCount: number, message?: string}>}
@@ -389,24 +413,35 @@ class OfflineSyncService {
       const changes = await this.prepareChanges()
       const inventoryBookItemChanges = await this.prepareInventoryBookItemChanges()
       const proposedChangeActions = await this.prepareProposedChangeActions()
+      const ignoreKeywords = await this.prepareIgnoreKeywords()
 
-      if (changes.length === 0 && inventoryBookItemChanges.length === 0 && proposedChangeActions.length === 0) {
+      if (
+        changes.length === 0 &&
+        inventoryBookItemChanges.length === 0 &&
+        proposedChangeActions.length === 0 &&
+        ignoreKeywords.length === 0
+      ) {
         console.log('[OfflineSyncService] Нет изменений для синхронизации')
         return { success: true, syncedCount: 0 }
       }
 
-      const result = await this.syncChanges(changes, inventoryBookItemChanges, proposedChangeActions)
-      
+      const result = await this.syncChanges(
+        changes,
+        inventoryBookItemChanges,
+        proposedChangeActions,
+        ignoreKeywords
+      )
+
       // После успешной синхронизации удаляем обработанные proposed_changes из кэша
       for (const action of proposedChangeActions) {
         if (action.action === 'delete' && action.id > 0) {
           await offlineCache.removeProposedChange(action.id)
         }
       }
-      
+
       return { 
         success: true, 
-        syncedCount: changes.length + inventoryBookItemChanges.length + proposedChangeActions.length, 
+        syncedCount: changes.length + inventoryBookItemChanges.length + proposedChangeActions.length + ignoreKeywords.length, 
         ...result 
       }
     } catch (error) {

@@ -54,6 +54,7 @@ export class OfflineService {
       const proposedChangesCount = data?.proposed_changes?.length || 0;
       const inventoryBooksCount = data?.inventory_books?.length || 0;
       const inventoryBookItemsCount = data?.inventory_book_items?.length || 0;
+      const ignoreKeywordsItemsCount = data?.ignore_keywords?.length || 0;
 
       this.logsService.log('offline_mode', userId, {
         action: 'offline_mode_entered',
@@ -65,6 +66,7 @@ export class OfflineService {
         totalProposedChanges: proposedChangesCount,
         totalInventoryBooks: inventoryBooksCount,
         totalInventoryBookItems: inventoryBookItemsCount,
+        totalIgnoreKeywordsItems: ignoreKeywordsItemsCount,
       });
 
       console.log(`OfflineService: данные получены`);
@@ -75,6 +77,7 @@ export class OfflineService {
       console.log(`  - Предлагаемых изменений: ${proposedChangesCount}`);
       console.log(`  - Инвентаризационных книг: ${inventoryBooksCount}`);
       console.log(`  - Строк инвентаризационных книг: ${inventoryBookItemsCount}`);
+      console.log(`  - Слов игнор-списка: ${ignoreKeywordsItemsCount}`);
 
       return {
         statements: data?.statements || [],
@@ -84,6 +87,7 @@ export class OfflineService {
         proposed_changes: data?.proposed_changes || [],
         inventory_books: data?.inventory_books || [],
         inventory_book_items: data?.inventory_book_items || [],
+        ignore_keywords: data?.ignore_keywords || [],
         meta: {
           userId,
           fetchedAt: data?.meta?.fetchedAt || new Date().toISOString(),
@@ -94,6 +98,7 @@ export class OfflineService {
           totalProposedChanges: proposedChangesCount,
           totalInventoryBooks: inventoryBooksCount,
           totalInventoryBookItems: inventoryBookItemsCount,
+          totalIgnore_keywords: ignoreKeywordsItemsCount,
         },
       };
     } catch (error) {
@@ -113,6 +118,7 @@ export class OfflineService {
         proposed_changes: [],
         inventory_books: [],
         inventory_book_items: [],
+        ignore_keywords: [],
         meta: {
           userId,
           fetchedAt: new Date().toISOString(),
@@ -123,6 +129,7 @@ export class OfflineService {
           totalProposedChanges: 0,
           totalInventoryBooks: 0,
           totalInventoryBookItems: 0,
+          totalIgnoreKeywordsItems: 0,
         },
       };
     }

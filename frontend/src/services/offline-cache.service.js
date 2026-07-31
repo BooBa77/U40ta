@@ -5,7 +5,7 @@ class OfflineCacheService {
   constructor() {
     this.db = new Dexie('u40ta_offline_db')
     
-    this.db.version(8).stores({
+    this.db.version(9).stores({
       statements: 'id, userId, receivedAt, docType, description, zavod, sklad, invNumber, partyNumber, buhName, isActual',
       objects: 'id, zavod, sklad, buhName, invNumber, partyNumber, sn, isWrittenOff, checkedAt, placeTer, placePos, placeCab, placeUser, rem',
       qr_codes: '++id, qrValue, objectId',
@@ -13,7 +13,10 @@ class OfflineCacheService {
       logs: '++id, source, time, content',
       inventory_books: 'id, createdAt, idOwner',
       inventory_book_items: 'id, idBook, idInventoryStatement, zavod, sklad, invNumber, partyNumber, idObject, isActual, isOkManual, isOkAuto, dateOkManualChecked, dateOkAutoChecked, placeTer, placePos, placeCab, placeUser, rem',
-      proposed_changes: '++id, objectId, changeType, userId, createdAt, isDeleted'
+      proposed_changes: '++id, objectId, changeType, userId, createdAt, isDeleted',
+      ignore_keywords: '++id, keyword'
+    }).upgrade(tx => {
+      // Миграция с 8 на 9: добавлена таблица ignore_keywords, данные переносить не нужно
     })    
   }
 
@@ -56,7 +59,8 @@ class OfflineCacheService {
         objects: data.objects?.length || 0,
         qr_codes: data.qr_codes?.length || 0,
         inventory_books: data.inventory_books?.length || 0,
-        inventory_book_items: data.inventory_book_items?.length || 0
+        inventory_book_items: data.inventory_book_items?.length || 0,
+        ignore_keywords: data.ignore_keywords?.length || 0
       })
       
       const cacheResult = await this.cacheAllData(data)
@@ -108,7 +112,7 @@ class OfflineCacheService {
    * Кэширует все данные для офлайн-режима.
    * Предварительно очищает кэш для гарантии актуальности.
    * 
-   * @param {Object} data — объект с данными от бэкенда в camelCase
+   * @param {Object} data — объект с данными от бэкенда в camelCase/snake_case
    * @param {Array} data.statements — массив строк ведомостей МОЛ
    * @param {Array} data.objects — массив объектов
    * @param {Array} data.qr_codes — массив QR-кодов
@@ -116,6 +120,7 @@ class OfflineCacheService {
    * @param {Array} data.proposed_changes — массив предлагаемых изменений для складов МОЛа
    * @param {Array} data.inventory_books — массив инвентаризационных книг
    * @param {Array} data.inventory_book_items — массив строк инвентаризационных книг
+   * @param {Array<string>} data.ignore_keywords — массив игнор-слов (строки)
    * @returns {Promise<{success: boolean, error: string|null, stats: Object}>}
    */
   async cacheAllData(data) {
@@ -128,7 +133,8 @@ class OfflineCacheService {
       photos = [],
       proposed_changes = [],
       inventory_books = [],
-      inventory_book_items = []
+      inventory_book_items = [],
+      ignore_keywords = []
     } = data
 
     try {
@@ -141,7 +147,8 @@ class OfflineCacheService {
         photos: 0,
         proposed_changes: 0,
         inventory_books: 0,
-        inventory_book_items: 0
+        inventory_book_items: 0,
+        ignore_keywords: 0
       }
       
       if (statements.length) {
@@ -182,6 +189,13 @@ class OfflineCacheService {
         await this.db.inventory_book_items.bulkAdd(inventory_book_items)
         stats.inventory_book_items = inventory_book_items.length
       }
+
+      // Игнор-слова: бэк отдаёт массив строк, в кэш пишем как { keyword }
+      if (ignore_keywords.length) {
+        const records = ignore_keywords.map(k => ({ keyword: k }))
+        await this.db.ignore_keywords.bulkAdd(records)
+        stats.ignore_keywords = records.length
+      }
       
       console.log('[OfflineCache] Кэширование завершено:', stats)
       return { success: true, error: null, stats }
@@ -210,7 +224,8 @@ class OfflineCacheService {
       this.db.logs.clear(),
       this.db.inventory_books.clear(),
       this.db.inventory_book_items.clear(),
-      this.db.proposed_changes.clear()
+      this.db.proposed_changes.clear(),
+      this.db.ignore_keywords.clear()
     ])
     
     console.log('[OfflineCache] Кэш очищен')
@@ -266,7 +281,6 @@ class OfflineCacheService {
    * @param {boolean} isActual - новое значение isActual
    * @returns {Promise<void>}
    */
-
   async updateStatementsActualByInv(receivedAt, invNumber, isActual) {
     const allStatements = await this.db.statements.toArray()
     
@@ -769,6 +783,56 @@ class OfflineCacheService {
     
     console.log(`[OfflineCache] Подтверждено ${updatedItems.length} строк в книге ${bookId}`)
     return updatedItems
+  }
+
+  // ============================================================================
+  // РАБОТА С ИГНОР-СЛОВАМИ (ignore_keywords)
+  // ============================================================================
+
+  /**
+   * Получает все игнор-слова из кэша.
+   * @returns {Promise<Array<string>>} Массив строк (keyword)
+   */
+  async getAllIgnoreKeywords() {
+    const records = await this.db.ignore_keywords.toArray()
+    return records.map(r => r.keyword)
+  }
+
+  /**
+   * Очищает таблицу игнор-слов в кэше.
+   * @returns {Promise<void>}
+   */
+  async clearIgnoreKeywords() {
+    await this.db.ignore_keywords.clear()
+    console.log('[OfflineCache] Игнор-слова очищены')
+  }
+
+  /**
+   * Массово добавляет игнор-слова в кэш.
+   * Принимает массив строк, преобразует в { keyword } и делает bulkAdd.
+   * 
+   * @param {Array<string>} keywords — массив ключевых слов
+   * @returns {Promise<number>} Количество добавленных записей
+   */
+  async bulkAddIgnoreKeywords(keywords) {
+    if (!keywords || keywords.length === 0) return 0
+    
+    const records = keywords.map(k => ({ keyword: k }))
+    await this.db.ignore_keywords.bulkAdd(records)
+    console.log(`[OfflineCache] Добавлено игнор-слов: ${records.length}`)
+    return records.length
+  }
+
+  /**
+   * Полностью заменяет список игнор-слов в кэше.
+   * Сначала очищает таблицу, затем добавляет новые слова.
+   * 
+   * @param {Array<string>} keywords — новый список ключевых слов
+   * @returns {Promise<number>} Количество добавленных записей
+   */
+  async replaceIgnoreKeywords(keywords) {
+    await this.clearIgnoreKeywords()
+    return await this.bulkAddIgnoreKeywords(keywords)
   }
 }
 

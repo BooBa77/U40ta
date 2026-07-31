@@ -10,7 +10,7 @@ export class MolAccess {
   @PrimaryColumn()
   zavod!: number;
 
-  @PrimaryColumn({ length: 4 })
+  @PrimaryColumn({ length: 8 })
   sklad!: string;
 
   // Связь с пользователем

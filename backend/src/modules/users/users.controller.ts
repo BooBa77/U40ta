@@ -79,12 +79,11 @@ export class UsersController {
   }
 
   /**
-   * GET /api/users/me/has-access-to-statements/id - возвращает список доступных ведомостей
+   * GET /api/users/me/has-access-to-statements - проверяет, есть ли у пользователя доступ к ведомостям
    */
   @Get('me/has-access-to-statements')
   async checkAccessToStatements(@Req() request: RequestWithUser) {
     const userId = request.user?.sub;
-    // Если userId нет (невероятно, но TypeScript требует проверку)
     if (!userId) {
       return { hasAccessToStatements: false };
     }
@@ -107,21 +106,21 @@ export class UsersController {
     return { isRevisor };
   }  
 
+  /**
+   * GET /api/users/:id - получить пользователя по ID
+   */
   @Get(':id')
   async findById(@Param('id') id: string) {
-    return this.usersService.findById(+id); // +id преобразует строку в число
+    return this.usersService.findById(+id);
   }
 
   /**
    * GET /api/users - возвращает список всех пользователей системы
    * В режиме разработки доступен без авторизации для выбора тестового пользователя
    * В продакшене требует валидный JWT токен
-   * 
-   * @returns Promise<User[]> - массив пользователей из таблицы users
    */
   @Get()
   async findAll() {
-    // Вызываем сервис для получения всех пользователей из базы данных
     const users = await this.usersService.findAll();
     return users;
   }

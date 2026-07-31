@@ -18,5 +18,5 @@ export class Log {
   userId!: number | null;
 
   @Column({ type: 'jsonb' })
-  content?: any;
+  content!: any;
 }

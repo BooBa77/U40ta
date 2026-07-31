@@ -9,10 +9,6 @@ import { Revisors } from './entities/revisors.entity';
 
 @Module({
   imports: [
-    // TypeOrmModule.forFeature() - регистрирует сущности для работы в этом модуле
-    // В отличие от forRoot() в app.module, который настраивает всё подключение к БД,
-    // forFeature() сообщает TypeORM какие именно сущности (таблицы) будут использоваться в этом модуле
-    // [User] - массив сущностей, которые принадлежат этому модулю
     TypeOrmModule.forFeature([User, MolAccess, Revisors]),
     JwtAuthModule,
   ],

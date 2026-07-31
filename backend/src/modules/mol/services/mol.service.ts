@@ -2,10 +2,10 @@ import { Injectable, BadRequestException, InternalServerErrorException } from '@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
-import { InventoryObject } from '../objects/entities/object.entity';
-import { Log } from '../logs/logs.entity';
-import { SmtpService } from '../email/services/smtp.service';
-import { UsersService } from '../users/users.service';
+import { InventoryObject } from '../../objects/entities/object.entity';
+import { Log } from '../../logs/logs.entity';
+import { SmtpService } from '../../email/services/smtp.service';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class MolService {

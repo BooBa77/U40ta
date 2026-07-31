@@ -41,7 +41,8 @@ export class OfflineController {
           photos: [],
           proposed_changes: [],
           inventory_books: [],
-          inventory_book_items: [],          
+          inventory_book_items: [],
+          ignore_keywords: [],
           meta: {
             userId: 0,
             fetchedAt: new Date().toISOString(),
@@ -52,6 +53,7 @@ export class OfflineController {
             totalProposedChanges: 0,
             totalInventoryBooks: 0,
             totalInventoryBookItems: 0,
+            totalIgnoreKeywords: 0,
           }
         },
         message: `Ошибка загрузки данных: ${error.message}`,

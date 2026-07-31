@@ -147,6 +147,14 @@
       >
         ПОИСК
       </button>
+      <!-- Кнопка Игнор-слова -->
+      <button
+        class="mt-3 w-full py-3 rounded-lg text-base font-medium transition
+               bg-amber-500 text-white active:bg-amber-600"
+        @click="isIgnoreKeywordsOpen = true"
+      >
+        🙈 Игнор-слова
+      </button>
       <!-- Кнопка экспорта в Excel (только онлайн) -->
       <button
         v-if="!molService.isFlightMode()"
@@ -164,6 +172,11 @@
     <SearchModal
       :is-open="isSearchOpen"
       @close="isSearchOpen = false"
+    />
+    <!-- Модалка игнор-слов -->
+    <IgnoreKeywordsModal
+      :is-open="isIgnoreKeywordsOpen"
+      @close="isIgnoreKeywordsOpen = false"
     />
 
     <!-- Простой просмотрщик фото -->
@@ -203,6 +216,7 @@ import { useRouter } from 'vue-router'
 import { photoService } from '@/services/photo.service'
 import { molService } from '@/services/mol.service'
 import SearchModal from '@/views/MOL/components/SearchModal.vue'
+import IgnoreKeywordsModal from '@/views/MOL/components/IgnoreKeywordsModal.vue'
 
 const router = useRouter()
 
@@ -222,8 +236,9 @@ const isSaving = ref(false)
 const error = ref(null)
 const proposedChanges = ref([])
 
-// Поиск
+// Состояния модалок
 const isSearchOpen = ref(false)
+const isIgnoreKeywordsOpen = ref(false)
 
 // Просмотр фото
 const isPhotoViewerOpen = ref(false)

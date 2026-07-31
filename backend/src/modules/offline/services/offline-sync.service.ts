@@ -5,6 +5,7 @@ import { LogsService } from '../../logs/logs.service';
 import { UsersService } from '../../users/users.service';
 import { PhotosService } from '../../photos/photos.service';
 import { ProposedChangesService } from '../../proposed-changes/proposed-changes.service';
+import { IgnoreKeywordsService } from '../../mol/services/ignore-keywords.service';
 import { SyncChangesRequestDto } from '../dto/sync-changes.request.dto';
 import { CreateObjectDto } from '../../objects/dto/create-object.dto';
 import { UpdateObjectDto } from '../../objects/dto/update-object.dto';
@@ -35,6 +36,9 @@ import { ProposedChange } from '../../proposed-changes/entities/proposed-change.
  * Записи, явно присланные фронтом как предложения (action: 'create' / 'delete'),
  * создаются или удаляются. При удалении делегирует в ProposedChangesService.remove,
  * который проверяет photo_id и решает судьбу связанного фото.
+ * 
+ * ## Логика обработки ignore_keywords
+ * Полная замена списка игнор-слов пользователя на переданный из офлайна.
  */
 @Injectable()
 export class OfflineSyncService {
@@ -45,19 +49,21 @@ export class OfflineSyncService {
     private readonly usersService: UsersService,
     private readonly photosService: PhotosService,
     private readonly proposedChangesService: ProposedChangesService,
+    private readonly ignoreKeywordsService: IgnoreKeywordsService, // Добавлен
   ) {}
 
   /**
    * Применяет изменения из офлайн-режима в одной транзакции.
    * 
    * ## Порядок обработки
-   * 1. Обработка объектов — создание/обновление для МОЛа, proposed_changes для неМОЛа.
+   * 1. Синхронизация игнор-слов (полная замена)
+   * 2. Обработка объектов — создание/обновление для МОЛа, proposed_changes для неМОЛа.
    *    Новые объекты (id < 0) от неМОЛа пропускаются.
-   * 2. Обработка строк инвентаризационных книг — сверка дат подтверждений.
-   * 3. Обработка явных proposed_changes — создание/удаление предложений.
+   * 3. Обработка строк инвентаризационных книг — сверка дат подтверждений.
+   * 4. Обработка явных proposed_changes — создание/удаление предложений.
    * 
    * @param userId — ID пользователя, выполняющего синхронизацию
-   * @param dto — DTO с изменениями (changes, inventoryBookItemChanges, proposedChangeActions)
+   * @param dto — DTO с изменениями (changes, inventoryBookItemChanges, proposedChangeActions, ignoreKeywords)
    * @returns количество обработанных объектов и строк книг
    */
   async applyChanges(
@@ -73,6 +79,19 @@ export class OfflineSyncService {
     let inventoryItemsProcessed = 0;
 
     await this.entityManager.transaction(async (manager) => {
+      // ========================================================================
+      // 0. СИНХРОНИЗАЦИЯ ИГНОР-СЛОВ (ПОЛНАЯ ЗАМЕНА)
+      // ========================================================================
+      if (dto.ignoreKeywords !== undefined) {
+          const count = await this.ignoreKeywordsService.replaceAndApply(
+              userId,
+              dto.ignoreKeywords
+          );
+          console.log(
+              `[OfflineSyncService] Синхронизированы игнор-слова и обновлены ведомости: ${count} строк помечено неактуальными для userId=${userId}`
+          );
+      }
+
       // ========================================================================
       // 1. ОБРАБОТКА ОБЪЕКТОВ
       // ========================================================================

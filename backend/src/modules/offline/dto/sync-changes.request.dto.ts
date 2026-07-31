@@ -21,4 +21,5 @@ export class SyncChangesRequestDto {
   changes!: any[];
   inventoryBookItemChanges?: any[];
   proposedChangeActions?: any[];
+  ignoreKeywords?: string[]; // полная замена списка игнор-слов
 }

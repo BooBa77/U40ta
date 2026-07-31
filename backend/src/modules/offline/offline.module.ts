@@ -21,6 +21,8 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { ProposedChange } from '../proposed-changes/entities/proposed-change.entity';
 import { ProposedChangesModule } from '../proposed-changes/proposed-changes.module';
 import { UsersModule } from '../users/users.module';
+import { MolModule } from '../mol/mol.module';
+import { IgnoreKeyword } from '../mol/entities/ignore-keyword.entity';
 
 @Module({
   imports: [
@@ -34,6 +36,7 @@ import { UsersModule } from '../users/users.module';
       InventoryBookItem,
       RevisorAccess,
       ProposedChange,
+      IgnoreKeyword,
     ]),
     JwtAuthModule,
     UsersModule,
@@ -43,6 +46,7 @@ import { UsersModule } from '../users/users.module';
     PhotosModule,
     InventoryModule,
     ProposedChangesModule,
+    MolModule,
   ],
   controllers: [OfflineController],
   providers: [

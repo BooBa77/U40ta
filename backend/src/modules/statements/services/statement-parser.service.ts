@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Statement } from '../entities/statement.entity';
+import { IgnoreKeywordsService } from '../../mol/services/ignore-keywords.service';
 
 /**
  * Интерфейс события statement.file.received.
@@ -26,18 +27,13 @@ interface StatementFileReceivedEvent {
  * ## Процесс
  * 1. Получает Buffer с Excel-файлом из события
  * 2. В зависимости от docType парсит колонки
- * 3. Создаёт по записи Statement на каждую строку
- * 4. Сохраняет в БД
+ * 3. Для каждой строки проверяет игнор-слова МОЛа через IgnoreKeywordsService
+ * 4. Создаёт по записи Statement на каждую строку
+ * 5. Сохраняет в БД
  * 
  * ## Фильтрация по единицам измерения (только ОСВ)
  * Строки с единицей измерения, отличной от «ШТ» и «КМП» (например «КГ», «Л»),
  * игнорируются и не создают записей в базе.
- * 
- * ## Отличия от старого StatementParserService
- * - Не привязан к email_attachments
- * - Не имеет транзакций и флагов in_process
- * - Не читает файлы с диска — работает с Buffer
- * - Не отправляет SSE-уведомления
  */
 @Injectable()
 export class StatementParser {
@@ -52,6 +48,7 @@ export class StatementParser {
   constructor(
     @InjectRepository(Statement)
     private readonly statementRepo: Repository<Statement>,
+    private readonly ignoreKeywordsService: IgnoreKeywordsService,
   ) {}
 
   /**
@@ -79,7 +76,15 @@ export class StatementParser {
       const receivedAt = new Date();
 
       // Создаём сущности
-      const statements = rows.map(row => {
+      const statements: Statement[] = [];
+
+      for (const row of rows) {
+        // Проверяем, нужно ли игнорировать строку по ключевым словам
+        const isIgnored = await this.ignoreKeywordsService.isIgnoredByKeywords(
+          userId,
+          row.buhName
+        );
+
         const statement = new Statement();
         statement.userId = userId;
         statement.receivedAt = receivedAt;
@@ -90,9 +95,10 @@ export class StatementParser {
         statement.invNumber = row.invNumber;
         statement.partyNumber = row.partyNumber;
         statement.buhName = row.buhName;
-        statement.isActual = true;
-        return statement;
-      });
+        statement.isActual = !isIgnored;
+
+        statements.push(statement);
+      }
 
       // Сохраняем в БД
       await this.statementRepo.save(statements);
