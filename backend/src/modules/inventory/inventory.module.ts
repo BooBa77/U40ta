@@ -7,11 +7,14 @@ import { InventoryStatement } from './entities/inventory-statement.entity';
 import { InventoryBook } from './entities/inventory-book.entity';
 import { InventoryBookItem } from './entities/inventory-book-item.entity';
 import { RevisorAccess } from './entities/revisor-access.entity';
+import { InventoryBookMolAccess } from './entities/inventory-book-mol-access.entity';
+import { InventoryObject } from '../objects/entities/object.entity';
 import { InventoryController } from './inventory.controller';
 import { InventoryStatementParser } from './services/inventory-statement-parser.service';
 import { InventoryStatementsService } from './services/inventory-statements.service';
 import { InventoryBooksService } from './services/inventory-books.service';
 import { RevisorAccessService } from './services/revisor-access.service';
+import { MolAccessService } from './services/mol-access.service';
 import { UsersModule } from '../users/users.module';
 import { EmailModule } from '../email/email.module';
 
@@ -37,6 +40,8 @@ import { EmailModule } from '../email/email.module';
       InventoryBook,
       InventoryBookItem,
       RevisorAccess,
+      InventoryBookMolAccess,
+      InventoryObject,
     ]),
     EventEmitterModule,
     JwtAuthModule,
@@ -50,6 +55,7 @@ import { EmailModule } from '../email/email.module';
     InventoryStatementsService,
     InventoryBooksService,
     RevisorAccessService,
+    MolAccessService,
   ],
 })
 export class InventoryModule {}

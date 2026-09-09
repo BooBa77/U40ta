@@ -10,12 +10,14 @@ import {
   Body,
   Query,
   HttpCode,
-  HttpStatus
+  HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InventoryStatementsService } from './services/inventory-statements.service';
 import { InventoryBooksService } from './services/inventory-books.service';
 import { RevisorAccessService } from './services/revisor-access.service';
+import { MolAccessService } from './services/mol-access.service';
 import { InventoryStatement } from './entities/inventory-statement.entity';
 import { UpdateInventoryBookDto } from './dto/update-inventory-book.dto';
 import { UsersService } from '../users/users.service';
@@ -40,6 +42,7 @@ export class InventoryController {
     private readonly inventoryBooksService: InventoryBooksService,
     private readonly usersService: UsersService, // Для получения email пользователя
     private readonly revisorAccessService: RevisorAccessService, // Для настройки общего доступа к книгам
+    private readonly molAccessService: MolAccessService, // Для предоставления доступа МОЛ'ам
   ) {}
 
   /**
@@ -60,7 +63,7 @@ export class InventoryController {
    * Получить список уникальных batch'ей ревизора.
    * GET /api/inventory/batches
    */
-  @Get('batches')
+/*  @Get('batches')
   async getBatches(
     @Req() request: RequestWithUser
   ): Promise<{ emailFrom: string; receivedAt: Date; zavod: number; sklad: string; docType: string; count: number }[]> {
@@ -70,6 +73,21 @@ export class InventoryController {
     }
 
     return await this.inventoryStatementsService.getBatches(email);
+  }
+*/
+  @Get('batches')
+  async getBatches(@Req() request: RequestWithUser) {
+    const email = await this.getUserEmail(request);
+    console.log('[DEBUG] getBatches email:', email);
+    
+    if (!email) {
+      console.log('[DEBUG] getBatches: email пустой, возвращаю []');
+      return [];
+    }
+    
+    const result = await this.inventoryStatementsService.getBatches(email);
+    console.log('[DEBUG] getBatches result:', result);
+    return result;
   }
 
   /**
@@ -328,6 +346,99 @@ export class InventoryController {
       body.isActual
     );
     
+    return { success: true };
+  }
+
+  // ============================================================================
+  // ДОСТУП МОЛов К СТРОКАМ КНИГИ
+  // ============================================================================
+
+  /**
+   * Получить список МОЛов, подходящих для книги.
+   * GET /api/inventory/books/:id/mol-candidates
+   */
+  @Get('books/:id/mol-candidates')
+  async getMolCandidates(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number
+  ) {
+    const userId = request.user.sub;
+    
+    // Проверяем доступ к книге
+    await this.inventoryBooksService.getBook(id, userId);
+    
+    return this.molAccessService.getMolCandidates(id);
+  }
+
+  /**
+   * Получить список ID МОЛов, которым уже расшарены строки книги.
+   * GET /api/inventory/books/:id/mol-access
+   */
+  @Get('books/:id/mol-access')
+  async getMolAccess(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number
+  ) {
+    const userId = request.user.sub;
+    
+    // Проверяем доступ к книге
+    await this.inventoryBooksService.getBook(id, userId);
+    
+    return this.molAccessService.getMolIdsForBook(id);
+  }
+
+  /**
+   * Расшарить строки книги для МОЛов.
+   * POST /api/inventory/books/:id/mol-access
+   */
+  @Post('books/:id/mol-access')
+  async shareMolAccess(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number,
+    @Body() body: { userIds: number[] }
+  ) {
+    const userId = request.user.sub;
+    
+    // Проверяем, что пользователь — владелец книги
+    const book = await this.inventoryBooksService.getBook(id, userId);
+    if (!book.isOwner) {
+      throw new ForbiddenException('Только создатель может расшаривать книгу');
+    }
+    
+    const count = await this.molAccessService.shareBookItems(id, body.userIds);
+    return { success: true, sharedCount: count };
+  }
+
+  /**
+   * Получить строки книги, доступные текущему МОЛу.
+   * GET /api/inventory/mol/items
+   */
+  @Get('mol/items')
+  async getMolItems(@Req() request: RequestWithUser) {
+    const userId = request.user.sub;
+    return this.molAccessService.getMolItems(userId);
+  }
+  
+  /**
+   * Удалить доступ МОЛа ко всем строкам книги.
+   * DELETE /api/inventory/books/:id/mol-access/:userId
+   */
+  @Delete('books/:id/mol-access/:userId')
+  @HttpCode(HttpStatus.OK)
+  async removeMolAccess(
+    @Req() request: RequestWithUser,
+    @Param('id') id: number,
+    @Param('userId') userId: number
+  ) {
+    const currentUserId = request.user.sub;
+    
+    // Проверяем, что пользователь — владелец книги
+    const book = await this.inventoryBooksService.getBook(id, currentUserId);
+    if (!book.isOwner) {
+      throw new ForbiddenException('Только создатель может управлять доступом');
+    }
+    
+    await this.molAccessService.removeMolAccess(id, userId);
     return { success: true };
   }
   

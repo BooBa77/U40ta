@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nest
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { InventoryStatementsService } from './inventory-statements.service';
-import { InventoryStatement } from '../entities/inventory-statement.entity';
 import { InventoryBook } from '../entities/inventory-book.entity';
 import { InventoryBookItem } from '../entities/inventory-book-item.entity';
 import { RevisorAccessService } from './revisor-access.service';
@@ -374,7 +373,7 @@ export class InventoryBooksService {
 
     return { success: true, confirmedCount };
   }
-
+  
   // ============================================================================
   // ВЫГРУЗКА КНИГИ В EXCEL
   // ============================================================================

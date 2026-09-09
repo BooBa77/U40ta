@@ -79,7 +79,7 @@ export class UsersService {
     const user = this.usersRepository.create({
       firstName,
       lastName,
-      eMail: email,
+      eMail: email.toLowerCase(),
       abr,
     });
 
@@ -97,6 +97,9 @@ export class UsersService {
    * @throws NotFoundException если пользователь не найден
    */
   async findById(id: number): Promise<User> {
+    if (isNaN(id) || id === undefined || id === null) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
     this.logger.log(`Поиск пользователя системы по ID: ${id}`);
     
     const user = await this.usersRepository.findOne({ where: { id } });
@@ -143,7 +146,30 @@ export class UsersService {
     const accessList = await this.molAccessRepository.find({ where: { userId } });
     return accessList.map(a => ({ zavod: a.zavod, sklad: a.sklad }));
   }
-  
+
+  /**
+   * Получение всех пользователей, являющихся ревизорами.
+   * JOIN таблиц revisors и users.
+   * 
+   * @returns Массив пользователей-ревизоров
+   */
+  async findAllRevisors(): Promise<User[]> {
+    this.logger.log('Запрос всех ревизоров');
+    
+    // Получаем ID ревизоров
+    const revisorIds = await this.revisorRepository.find({
+      select: ['userId']
+    });
+    
+    if (revisorIds.length === 0) {
+      return [];
+    }
+    
+    // Получаем пользователей по ID
+    const ids = revisorIds.map(r => r.userId);
+    return await this.usersRepository.findByIds(ids);
+  }  
+
   /**
    * Обновление данных пользователя.
    * При обновлении имени или фамилии автоматически пересчитывает abr.
@@ -219,6 +245,30 @@ export class UsersService {
     });
     return count > 0;
   }  
+
+  /**
+   * Получить список МОЛов, имеющих доступ хотя бы к одному из указанных складов.
+   * 
+   * @param locations - массив пар { zavod, sklad }
+   * @returns Массив пользователей-МОЛов
+   */
+  async findMolsByLocations(locations: { zavod: number; sklad: string }[]): Promise<User[]> {
+    if (locations.length === 0) return [];
+    
+    const userIds = new Set<number>();
+    
+    for (const { zavod, sklad } of locations) {
+      const accessList = await this.molAccessRepository.find({
+        where: { zavod, sklad },
+        select: ['userId'],
+      });
+      accessList.forEach(a => userIds.add(a.userId));
+    }
+    
+    if (userIds.size === 0) return [];
+    
+    return await this.usersRepository.findByIds(Array.from(userIds));
+  }
 
   /**
    * Проверка, является ли пользователь ревизором.

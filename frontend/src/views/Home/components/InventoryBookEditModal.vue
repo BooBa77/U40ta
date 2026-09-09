@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <!-- Секция доступа -->
+    <!-- Секция доступа ревизоров -->
     <div class="access-section">
       <label class="field-label">Предоставить коллегам доступ к описи</label>
 
@@ -72,6 +72,30 @@
             />
             <span class="batch-info">
               <span class="batch-name">{{ revisor.abr }} — {{ revisor.firstName }} {{ revisor.lastName }}</span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Секция задействования МОЛ -->
+    <div v-if="bookId > 0" class="access-section">
+      <label class="field-label">Задействовать МОЛ</label>
+
+      <div v-if="isLoadingMol" class="batches-empty">Загрузка...</div>
+      <div v-else-if="molCandidates.length === 0" class="batches-empty">Нет МОЛов для этой книги</div>
+
+      <div v-else class="batches-list">
+        <div v-for="mol in molCandidates" :key="mol.id" class="batch-row">
+          <label class="batch-label">
+            <input
+              v-model="selectedMolIds"
+              type="checkbox"
+              :value="mol.id"
+              :disabled="isSaving"
+            />
+            <span class="batch-info">
+              <span class="batch-name">{{ mol.abr }} — {{ mol.firstName }} {{ mol.lastName }}</span>
             </span>
           </label>
         </div>
@@ -98,15 +122,6 @@
         Выгрузить
       </button>
 
-      <button
-        v-if="bookId > 0"
-        class="bg-blue-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        :disabled="isSaving"
-        @click="handleDeleteBook"
-      >
-        Задействовать МОЛ
-      </button>
-            
       <div v-if="bookId > 0" class="flex-1"></div>
 
       <button
@@ -151,11 +166,16 @@ const selectedBatchKeys = ref([])
 const bookItems = ref([])
 const statementBatchMap = ref({})
 
-// Доступ
+// Доступ ревизоров
 const isLoadingAccess = ref(false)
 const revisors = ref([])
 const selectedRevisorIds = ref([])
 const currentUserId = ref(null)
+
+// Доступ МОЛов
+const isLoadingMol = ref(false)
+const molCandidates = ref([])
+const selectedMolIds = ref([])
 
 // Утилиты
 const batchKey = (batch) => `${batch.emailFrom}|${batch.receivedAt}|${batch.zavod}|${batch.sklad}`
@@ -246,12 +266,13 @@ const loadRevisors = async () => {
     const payload = JSON.parse(payloadJson)
     currentUserId.value = payload.sub
     
-    const response = await fetch('/api/users', {
+    const response = await fetch('/api/users/revisors-list', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (response.ok) {
       const data = await response.json()
-      revisors.value = data // все пользователи, включая себя
+      // Исключаем текущего пользователя из списка
+      revisors.value = data.filter(user => user.id !== currentUserId.value)
     }
   } catch (error) {
     console.error('Ошибка загрузки ревизоров:', error)
@@ -270,6 +291,37 @@ const loadAccess = async () => {
     selectedRevisorIds.value = access.map(a => a.userId)
   } catch (error) {
     console.error('Ошибка загрузки доступа:', error)
+  }
+}
+
+/**
+ * Загрузка списка МОЛов-кандидатов для книги.
+ */
+const loadMolCandidates = async () => {
+  if (props.bookId === 0) return
+  
+  isLoadingMol.value = true
+  try {
+    molCandidates.value = await inventoryBookService.getMolCandidates(props.bookId)
+  } catch (error) {
+    console.error('Ошибка загрузки МОЛов:', error)
+    molCandidates.value = []
+  } finally {
+    isLoadingMol.value = false
+  }
+}
+
+/**
+ * Загрузка уже расшаренных МОЛов.
+ */
+const loadMolAccess = async () => {
+  if (props.bookId === 0) return
+  
+  try {
+    selectedMolIds.value = await inventoryBookService.getMolAccess(props.bookId)
+  } catch (error) {
+    console.error('Ошибка загрузки доступа МОЛов:', error)
+    selectedMolIds.value = []
   }
 }
 
@@ -355,7 +407,7 @@ const handleSave = async () => {
       })
     }
 
-    // Сохраняем доступ
+    // Сохраняем доступ ревизоров
     const currentAccess = await inventoryBookService.getBookAccess(currentBookId)
     const currentUserIds = currentAccess.map(a => a.userId)
 
@@ -370,6 +422,24 @@ const handleSave = async () => {
     for (const userId of currentUserIds) {
       if (!selectedRevisorIds.value.includes(userId)) {
         await inventoryBookService.removeBookAccess(currentBookId, userId)
+      }
+    }
+
+    // Сохраняем доступ МОЛов (только при редактировании)
+    if (currentBookId > 0) {
+      const currentMolIds = await inventoryBookService.getMolAccess(currentBookId)
+      
+      // Добавить новых
+      const molsToAdd = selectedMolIds.value.filter(id => !currentMolIds.includes(id))
+      if (molsToAdd.length > 0) {
+        await inventoryBookService.shareMolAccess(currentBookId, molsToAdd)
+      }
+      
+      // Удалить снятых
+      for (const molId of currentMolIds) {
+        if (!selectedMolIds.value.includes(molId)) {
+          await inventoryBookService.removeMolAccess(currentBookId, molId)
+        }
       }
     }
 
@@ -409,6 +479,8 @@ const reset = () => {
   revisors.value = []
   selectedRevisorIds.value = []
   currentUserId.value = null
+  molCandidates.value = []
+  selectedMolIds.value = []
 }
 
 // ============================================================================
@@ -446,6 +518,8 @@ watch(() => props.isOpen, (isOpen) => {
     if (props.bookId > 0) {
       loadBookData()
       loadAccess()
+      loadMolCandidates()
+      loadMolAccess()
     } else {
       loadBatches()
       // При создании — создатель уже выбран
@@ -492,8 +566,7 @@ const ExcelIcon = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGl
 
 .batch-delete {
   background: none; border: none; font-size: 16px; cursor: pointer;
-  padding: 4px 8
-  px; border-radius: 6px; transition: background-color 0.2s;
+  padding: 4px 8px; border-radius: 6px; transition: background-color 0.2s;
 }
 .batch-delete:hover:not(:disabled) { background-color: #fee2e2; }
 .batch-delete:disabled { opacity: 0.4; cursor: not-allowed; }

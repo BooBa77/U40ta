@@ -34,6 +34,16 @@
         @edit-inventory-book="handleEditInventoryBook"
       />
 
+      <!-- Секция инвентаризации для МОЛа -->
+      <section v-if="hasMolInventory && !isFlightMode" class="max-w-[1000px] mx-auto px-4 w-full py-4 flex justify-center">
+        <button
+          class="font-bold text-red-700 text-base px-4 py-2 rounded-lg blink-yellow"
+          @click="showMolInventoryModal = true"
+        >
+          ИНВЕНТАРИЗАЦИЯ !!!
+        </button>        
+      </section>
+
       <!-- Секция ведомостей МОЛ -->
       <StatementsSection v-if="hasAccessToStatements" />
       
@@ -65,6 +75,12 @@
         @close="closeInventoryBookEditModal"
       />
 
+      <!-- Модалка инвентаризации для МОЛа -->
+      <MolInventoryModal
+        :is-open="showMolInventoryModal"
+        @close="showMolInventoryModal = false"
+      />
+      
       <!-- Информационное модальное окно -->
       <div v-if="showInfoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="closeInfoModal">
         <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4" @click.stop>
@@ -103,6 +119,7 @@ import FlightModeToggle from './components/FlightModeToggle.vue'
 import StatementsSection from './components/StatementsSection.vue'
 import InventoryBooksSection from './components/InventoryBooksSection.vue'
 import InventoryBookEditModal from './components/InventoryBookEditModal.vue'
+import MolInventoryModal from './components/MolInventoryModal.vue'
 import BottomMenu from './components/BottomMenu.vue'
 import { qrService } from '@/services/qr.service'
 import { objectService } from '@/services/object.service'
@@ -110,6 +127,7 @@ import { useCamera } from '@/composables/useCamera'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useSSE } from '@/composables/useSSE'
 import { offlineCache } from '@/services/offline-cache.service'
+import { molService } from '@/services/mol.service'
 
 const router = useRouter()
 const route = useRoute()
@@ -138,6 +156,10 @@ const hasInventoryBooksInCache = ref(false)
 // Модалка создания/редактирования инвентаризационной книги
 const showInventoryBookEditModal = ref(false)
 const editingInventoryBookId = ref(null)
+
+// Модалка инвентаризации для МОЛа
+const showMolInventoryModal = ref(false)
+const hasMolInventory = ref(false)
 
 /**
  * Проверяет, активен ли режим полёта
@@ -254,6 +276,12 @@ const handleSSEMessage = (data) => {
       fetchUserAbr()
     }
   }
+
+  if (data.type === 'inventory-book-changed' || data.type === 'objects-changed') {
+    if (!isFlightMode.value) {
+      checkMolInventory()
+    }
+  }  
 }
 
 useSSE(handleSSEMessage, { autoConnect: !checkFlightMode() })
@@ -352,6 +380,9 @@ const handleFlightModeChange = async (event) => {
   
   if (isFlightMode.value) {
     await checkInventoryBooksInCache()
+    hasMolInventory.value = false  // Скрываем в офлайне
+  } else {
+    checkMolInventory()  // Проверяем при возврате в онлайн
   }
   
   fetchUserAbr()
@@ -382,6 +413,19 @@ const showInventorySection = computed(() => {
   return isRevisor.value
 })
 
+/**
+ * Проверка наличия строк инвентаризации для МОЛа
+ */
+const checkMolInventory = async () => {
+  try {
+    const items = await molService.getMolInventoryItems()
+    hasMolInventory.value = items.length > 0
+  } catch (error) {
+    console.error('[Home] Ошибка проверки инвентаризации МОЛа:', error)
+    hasMolInventory.value = false
+  }
+}
+
 // ============================================================================
 // НИЖНЕЕ МЕНЮ — ОБРАБОТЧИКИ
 // ============================================================================
@@ -407,6 +451,9 @@ onMounted(() => {
 
     if (isFlightMode.value) {
       checkInventoryBooksInCache()
+    }
+    else {
+      checkMolInventory()
     }
 
     window.addEventListener('flight-mode-changed', handleFlightModeChange)
@@ -436,3 +483,14 @@ onUnmounted(() => {
   window.removeEventListener('flight-mode-changed', handleFlightModeChange)
 })
 </script>
+
+<style scoped>
+@keyframes blink-yellow {
+  0%, 100% { background-color: #fef08a; }
+  50% { background-color: #fde047; }
+}
+
+.blink-yellow {
+  animation: blink-yellow 0.5s ease-in-out infinite;
+}
+</style>

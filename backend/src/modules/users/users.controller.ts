@@ -107,6 +107,15 @@ export class UsersController {
   }  
 
   /**
+   * GET /api/users/revisors-list — возвращает список всех ревизоров.
+   * Используется в модалке редактирования книги для выбора коллег.
+   */
+  @Get('revisors-list')
+  async findAllRevisors() {
+    return this.usersService.findAllRevisors();
+  }
+
+  /**
    * GET /api/users/:id - получить пользователя по ID
    */
   @Get(':id')
@@ -114,7 +123,7 @@ export class UsersController {
     return this.usersService.findById(+id);
   }
 
-  /**
+/**
    * GET /api/users - возвращает список всех пользователей системы
    * В режиме разработки доступен без авторизации для выбора тестового пользователя
    * В продакшене требует валидный JWT токен

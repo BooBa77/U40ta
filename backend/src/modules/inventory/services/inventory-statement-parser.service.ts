@@ -95,7 +95,7 @@ export class InventoryStatementParser {
       // Создаём сущности
       const statements = rows.map(row => {
         const statement = new InventoryStatement();
-        statement.emailFrom = emailFrom;
+        statement.emailFrom = emailFrom.toLowerCase();
         statement.receivedAt = receivedAt;
         statement.docType = docType;
         statement.zavod = row.zavod;

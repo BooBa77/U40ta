@@ -388,6 +388,102 @@ export class InventoryBookService {
   }  
 
   // ============================================================================
+  // УПРАВЛЕНИЕ ДОСТУПОМ МОЛов К СТРОКАМ КНИГИ
+  // ============================================================================
+
+  /**
+   * Получить список МОЛов-кандидатов для книги.
+   * Возвращает МОЛов, чьи склады пересекаются со складами строк книги.
+   * 
+   * @param {string|number} bookId - ID книги
+   * @returns {Promise<Array>} Массив пользователей-МОЛов
+   */
+  async getMolCandidates(bookId) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      throw new Error('Управление доступом МОЛов недоступно в офлайн-режиме')
+    }
+
+    try {
+      return await this.apiRequest(`/inventory/books/${id}/mol-candidates`)
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка получения кандидатов МОЛов:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Получить список ID МОЛов, которым уже расшарены строки книги.
+   * 
+   * @param {string|number} bookId - ID книги
+   * @returns {Promise<Array<number>>} Массив ID пользователей-МОЛов
+   */
+  async getMolAccess(bookId) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      throw new Error('Управление доступом МОЛов недоступно в офлайн-режиме')
+    }
+
+    try {
+      return await this.apiRequest(`/inventory/books/${id}/mol-access`)
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка получения доступа МОЛов:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Расшарить строки книги для МОЛов.
+   * 
+   * @param {string|number} bookId - ID книги
+   * @param {Array<number>} userIds - массив ID МОЛов
+   * @returns {Promise<Object>} { success: true, sharedCount: number }
+   */
+  async shareMolAccess(bookId, userIds) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      throw new Error('Управление доступом МОЛов недоступно в офлайн-режиме')
+    }
+
+    try {
+      return await this.apiRequest(`/inventory/books/${id}/mol-access`, {
+        method: 'POST',
+        body: { userIds }
+      })
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка расшаривания для МОЛов:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Удалить доступ МОЛа ко всем строкам книги.
+   * 
+   * @param {string|number} bookId - ID книги
+   * @param {number} userId - ID МОЛа
+   * @returns {Promise<Object>} { success: true }
+   */
+  async removeMolAccess(bookId, userId) {
+    const id = Number(bookId)
+
+    if (this.isFlightMode()) {
+      throw new Error('Управление доступом МОЛов недоступно в офлайн-режиме')
+    }
+
+    try {
+      return await this.apiRequest(`/inventory/books/${id}/mol-access/${userId}`, {
+        method: 'DELETE'
+      })
+    } catch (error) {
+      console.error('[InventoryBookService] Ошибка удаления доступа МОЛа:', error)
+      throw error
+    }
+  }
+
+  // ============================================================================
   // ИГНОРИРОВАНИЕ ОБЪЕКТОВ ПРИ ИНВЕНТАРИЗАЦИИ
   // ============================================================================
 
