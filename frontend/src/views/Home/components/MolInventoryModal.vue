@@ -11,7 +11,6 @@
       >
         <!-- Хедер -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <!-- Чекбокс отображения неактуальных -->
           <label class="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
             <input
               v-model="showInactive"
@@ -60,7 +59,6 @@
 
         <!-- Основной контент -->
         <template v-else>
-          <!-- Таблица -->
           <div class="overflow-x-auto flex-1 min-h-0">
             <table v-if="filteredData.length > 0" class="w-full border-collapse text-sm">
               <thead>
@@ -87,14 +85,14 @@
               <tbody>
                 <tr
                   v-for="(item, index) in filteredData"
-                  :key="item.id"
+                  :key="item.id || `excess_${index}`"
                   :class="[
-                    'border-b border-gray-100 active:bg-gray-50',
+                    getRowClass(item),
                     item.idObject > 0 ? 'cursor-pointer' : 'cursor-default'
                   ]"
                   @click="item.idObject > 0 ? handleRowClick(item) : undefined"
                 >
-                  <td class="px-1 py-2 text-center text-gray-400 text-xs shrink-0">
+                  <td class="px-1 py-2 text-center text-xs shrink-0">
                     {{ index + 1 }}
                   </td>
                   <td
@@ -102,7 +100,6 @@
                     :key="col.id"
                     :class="[
                       'px-2 py-2 whitespace-nowrap',
-                      getCellClass(item, col.id),
                       col.id === columnWithAutoWidth ? 'break-all whitespace-normal' : ''
                     ]"
                   >
@@ -112,13 +109,11 @@
               </tbody>
             </table>
 
-            <!-- Пустое состояние -->
             <div v-else class="flex-1 flex items-center justify-center py-16 text-gray-400 text-sm italic px-5 text-center">
               {{ hasActiveFilters || !showInactive ? 'Нет строк, соответствующих условиям' : 'Нет данных для отображения' }}
             </div>
           </div>
 
-          <!-- Переключение экранов колонок -->
           <div v-if="!isLoading && !error" class="flex items-center justify-between px-5 py-2 border-t border-gray-100 bg-gray-50 shrink-0">
             <button
               :disabled="currentScreenIndex === 0"
@@ -151,7 +146,6 @@
     </div>
   </Transition>
 
-  <!-- UniversalFilterModal для фильтрации -->
   <UniversalFilterModal
     :is-open="filterModalState.isOpen"
     :title="filterModalState.title"
@@ -163,7 +157,6 @@
     @reset="resetCurrentFilter"
   />
 
-  <!-- Модалка ObjectForm -->
   <ObjectFormModal
     :is-open="objectFormIsOpen"
     :object-id="objectFormObjectId"
@@ -194,16 +187,24 @@ const emit = defineEmits(['close'])
 // ============================================================================
 
 const allColumns = [
-  { id: 'invNumber',    label: 'Инв. номер',  getValue: (row) => row.invNumber,          width: undefined, filterable: true,  screen: 0 },
-  { id: 'partyNumber',  label: 'Партия',      getValue: (row) => row.partyNumber,        width: '85px',  filterable: true,  screen: 0 },
-  { id: 'buhName',      label: 'Наименование', getValue: (row) => row.buhName,           width: undefined, filterable: true,  screen: 0 },
-  { id: 'placeTer',     label: 'Территория',  getValue: (row) => row.placeTer || '—',    width: '60px',  filterable: true,  screen: 1 },
-  { id: 'placePos',     label: 'Позиция',     getValue: (row) => row.placePos || '—',    width: '60px',  filterable: true,  screen: 1 },
-  { id: 'placeCab',     label: 'Кабинет',     getValue: (row) => row.placeCab || '—',    width: '55px',  filterable: true,  screen: 1 },
-  { id: 'placeUser',    label: 'Пользователь', getValue: (row) => row.placeUser || '—',  width: undefined, filterable: true,  screen: 1 },
-  { id: 'isOk',         label: 'Подтверждено', getValue: (row) => (row.isOkManual || row.isOkAuto) ? 'Да' : 'Нет', width: '70px', filterable: false, screen: 2 },
-  { id: 'dateOkChecked', label: 'Дата',       getValue: (row) => formatDate(row.dateOkChecked), width: '90px', filterable: false, screen: 2 },
-  { id: 'rem',          label: 'Комментарий', getValue: (row) => row.rem || '—',         width: undefined, filterable: false, screen: 3 },
+  // Экран 1: местоположение
+  { id: 'placeTer',     label: 'Территория',   getValue: (row) => row.placeTer || '—',    width: '60px',  filterable: true,  screen: 0 },
+  { id: 'placePos',     label: 'Позиция',      getValue: (row) => row.placePos || '—',    width: '60px',  filterable: true,  screen: 0 },
+  { id: 'placeCab',     label: 'Кабинет',      getValue: (row) => row.placeCab || '—',    width: '55px',  filterable: true,  screen: 0 },
+  { id: 'placeUser',    label: 'Пользователь', getValue: (row) => row.placeUser || '—',   width: undefined, filterable: true,  screen: 0 },
+  // Экран 2: идентификация
+  { id: 'zavod',        label: 'Завод',        getValue: (row) => row.zavod,              width: '45px',  filterable: true,  screen: 1 },
+  { id: 'sklad',        label: 'Склад',        getValue: (row) => row.sklad,              width: '65px',  filterable: true,  screen: 1 },
+  { id: 'invNumber',    label: 'Инв. номер',   getValue: (row) => row.invNumber,          width: undefined, filterable: true,  screen: 1 },
+  { id: 'partyNumber',  label: 'Партия',       getValue: (row) => row.partyNumber,        width: '85px',  filterable: true,  screen: 1 },
+  // Экран 3: описание
+  { id: 'buhName',      label: 'Наименование', getValue: (row) => row.buhName,            width: undefined, filterable: true,  screen: 2 },
+  { id: 'sn',           label: 'S/N',          getValue: (row) => row.sn || '—',          width: '100px', filterable: true,  screen: 2 },
+  // Экран 4: статус
+  { id: 'isOk',         label: 'Подтверждено', getValue: (row) => row.isOk ? 'Да' : 'Нет', width: '70px',  filterable: false, screen: 3 },
+  { id: 'dateOkChecked', label: 'Дата',        getValue: (row) => formatDate(row.dateOkChecked), width: '90px', filterable: false, screen: 3 },
+  // Экран 5: комментарий
+  { id: 'rem',          label: 'Комментарий',  getValue: (row) => row.rem || '—',         width: undefined, filterable: false, screen: 4 },
 ]
 
 const columnScreens = [
@@ -272,9 +273,6 @@ const visibleColumns = computed(() => {
   return columnScreens[currentScreenIndex.value]?.columns || []
 })
 
-const totalCount = computed(() => allItems.value.length)
-const filteredCount = computed(() => filteredData.value.length)
-
 // ============================================================================
 // ЗАГРУЗКА ДАННЫХ
 // ============================================================================
@@ -294,7 +292,7 @@ const loadItems = async () => {
 }
 
 // ============================================================================
-// ФОРМАТИРОВАНИЕ
+// ФОРМАТИРОВАНИЕ И ЦВЕТА
 // ============================================================================
 
 const formatCellValue = (item, col) => {
@@ -308,15 +306,20 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
-const getCellClass = (item, colId) => {
-  // Цветовая индикация
-  if (colId === 'invNumber') {
-    if (!item.isActual) return 'text-gray-400 line-through'
-    if (item.isOkManual || item.isOkAuto) return 'text-green-600 font-medium'
-    if (!item.idObject) return 'text-red-600 font-medium'
-    return 'text-gray-700'
-  }
-  return 'text-gray-700'
+/**
+ * Определяет CSS-класс строки по статусу.
+ * - row-group-4 — серый (isActual = false)
+ * - row-group-6 — синий (isExcess, профицит)
+ * - row-group-3 — зелёный (isOk, подтверждено)
+ * - row-group-1 — красный (объект не найден)
+ * - row-group-0 — белый (всё совпадает, не подтверждено)
+ */
+const getRowClass = (item) => {
+  if (!item.isActual) return 'row-group-4'
+  if (item.isExcess) return 'row-group-6'
+  if (item.isOk) return 'row-group-3'
+  if (!item.idObject) return 'row-group-1'
+  return 'row-group-0'
 }
 
 // ============================================================================

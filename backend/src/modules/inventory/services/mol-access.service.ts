@@ -5,6 +5,7 @@ import { InventoryBookMolAccess } from '../entities/inventory-book-mol-access.en
 import { InventoryBookItem } from '../entities/inventory-book-item.entity';
 import { InventoryObject } from '../../objects/entities/object.entity';
 import { UsersService } from '../../users/users.service';
+import { AppEventsService } from '../../app-events/app-events.service';
 import { User } from '../../users/entities/user.entity';
 
 /**
@@ -24,8 +25,9 @@ export class MolAccessService {
     @InjectRepository(InventoryBookItem)
     private readonly itemRepo: Repository<InventoryBookItem>,
     @InjectRepository(InventoryObject)
-    private readonly objectRepo: Repository<InventoryObject>,    
+    private readonly objectRepo: Repository<InventoryObject>,
     private readonly usersService: UsersService,
+    private readonly appEventsService: AppEventsService,
   ) {}
 
   /**
@@ -103,6 +105,9 @@ export class MolAccessService {
           }
         }
       }
+
+      // Уведомляем МОЛа об изменении доступа
+      this.appEventsService.notifyMolAccessChanged(userId);
     }
     
     this.logger.log(`Расшарено ${createdCount} строк книги ${bookId}`);
@@ -131,18 +136,27 @@ export class MolAccessService {
       select: ['userId'],
     });
 
-    return [...new Set(accesses.map(a => a.userId))];
+    return [...new Set(accesses.map(a => Number(a.userId)))];
   }
 
   /**
-   * Получить строки книги, доступные МОЛу.
-   * JOIN inventory_book_mol_access + inventory_book_items + objects.
+   * Получить строки книги, доступные МОЛу, с цветовой индикацией.
+   * 
+   * ## Алгоритм
+   * 1. Получаем itemIds из inventory_book_mol_access по userId
+   * 2. Загружаем строки inventory_book_items
+   * 3. Группируем по комбинации invNumber|partyNumber|zavod|sklad
+   * 4. Для каждой группы:
+   *    - Шаг 1: если isActual = false → возвращаем items как есть (серые)
+   *    - Шаг 2: подтверждённые (isOkAuto ИЛИ isOkManual) — зелёные
+   *    - Шаг 3: неподтверждённые — чёрные/красные/синие по количеству
+   *    - Шаг 4: контрольный запрос оставшихся objects — синие
    * 
    * @param userId - ID МОЛа
-   * @returns Массив строк с данными объекта и статусами
+   * @returns Массив строк с данными объекта, статусами и isExcess
    */
   async getMolItems(userId: number): Promise<any[]> {
-    // Получаем ID строк из inventory_book_mol_access
+    // Запрос 1: получаем ID строк из inventory_book_mol_access
     const accesses = await this.repo.find({
       where: { userId },
       select: ['inventoryBookItemId'],
@@ -152,47 +166,189 @@ export class MolAccessService {
 
     const itemIds = accesses.map(a => a.inventoryBookItemId);
 
-    // Получаем строки книги
+    // Запрос 2: получаем строки книги
     const items = await this.itemRepo.find({
       where: { id: In(itemIds) },
     });
 
-    // Получаем объекты для этих строк
-    const objectIds = items
-      .map(i => i.idObject)
-      .filter((id): id is number => id !== null && id !== undefined);
+    if (items.length === 0) return [];
 
-      const objects = objectIds.length > 0
-        ? await this.objectRepo.find({ where: { id: In(objectIds) } })
-        : [];
+    // Группируем по комбинации
+    const groups = new Map<string, InventoryBookItem[]>();
+    for (const item of items) {
+      const key = `${item.invNumber}|${item.partyNumber || ''}|${item.zavod}|${item.sklad}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(item);
+    }
 
-    const objectMap = new Map(objects.map(o => [o.id, o]));
+    const result: any[] = [];
 
-    // Формируем результат
-    return items.map(item => {
-      const obj = item.idObject ? objectMap.get(item.idObject) : null;
+    // Обрабатываем каждую группу
+    for (const [key, groupItems] of groups) {
+      const [invNumber, partyNumber, zavodStr, sklad] = key.split('|');
+      const zavod = Number(zavodStr);
+
+      // Шаг 1: неактуальные
+      const inactiveItems = groupItems.filter(i => !i.isActual);
+      if (inactiveItems.length > 0) {
+        for (const item of inactiveItems) {
+          result.push(this.buildResultItem(item, null, false));
+        }
+      }
+
+      // Активные
+      const activeItems = groupItems.filter(i => i.isActual);
+      if (activeItems.length === 0) continue;
+
+      // A[] — локальный массив занятых idObject для группы
+      const usedObjectIds = new Set<number>();
+
+      // Шаг 2: подтверждённые (isOkAuto ИЛИ isOkManual)
+      const confirmedItems = activeItems.filter(i => i.isOkAuto || i.isOkManual);
+      for (const item of confirmedItems) {
+        let obj: InventoryObject | null = null;
+        
+        if (item.idObject) {
+          obj = await this.objectRepo.findOne({ where: { id: item.idObject } });
+          if (obj) {
+            usedObjectIds.add(obj.id);
+          }
+        }
+
+        result.push(this.buildResultItem(item, obj, false));
+      }
+
+      // Шаг 3: неподтверждённые (isOkAuto = false И isOkManual = false)
+      const unconfirmedItems = activeItems.filter(i => !i.isOkAuto && !i.isOkManual);
       
-      return {
-        id: item.id,
-        zavod: item.zavod,
-        sklad: item.sklad,
-        invNumber: item.invNumber,
-        partyNumber: item.partyNumber,
-        buhName: item.buhName,
-        isActual: item.isActual,
-        isOkManual: item.isOkManual,
-        isOkAuto: item.isOkAuto,
-        dateOkChecked: item.dateOkAutoChecked || item.dateOkManualChecked,
-        rem: item.rem,
-        idObject: item.idObject || 0,
-        placeTer: obj?.placeTer || null,
-        placePos: obj?.placePos || null,
-        placeCab: obj?.placeCab || null,
-        placeUser: obj?.placeUser || null,
-      };
-    });
+      if (unconfirmedItems.length > 0) {
+        // Ищем objects по комбинации, исключая уже занятые
+        const allObjects = await this.objectRepo.find({
+          where: { invNumber, partyNumber, zavod, sklad },
+        });
+        
+        const availableObjects = allObjects.filter(o => !usedObjectIds.has(o.id));
+
+        const N = unconfirmedItems.length;
+        const M = availableObjects.length;
+
+        if (M < N) {
+          // M чёрных + (N-M) красных
+          for (let i = 0; i < N; i++) {
+            if (i < M) {
+              const obj = availableObjects[i];
+              usedObjectIds.add(obj.id);
+              result.push(this.buildResultItem(unconfirmedItems[i], obj, false));
+            } else {
+              result.push(this.buildResultItem(unconfirmedItems[i], null, false));
+            }
+          }
+        } else if (M === N) {
+          // Все чёрные
+          for (let i = 0; i < N; i++) {
+            const obj = availableObjects[i];
+            usedObjectIds.add(obj.id);
+            result.push(this.buildResultItem(unconfirmedItems[i], obj, false));
+          }
+        } else {
+          // M > N → все M синих
+          for (const obj of availableObjects) {
+            usedObjectIds.add(obj.id);
+            result.push(this.buildExcessItem(obj, invNumber, partyNumber, zavod, sklad));
+          }
+        }
+      }
+
+      // Шаг 4: контрольный запрос — оставшиеся objects по комбинации
+      const remainingObjects = await this.objectRepo.find({
+        where: { invNumber, partyNumber, zavod, sklad },
+      });
+
+      for (const obj of remainingObjects) {
+        if (!usedObjectIds.has(obj.id)) {
+          usedObjectIds.add(obj.id);
+          result.push(this.buildExcessItem(obj, invNumber, partyNumber, zavod, sklad));
+        }
+      }
+    }
+
+    return result;
   }
-  
+
+  /**
+   * Формирует элемент результата на основе строки книги.
+   * 
+   * @param item - строка книги
+   * @param obj - найденный объект (или null)
+   * @param isExcess - признак излишка
+   * @returns Объект для фронта
+   */
+  private buildResultItem(
+    item: InventoryBookItem,
+    obj: InventoryObject | null,
+    isExcess: boolean,
+  ): any {
+    return {
+      id: item.id,
+      zavod: item.zavod,
+      sklad: item.sklad,
+      invNumber: item.invNumber,
+      partyNumber: item.partyNumber,
+      buhName: item.buhName,
+      isActual: item.isActual,
+      isOk:  item.isOkManual || item.isOkAuto,
+      dateOkChecked: item.dateOkAutoChecked || item.dateOkManualChecked,
+      rem: item.rem,
+      idObject: obj?.id || item.idObject || 0,
+      placeTer: obj?.placeTer || item.placeTer || null,
+      placePos: obj?.placePos || item.placePos || null,
+      placeCab: obj?.placeCab || item.placeCab || null,
+      placeUser: obj?.placeUser || item.placeUser || null,
+      sn: obj?.sn || null,
+      isExcess,
+    };
+  }
+
+  /**
+   * Формирует элемент результата для объекта-излишка.
+   * 
+   * @param obj - объект из objects
+   * @param invNumber - инвентарный номер
+   * @param partyNumber - партия
+   * @param zavod - завод
+   * @param sklad - склад
+   * @returns Объект для фронта с isExcess = true
+   */
+  private buildExcessItem(
+    obj: InventoryObject,
+    invNumber: string,
+    partyNumber: string,
+    zavod: number,
+    sklad: string,
+  ): any {
+    return {
+      id: null,
+      zavod,
+      sklad,
+      invNumber,
+      partyNumber,
+      buhName: obj.buhName,
+      isActual: true,
+      isOk: false,
+      dateOkChecked: null,
+      rem: null,
+      idObject: obj.id,
+      placeTer: obj.placeTer || null,
+      placePos: obj.placePos || null,
+      placeCab: obj.placeCab || null,
+      placeUser: obj.placeUser || null,
+      sn: obj.sn || null,
+      isExcess: true,
+    };
+  }
+
   /**
    * Удалить доступ МОЛа ко всем строкам книги.
    * 
@@ -215,5 +371,8 @@ export class MolAccessService {
     });
 
     this.logger.log(`Удалён доступ МОЛа ${userId} к строкам книги ${bookId}`);
+
+    // Уведомляем МОЛа об изменении доступа
+    this.appEventsService.notifyMolAccessChanged(userId);
   }
 }

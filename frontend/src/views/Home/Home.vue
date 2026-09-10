@@ -281,6 +281,22 @@ const handleSSEMessage = (data) => {
     if (!isFlightMode.value) {
       checkMolInventory()
     }
+  }
+
+  if (data.type === 'mol-access-changed') {
+    const token = localStorage.getItem('auth_token')
+    const payloadBase64 = token.split('.')[1]
+    const payloadJson = atob(payloadBase64)
+    const payload = JSON.parse(payloadJson)
+    const currentUserId = payload.sub
+    
+    if (!data.data || data.data.userId === currentUserId) {
+      checkMolInventory().then((hasAccess) => {
+        if (!hasAccess && showMolInventoryModal.value) {
+          showMolInventoryModal.value = false
+        }
+      })
+    }
   }  
 }
 
@@ -420,9 +436,11 @@ const checkMolInventory = async () => {
   try {
     const items = await molService.getMolInventoryItems()
     hasMolInventory.value = items.length > 0
+    return hasMolInventory.value
   } catch (error) {
     console.error('[Home] Ошибка проверки инвентаризации МОЛа:', error)
     hasMolInventory.value = false
+    return false
   }
 }
 

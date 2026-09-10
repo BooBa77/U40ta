@@ -131,6 +131,7 @@ inventory/
 - `inventory-statement-loaded` — новые ведомости ревизора (email)
 - `inventory-book-changed` — изменение книги (bookId)
 - `objects-changed` — изменение объектов на складе (userId, zavod, sklad)
+- `notifyMolAccessChanged` — Изменение доступа МОЛа к инвентаризационной ведомости
 
 ## Безопасность
 

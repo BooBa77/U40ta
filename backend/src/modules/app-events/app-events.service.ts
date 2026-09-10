@@ -63,6 +63,21 @@ export class AppEventsService {
   // ============================================================================
 
   /**
+   * Изменение доступа МОЛа к инвентаризации.
+   * Home.vue проверяет наличие строк для МОЛа и показывает/скрывает кнопку "ИНВЕНТАРИЗАЦИЯ".
+   * MolInventoryModal обновляет список строк, если открыт.
+   * 
+   * @param userId - ID пользователя-МОЛа, чей доступ изменился
+   */
+  notifyMolAccessChanged(userId: number): void {
+    this.eventSubject.next({
+      type: 'mol-access-changed',
+      message: 'Доступ МОЛа к инвентаризации изменён',
+      data: { userId }
+    });
+  }  
+
+  /**
    * Новые инвентаризационные ведомости ревизора.
    * InventoryBooksSection.vue обновляет список.
    * @param email - email ревизора
