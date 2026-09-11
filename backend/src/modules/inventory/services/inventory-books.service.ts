@@ -371,6 +371,9 @@ export class InventoryBooksService {
       `isOkManual=${data.isOkManual}, isOkAuto=${data.isOkAuto}`
     );
 
+    // Уведомляем об изменении книги (для МОЛов, ревизоров)
+    this.appEventsService.notifyInventoryBookChanged(bookId);
+    
     return { success: true, confirmedCount };
   }
   

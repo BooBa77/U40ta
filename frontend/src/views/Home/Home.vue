@@ -77,6 +77,7 @@
 
       <!-- Модалка инвентаризации для МОЛа -->
       <MolInventoryModal
+        ref="molInventoryModalRef"
         :is-open="showMolInventoryModal"
         @close="showMolInventoryModal = false"
       />
@@ -160,6 +161,7 @@ const editingInventoryBookId = ref(null)
 // Модалка инвентаризации для МОЛа
 const showMolInventoryModal = ref(false)
 const hasMolInventory = ref(false)
+const molInventoryModalRef = ref(null)
 
 /**
  * Проверяет, активен ли режим полёта
@@ -280,6 +282,7 @@ const handleSSEMessage = (data) => {
   if (data.type === 'inventory-book-changed' || data.type === 'objects-changed') {
     if (!isFlightMode.value) {
       checkMolInventory()
+      molInventoryModalRef.value?.reload()
     }
   }
 

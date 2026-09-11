@@ -405,6 +405,18 @@ watch(() => props.isOpen, (isOpen) => {
     error.value = null
   }
 })
+
+/**
+ * Перезагрузка данных (вызывается из родителя через ref).
+ */
+const reload = () => {
+  if (props.isOpen) {
+    loadItems()
+  }
+}
+
+defineExpose({ reload })
+
 </script>
 
 <style scoped>

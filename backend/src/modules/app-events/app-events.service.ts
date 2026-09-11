@@ -28,6 +28,18 @@ export class AppEventsService {
   
   private eventSubject = new Subject<AppEvent>();
 
+  /**
+   * !!! DEBUG !!!
+   * Отправить событие в поток с логированием.
+   * Используется вместо прямого this.eventSubject.next() для отладки.
+   * 
+   * @param event - событие для отправки
+   */
+  private emit(event: AppEvent): void {
+    console.log(`[SSE] emit: type=${event.type}`, event.data || '');
+    this.eventSubject.next(event);
+  }  
+
   // ============================================================================
   // ДОСТУП И ПОЛЬЗОВАТЕЛИ
   // ============================================================================
@@ -38,7 +50,7 @@ export class AppEventsService {
    * @param userId - ID пользователя, чьи права изменились
    */
   notifyAccessChanged(userId: number): void {
-    this.eventSubject.next({ 
+    this.emit({ 
       type: 'access-changed',
       message: 'Права доступа изменены',
       data: { userId }
@@ -51,7 +63,7 @@ export class AppEventsService {
    * @param userId - ID пользователя
    */
   notifyUserDataUpdated(userId: number): void {
-    this.eventSubject.next({ 
+    this.emit({ 
       type: 'user-data-updated',
       message: 'Данные пользователя обновлены',
       data: { userId }
@@ -70,7 +82,7 @@ export class AppEventsService {
    * @param userId - ID пользователя-МОЛа, чей доступ изменился
    */
   notifyMolAccessChanged(userId: number): void {
-    this.eventSubject.next({
+    this.emit({
       type: 'mol-access-changed',
       message: 'Доступ МОЛа к инвентаризации изменён',
       data: { userId }
@@ -83,7 +95,7 @@ export class AppEventsService {
    * @param email - email ревизора
    */
   notifyInventoryStatementLoaded(email: string): void {
-    this.eventSubject.next({
+    this.emit({
       type: 'inventory-statement-loaded',
       message: 'Получены новые инвентаризационные ведомости',
       data: { email }
@@ -97,7 +109,7 @@ export class AppEventsService {
    * @param bookId - ID книги
    */
   notifyInventoryBookChanged(bookId: number): void {
-    this.eventSubject.next({
+    this.emit({
       type: 'inventory-book-changed',
       message: 'Инвентаризационная книга изменена',
       data: { bookId }
@@ -116,7 +128,7 @@ export class AppEventsService {
    * @param sklad - код склада
    */
   notifyObjectsChanged(userId: number, zavod: number, sklad: string): void {
-    this.eventSubject.next({
+    this.emit({
       type: 'objects-changed',
       message: 'Объекты на складе изменились',
       data: { userId, zavod, sklad }
