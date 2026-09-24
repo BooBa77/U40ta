@@ -300,6 +300,21 @@ export class ImapService {
    */
   private async handleParsedEmail(parsedEmail: any): Promise<void> {
     const fromAddress = parsedEmail.from?.value?.[0]?.address;
+    // ========== DEBUG ==========
+    console.log('[IMAP-DEBUG] handleParsedEmail', {
+      subject: parsedEmail.subject,
+      subjectType: typeof parsedEmail.subject,
+      from: parsedEmail.from,
+      fromValue: parsedEmail.from?.value,
+      fromValue0: parsedEmail.from?.value?.[0],
+      fromAddress,
+      fromAddressType: typeof fromAddress,
+      fromAddressJSON: JSON.stringify(fromAddress),
+      attachmentsCount: parsedEmail.attachments?.length,
+      attachmentFilenames: parsedEmail.attachments?.map((a: any) => a.filename),
+    });
+    // ===========================
+
     this.logger.log('Обрабатываем письмо от:', fromAddress);
 
     // Если вложений нет — нечего обрабатывать
@@ -345,6 +360,24 @@ export class ImapService {
     // - оригинальное имя файла
     // - адрес отправителя
     // - тему письма (для определения is_inventory по ключевому слову "инвентар")
+
+
+    // ========== DEBUG ==========
+    const fromAddress = email.from?.value?.[0]?.address;
+    console.log('[IMAP-DEBUG] processAttachment', {
+      filename: attachment.filename,
+      contentType: attachment.contentType,
+      size: attachment.size,
+      hasContent: !!attachment.content,
+      contentIsBuffer: Buffer.isBuffer(attachment.content),
+      contentLength: attachment.content?.length,
+      fromAddress,
+      fromAddressType: typeof fromAddress,
+      fromAddressJSON: JSON.stringify(fromAddress),
+      subject: email.subject,
+    });
+    // ===========================
+
     await this.emailProcessor.analyzeAndSaveAttachment(
       attachment.content,
       attachment.filename,

@@ -82,7 +82,21 @@ export class EmailProcessor {
   ): Promise<void> {
     // Нормализуем email отправителя
     const normalizedEmail = this.normalizeEmail(emailFrom);
-    
+
+    // ========== DEBUG ==========
+    console.log('[EMAIL-PROCESSOR-DEBUG] analyzeAndSaveAttachment', {
+      originalFilename,
+      emailFromRaw: emailFrom,
+      emailFromType: typeof emailFrom,
+      emailFromJSON: JSON.stringify(emailFrom),
+      normalizedEmail,
+      normalizedEmailLength: normalizedEmail.length,
+      emailSubject,
+      fileContentIsBuffer: Buffer.isBuffer(fileContent),
+      fileContentLength: fileContent?.length,
+    });
+    // ===========================    
+
     this.logger.log(`Обрабатываем вложение: ${originalFilename}, отправитель: ${normalizedEmail}`);
 
     // ========== Определяем тип ведомости по теме письма ==========
