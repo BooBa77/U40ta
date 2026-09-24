@@ -1,4 +1,11 @@
 /**
+ * Чистая логика сопоставления buh_name с игнор-словами.
+ * 
+ * Без NestJS, без БД — легко тестируется.
+ * Используется и в IgnoreKeywordsService, и (при желании) где угодно ещё.
+ */
+
+/**
  * Экранирование спецсимволов JS RegExp.
  */
 export function escapeRegExp(text: string): string {
@@ -7,15 +14,15 @@ export function escapeRegExp(text: string): string {
 
 /**
  * Проверяет, содержит ли текст хотя бы одно из ключевых слов.
- * 
+ *
  * Правила:
  * - Поиск по целому слову (не подстрока)
  * - Регистронезависимо (Unicode)
  * - Дефис считается частью слова
- * - Граница слова: начало/конец строки, пробел, пунктуация,
- *   но НЕ дефис и НЕ буква/цифра
- * 
- * @param keywords - массив ключевых слов (в нижнем регистре или как есть)
+ * - Границы слова: начало/конец строки, пробел, пунктуация,
+ *   но НЕ дефис, НЕ буква, НЕ цифра
+ *
+ * @param keywords - массив ключевых слов
  * @param text - текст для проверки (buh_name)
  * @returns true если найдено хотя бы одно совпадение
  */
@@ -46,6 +53,9 @@ export function matchesAnyKeyword(keywords: string[], text: string): boolean {
 /**
  * Компилирует ключевые слова в один RegExp (для массовой проверки).
  * Быстрее, чем N отдельных RegExp, если ключевых слов много.
+ *
+ * @param keywords - массив ключевых слов
+ * @returns скомпилированный RegExp или null если слов нет
  */
 export function compileKeywordsRegex(keywords: string[]): RegExp | null {
     const normalized = keywords
@@ -70,7 +80,6 @@ export function compileKeywordsRegex(keywords: string[]): RegExp | null {
  */
 export function matchesCompiled(regex: RegExp | null, text: string): boolean {
     if (!regex || !text) return false;
-    // Сбрасываем lastIndex на случай флага g (у нас его нет, но на будущее)
     regex.lastIndex = 0;
     return regex.test(text);
 }
