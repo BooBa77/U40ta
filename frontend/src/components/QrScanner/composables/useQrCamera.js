@@ -1,14 +1,7 @@
 /**
  * Composable для сканирования QR-кодов через камеру устройства.
  *
- * Ключевые особенности:
- * - Самостоятельное управление камерой через getUserMedia (без html5-qrcode).
- * - Умный выбор камеры: приоритет отдается той, что умеет фокусироваться
- *   на близком расстоянии (на Android).
- * - Пытается управлять фокусом через applyConstraints (Android).
- * - Использует нативный BarcodeDetector, если он есть (Chrome/Android),
- *   иначе — ZXing (iOS/Safari).
- * - Показывает отладочную панель со всей информацией о камерах и сканере.
+ * Отладочная информация выводится прямо в оверлее, под кнопкой "Отмена".
  *
  * @module useQrCamera
  */
@@ -19,25 +12,15 @@ import { BrowserMultiFormatReader } from '@zxing/browser'
 import { DecodeHintType, BarcodeFormat } from '@zxing/library'
 import { BarcodeDetector } from 'barcode-detector/ponyfill'
 
-/**
- * Создает и управляет оверлеем камеры, запускает сканирование QR-кодов.
- *
- * @param {Object} options - опции
- * @param {Function} options.onScan - колбэк при успешном сканировании
- * @param {Function} [options.onError] - колбэк при ошибке
- * @param {Object} [options.itemInfo] - информация об объекте для заголовка
- * @param {boolean} [options.debug] - показывать отладочную панель
- * @returns {Object} { startCameraScan, stopCameraScan, isScanning }
- */
 export function useQrCamera(options = {}) {
   const { onScan, onError, itemInfo, debug = true } = options
 
   const isScanning = ref(false)
 
-  // Внутренние ссылки на ресурсы
   let stream = null
   let videoElement = null
   let overlayElement = null
+  let debugPanelBodyElement = null
   let scanIntervalId = null
   let zxingReader = null
   let zxingControls = null
@@ -45,7 +28,6 @@ export function useQrCamera(options = {}) {
   let currentDeviceId = null
   let focusIntervalId = null
 
-  // Отладочные данные
   const debugData = {
     cameras: [],
     selectedCamera: null,
@@ -58,11 +40,9 @@ export function useQrCamera(options = {}) {
     focusMode: '',
     scanAttempts: 0,
     scanSuccess: 0,
-    lastError: ''
+    lastError: '',
+    status: 'init'
   }
-
-  let debugPanelElement = null
-  let debugPanelBodyElement = null
 
   /**
    * Проверяет, поддерживает ли браузер нативный BarcodeDetector.
@@ -86,7 +66,6 @@ export function useQrCamera(options = {}) {
 
   /**
    * Собирает capabilities для всех камер.
-   * Возвращает массив объектов с информацией о каждой камере.
    */
   const collectCameraInfo = async () => {
     const devices = await getVideoDevices()
@@ -120,7 +99,7 @@ export function useQrCamera(options = {}) {
   }
 
   /**
-   * Выбирает лучшую камеру для сканирования QR-кодов.
+   * Выбирает лучшую камеру.
    */
   const selectBestCamera = async () => {
     const cameras = await collectCameraInfo()
@@ -140,23 +119,20 @@ export function useQrCamera(options = {}) {
       const reasons = []
       const caps = cam.capabilities || {}
 
-      // Приоритет 1: камера умеет фокусироваться на близком расстоянии
       if (caps.focusDistance) {
         const minFocus = caps.focusDistance.min || Infinity
         const maxFocus = caps.focusDistance.max || 0
         score += 1000 - minFocus
         score += (maxFocus - minFocus) / 10
-        reasons.push(`focusDistance.min=${minFocus}`)
+        reasons.push(`focus.min=${minFocus}`)
       }
 
-      // Приоритет 2: задняя камера
       const label = (cam.label || '').toLowerCase()
       if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
         score += 500
         reasons.push('rear')
       }
 
-      // Приоритет 3: разрешение
       if (caps.width && caps.height) {
         score += (caps.width.max || 0) / 100
         reasons.push(`${caps.width.max}x${caps.height.max}`)
@@ -171,15 +147,11 @@ export function useQrCamera(options = {}) {
     debugData.selectedCamera = best.cam
     debugData.selectedReason = best.reasons.join(', ') || 'по умолчанию'
 
-    console.log(
-      `[useQrCamera] Выбрана камера: "${best.cam.label}" (score: ${best.score.toFixed(0)})`
-    )
-
     return best.cam.deviceId
   }
 
   /**
-   * Пытается включить непрерывный автофокус (Android).
+   * Пытается включить непрерывный автофокус.
    */
   const tryEnableContinuousFocus = async (track) => {
     if (!track || !track.applyConstraints) return
@@ -198,10 +170,9 @@ export function useQrCamera(options = {}) {
         await track.applyConstraints({
           advanced: [{ focusMode: 'continuous' }]
         })
-        console.log('[useQrCamera] Включен непрерывный автофокус')
       }
     } catch (error) {
-      console.warn('[useQrCamera] Не удалось включить автофокус:', error.message)
+      debugData.lastError = 'focus: ' + error.message
     }
   }
 
@@ -224,13 +195,9 @@ export function useQrCamera(options = {}) {
             await track.applyConstraints({
               advanced: [{ focusMode: 'continuous' }]
             })
-          } catch (e) {
-            // ignore
-          }
+          } catch (e) { /* ignore */ }
         }, 100)
-      } catch (error) {
-        // ignore
-      }
+      } catch (error) { /* ignore */ }
     }, 3000)
   }
 
@@ -242,7 +209,7 @@ export function useQrCamera(options = {}) {
   }
 
   /**
-   * Останавливает сканирование и освобождает ресурсы.
+   * Останавливает сканирование.
    */
   const stopCameraScan = () => {
     isScanning.value = false
@@ -255,11 +222,7 @@ export function useQrCamera(options = {}) {
     stopFocusLoop()
 
     if (zxingControls) {
-      try {
-        zxingControls.stop()
-      } catch (e) {
-        // ignore
-      }
+      try { zxingControls.stop() } catch (e) { /* ignore */ }
       zxingControls = null
     }
     zxingReader = null
@@ -281,153 +244,77 @@ export function useQrCamera(options = {}) {
       overlayElement = null
     }
 
-    if (debugPanelElement) {
-      debugPanelElement.remove()
-      debugPanelElement = null
-    }
     debugPanelBodyElement = null
-
     currentDeviceId = null
   }
 
   /**
-   * Обновляет содержимое отладочной панели.
+   * Обновляет текст в отладочной панели.
    */
   const updateDebugPanel = () => {
     if (!debugPanelBodyElement) return
 
     const caps = debugData.selectedCamera?.capabilities || {}
     const focusDistance = caps.focusDistance
-      ? `${caps.focusDistance.min || '?'} – ${caps.focusDistance.max || '?'}`
+      ? `${caps.focusDistance.min ?? '?'} – ${caps.focusDistance.max ?? '?'}`
       : '—'
 
-    const camerasHtml = debugData.cameras
-      .map((cam, i) => {
-        const isSelected = cam.deviceId === debugData.selectedCamera?.deviceId
-        const camCaps = cam.capabilities || {}
-        const camFocusDistance = camCaps.focusDistance
-          ? `${camCaps.focusDistance.min || '?'} – ${camCaps.focusDistance.max || '?'}`
-          : '—'
-        const camFocusMode = camCaps.focusMode
-          ? (Array.isArray(camCaps.focusMode) ? camCaps.focusMode.join(',') : camCaps.focusMode)
-          : '—'
-        const camResolution = camCaps.width
-          ? `${camCaps.width.max}x${camCaps.height.max}`
-          : '—'
+    const lines = []
 
-        return `
-          <div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);${isSelected ? 'color:#4ade80;font-weight:600;' : ''}">
-            <div>[${i}] ${isSelected ? '▶ ' : ''}${cam.label.slice(0, 30)}</div>
-            <div style="font-size:9px;opacity:0.7;padding-left:12px;">
-              id: ${cam.shortId}… | res: ${camResolution}
-            </div>
-            <div style="font-size:9px;opacity:0.7;padding-left:12px;">
-              focusDistance: ${camFocusDistance} | focusMode: ${camFocusMode}
-            </div>
-            ${cam.error ? `<div style="font-size:9px;color:#f87171;padding-left:12px;">err: ${cam.error}</div>` : ''}
-          </div>
-        `
-      })
-      .join('')
+    lines.push('=== СТАТУС ===')
+    lines.push(`status: ${debugData.status}`)
+    lines.push(`scanner: ${debugData.scannerType || '—'}`)
+    lines.push(`video: ${debugData.videoResolution || '—'} @ ${debugData.videoFps || '—'} fps`)
 
-    debugPanelBodyElement.innerHTML = `
-      <div style="margin-bottom:6px;">
-        <b>Сканер:</b> ${debugData.scannerType || '—'}<br>
-        <b>Разрешение:</b> ${debugData.videoResolution || '—'}<br>
-        <b>FPS:</b> ${debugData.videoFps || '—'}<br>
-        <b>Фокус поддерживается:</b> ${debugData.focusSupported ? '✅' : '❌'}<br>
-        <b>Режимы фокуса:</b> ${debugData.focusMode || '—'}<br>
-        <b>focusDistance выбранной:</b> ${focusDistance}<br>
-      </div>
-      <div style="margin-bottom:6px;">
-        <b>Попыток сканирования:</b> ${debugData.scanAttempts}<br>
-        <b>Успешных:</b> ${debugData.scanSuccess}<br>
-        ${debugData.lastError ? `<b style="color:#f87171;">Ошибка:</b> ${debugData.lastError}<br>` : ''}
-      </div>
-      <div style="margin-bottom:4px;">
-        <b>Форматы (${debugData.supportedFormats.length}):</b>
-        <div style="font-size:9px;opacity:0.7;">${debugData.supportedFormats.join(', ') || '—'}</div>
-      </div>
-      <div style="margin-bottom:4px;">
-        <b>Все камеры (${debugData.cameras.length}):</b>
-        ${camerasHtml || '<div style="opacity:0.5;">нет данных</div>'}
-      </div>
-      <div style="font-size:9px;opacity:0.5;">
-        Выбрана: ${debugData.selectedReason || '—'}
-      </div>
-    `
-  }
+    lines.push('')
+    lines.push('=== ФОКУС (выбранной камеры) ===')
+    lines.push(`focusMode supported: ${debugData.focusSupported ? 'YES' : 'NO'}`)
+    lines.push(`focusMode values: ${debugData.focusMode || '—'}`)
+    lines.push(`focusDistance: ${focusDistance}`)
 
-  /**
-   * Создает отладочную панель в углу экрана.
-   */
-  const createDebugPanel = () => {
-    if (!debug) return
+    lines.push('')
+    lines.push('=== СКАНИРОВАНИЕ ===')
+    lines.push(`attempts: ${debugData.scanAttempts}`)
+    lines.push(`success: ${debugData.scanSuccess}`)
+    lines.push(`formats (${debugData.supportedFormats.length}):`)
+    lines.push(`  ${debugData.supportedFormats.join(', ') || '—'}`)
 
-    debugPanelElement = document.createElement('div')
-    debugPanelElement.style.cssText = `
-      position: fixed;
-      top: 8px;
-      left: 8px;
-      z-index: 10002;
-      background: rgba(0, 0, 0, 0.85);
-      color: #fff;
-      font-family: monospace;
-      font-size: 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      max-width: 320px;
-      max-height: 90vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    `
-
-    // Заголовок (кликабельный для сворачивания)
-    const header = document.createElement('div')
-    header.textContent = '🔍 debug (нажми)'
-    header.style.cssText = `
-      padding: 6px 10px;
-      cursor: pointer;
-      background: rgba(255, 255, 255, 0.1);
-      font-weight: bold;
-      user-select: none;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    `
-
-    const toggleIcon = document.createElement('span')
-    toggleIcon.textContent = '▼'
-    header.appendChild(toggleIcon)
-
-    // Тело панели
-    debugPanelBodyElement = document.createElement('div')
-    debugPanelBodyElement.style.cssText = `
-      padding: 8px 10px;
-      overflow-y: auto;
-      max-height: 80vh;
-      line-height: 1.4;
-    `
-
-    let collapsed = false
-    header.onclick = () => {
-      collapsed = !collapsed
-      debugPanelBodyElement.style.display = collapsed ? 'none' : 'block'
-      toggleIcon.textContent = collapsed ? '▶' : '▼'
+    if (debugData.lastError) {
+      lines.push('')
+      lines.push('=== ПОСЛЕДНЯЯ ОШИБКА ===')
+      lines.push(debugData.lastError)
     }
 
-    debugPanelElement.appendChild(header)
-    debugPanelElement.appendChild(debugPanelBodyElement)
+    lines.push('')
+    lines.push(`=== КАМЕРЫ (${debugData.cameras.length}) ===`)
+    debugData.cameras.forEach((cam, i) => {
+      const isSelected = cam.deviceId === debugData.selectedCamera?.deviceId
+      const c = cam.capabilities || {}
+      const fd = c.focusDistance
+        ? `${c.focusDistance.min ?? '?'}–${c.focusDistance.max ?? '?'}`
+        : '—'
+      const fm = c.focusMode
+        ? (Array.isArray(c.focusMode) ? c.focusMode.join(',') : c.focusMode)
+        : '—'
+      const res = c.width ? `${c.width.max}x${c.height.max}` : '—'
 
-    document.body.appendChild(debugPanelElement)
+      lines.push(`${isSelected ? '▶' : ' '} [${i}] ${cam.label}`)
+      lines.push(`     id: ${cam.shortId}…`)
+      lines.push(`     res: ${res}`)
+      lines.push(`     focusDistance: ${fd}`)
+      lines.push(`     focusMode: ${fm}`)
+      if (cam.error) lines.push(`     ERROR: ${cam.error}`)
+    })
 
-    // Первичное обновление
-    updateDebugPanel()
+    lines.push('')
+    lines.push('=== ВЫБОР ===')
+    lines.push(debugData.selectedReason || '—')
+
+    debugPanelBodyElement.textContent = lines.join('\n')
   }
 
   /**
-   * Создает DOM-оверлей с видео, кнопкой закрытия и подсказкой.
+   * Создает DOM-оверлей с видео, кнопками и отладочной панелью.
    */
   const createOverlay = () => {
     overlayElement = document.createElement('div')
@@ -443,7 +330,10 @@ export function useQrCamera(options = {}) {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
+      overflow-y: auto;
+      padding: 20px;
+      box-sizing: border-box;
     `
 
     // Заголовок с информацией об объекте
@@ -456,9 +346,9 @@ export function useQrCamera(options = {}) {
         border-radius: 10px;
         margin-bottom: 20px;
         text-align: center;
-        max-width: 80%;
-        backdrop-filter: blur(5px);
+        max-width: 90%;
         border: 1px solid rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
       `
 
       const titleLine = document.createElement('div')
@@ -499,6 +389,7 @@ export function useQrCamera(options = {}) {
       background: #1a1a1a;
       border-radius: 12px;
       overflow: hidden;
+      flex-shrink: 0;
     `
 
     // Видео-элемент
@@ -550,6 +441,8 @@ export function useQrCamera(options = {}) {
     videoContainer.appendChild(qrBox)
     videoContainer.appendChild(closeButton)
 
+    overlayElement.appendChild(videoContainer)
+
     // Подсказка
     const hint = document.createElement('div')
     hint.style.cssText = `
@@ -557,15 +450,18 @@ export function useQrCamera(options = {}) {
       font-size: 14px;
       text-align: center;
       padding: 0 20px;
-      margin-top: 10px;
+      margin-top: 4px;
+      margin-bottom: 12px;
       max-width: 400px;
+      flex-shrink: 0;
     `
     hint.textContent =
       'Медленно приближайте и отдаляйте телефон, пока код не станет четким'
+    overlayElement.appendChild(hint)
 
     // Кнопка отмены
     const cancelButton = document.createElement('button')
-    cancelButton.textContent = 'Отмена'
+    cancelButton.textContent = 'Отмена-1'
     cancelButton.style.cssText = `
       background: rgba(255, 255, 255, 0.9);
       color: #333;
@@ -574,23 +470,47 @@ export function useQrCamera(options = {}) {
       padding: 12px 24px;
       font-size: 16px;
       cursor: pointer;
-      margin-top: 20px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
     `
     cancelButton.onclick = stopCameraScan
-
-    overlayElement.appendChild(videoContainer)
-    overlayElement.appendChild(hint)
     overlayElement.appendChild(cancelButton)
+
+    // ===== ОТЛАДОЧНАЯ ПАНЕЛЬ ПОД КНОПКОЙ =====
+    if (debug) {
+      const debugPanel = document.createElement('div')
+      debugPanel.style.cssText = `
+        width: 100%;
+        max-width: 400px;
+        background: rgba(0, 0, 0, 0.85);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 10px;
+        line-height: 1.4;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 255, 0, 0.3);
+        padding: 10px;
+        box-sizing: border-box;
+        margin-bottom: 20px;
+        white-space: pre-wrap;
+        word-break: break-all;
+        flex-shrink: 0;
+      `
+      debugPanel.textContent = 'Сбор отладочной информации...'
+      overlayElement.appendChild(debugPanel)
+      debugPanelBodyElement = debugPanel
+    }
 
     document.body.appendChild(overlayElement)
     return videoElement
   }
 
   /**
-   * Запускает сканирование через нативный BarcodeDetector.
+   * BarcodeDetector.
    */
   const startBarcodeDetectorScan = async (video) => {
     debugData.scannerType = 'BarcodeDetector (native)'
+    updateDebugPanel()
 
     barcodeDetector = new BarcodeDetector({
       formats: [
@@ -610,12 +530,11 @@ export function useQrCamera(options = {}) {
     try {
       const supported = await barcodeDetector.getSupportedFormats()
       debugData.supportedFormats = supported
-      console.log('[useQrCamera] Поддерживаемые форматы:', supported)
+      updateDebugPanel()
     } catch (e) {
       debugData.lastError = 'getSupportedFormats: ' + e.message
+      updateDebugPanel()
     }
-
-    updateDebugPanel()
 
     scanIntervalId = setInterval(async () => {
       if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return
@@ -627,12 +546,12 @@ export function useQrCamera(options = {}) {
         if (barcodes.length > 0) {
           const result = barcodes[0].rawValue
           debugData.scanSuccess++
+          debugData.status = 'FOUND'
           updateDebugPanel()
-          console.log('[useQrCamera] Найден код (BarcodeDetector):', result)
           if (onScan) onScan(result)
           stopCameraScan()
         } else {
-          updateDebugPanel()
+          if (debugData.scanAttempts % 5 === 0) updateDebugPanel()
         }
       } catch (error) {
         debugData.lastError = error.message
@@ -642,10 +561,11 @@ export function useQrCamera(options = {}) {
   }
 
   /**
-   * Запускает сканирование через ZXing (fallback).
+   * ZXing.
    */
   const startZxingScan = async (video) => {
     debugData.scannerType = 'ZXing (fallback)'
+    updateDebugPanel()
 
     const hints = new Map()
     const formats = [
@@ -663,7 +583,7 @@ export function useQrCamera(options = {}) {
     hints.set(DecodeHintType.POSSIBLE_FORMATS, formats)
     hints.set(DecodeHintType.TRY_HARDER, true)
 
-    debugData.supportedFormats = formats.map((f) => BarcodeFormat[f] || f)
+    debugData.supportedFormats = formats.map((f) => BarcodeFormat[f] || String(f))
     updateDebugPanel()
 
     zxingReader = new BrowserMultiFormatReader(hints)
@@ -674,26 +594,24 @@ export function useQrCamera(options = {}) {
         if (result) {
           const text = result.getText()
           debugData.scanSuccess++
+          debugData.status = 'FOUND'
           updateDebugPanel()
-          console.log('[useQrCamera] Найден код (ZXing):', text)
           if (onScan) onScan(text)
           stopCameraScan()
         } else {
-          // NotFoundException — норма, просто обновляем панель
           if (debugData.scanAttempts % 10 === 0) updateDebugPanel()
         }
       })
     } catch (error) {
       debugData.lastError = error.message
       updateDebugPanel()
-      console.error('[useQrCamera] Ошибка запуска ZXing:', error)
       if (onError) onError('Ошибка запуска сканера: ' + error.message)
       stopCameraScan()
     }
   }
 
   /**
-   * Считывает реальные параметры видео с трека.
+   * Читает реальные параметры видео.
    */
   const readVideoSettings = (track) => {
     try {
@@ -702,29 +620,35 @@ export function useQrCamera(options = {}) {
         ? `${settings.width}x${settings.height}`
         : '—'
       debugData.videoFps = settings.frameRate ? settings.frameRate.toFixed(0) : '—'
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) { /* ignore */ }
   }
 
   /**
-   * Запускает камеру и сканирование.
+   * Запуск.
    */
   const startCameraScan = async () => {
     if (isScanning.value) return
     isScanning.value = true
 
     try {
-      // 1. Создаем отладочную панель заранее
-      createDebugPanel()
+      debugData.status = 'creating overlay'
+      // 1. Создаем оверлей сразу — чтобы панель появилась как можно раньше
+      const video = createOverlay()
+      updateDebugPanel()
 
-      // 2. Выбираем лучшую камеру
+      debugData.status = 'selecting camera'
+      updateDebugPanel()
+
+      // 2. Выбираем камеру
       currentDeviceId = await selectBestCamera()
       updateDebugPanel()
 
       if (!currentDeviceId) {
         throw new Error('Не найдено ни одной камеры на устройстве')
       }
+
+      debugData.status = 'requesting stream'
+      updateDebugPanel()
 
       // 3. Запрашиваем поток
       const constraints = {
@@ -739,36 +663,41 @@ export function useQrCamera(options = {}) {
 
       stream = await navigator.mediaDevices.getUserMedia(constraints)
 
-      // 4. Создаем оверлей и получаем видео-элемент
-      const video = createOverlay()
+      debugData.status = 'playing video'
+      updateDebugPanel()
 
-      // 5. Подключаем поток к видео
+      // 4. Подключаем поток
       video.srcObject = stream
       await video.play()
 
-      // 6. Читаем реальные параметры
+      // 5. Читаем параметры
       const track = stream.getVideoTracks()[0]
       readVideoSettings(track)
       updateDebugPanel()
 
-      // 7. Настраиваем фокус (Android)
+      // 6. Фокус
+      debugData.status = 'configuring focus'
+      updateDebugPanel()
       await tryEnableContinuousFocus(track)
       startFocusLoop(track)
       updateDebugPanel()
 
-      // 8. Запускаем сканирование
+      // 7. Запускаем сканирование
+      debugData.status = 'starting scan'
+      updateDebugPanel()
+
       if (hasNativeBarcodeDetector()) {
-        console.log('[useQrCamera] Используем нативный BarcodeDetector')
         await startBarcodeDetectorScan(video)
       } else {
-        console.log('[useQrCamera] Используем ZXing (fallback)')
         await startZxingScan(video)
       }
 
+      debugData.status = 'scanning'
       updateDebugPanel()
     } catch (error) {
       console.error('[useQrCamera] Ошибка запуска камеры:', error)
       isScanning.value = false
+      debugData.status = 'ERROR'
       debugData.lastError = error.message
       updateDebugPanel()
 
@@ -782,7 +711,8 @@ export function useQrCamera(options = {}) {
       }
 
       if (onError) onError(message)
-      stopCameraScan()
+      // Не закрываем оверлей сразу — даем увидеть ошибку
+      setTimeout(() => stopCameraScan(), 3000)
     }
   }
 
