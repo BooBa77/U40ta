@@ -1,6 +1,6 @@
 .env
 sync-db.bat
-email-attachments/
+node_modules/
 backend/node_modules/
 backend/dist/
 backup
