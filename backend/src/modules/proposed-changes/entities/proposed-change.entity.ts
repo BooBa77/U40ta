@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { InventoryObject } from '../../objects/entities/object.entity';
 import { User } from '../../users/entities/user.entity';
+import { Photo } from '../../photos/entities/photos.entity';
 
 @Entity('proposed_changes')
 export class ProposedChange {
@@ -41,14 +42,23 @@ export class ProposedChange {
   @Column({ name: 'photo_id', type: 'bigint', nullable: true })
   photoId!: number | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz', nullable: true })
   createdAt!: Date;
 
   @ManyToOne(() => InventoryObject, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'object_id' })
+  @JoinColumn({ name: 'object_id', foreignKeyConstraintName: 'fk_object' })
   object!: InventoryObject;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'user_id', foreignKeyConstraintName: 'fk_user' })
   user!: User;
+
+  /**
+   * Связь с фотографией. Объявлена только ради имени внешнего ключа
+   * в боевой базе (`fk_photo`, без каскада) — иначе TypeORM предложит
+   * пересоздать ограничение под именем-хешем.
+   */
+  @ManyToOne(() => Photo, { nullable: true })
+  @JoinColumn({ name: 'photo_id', foreignKeyConstraintName: 'fk_photo' })
+  photo!: Photo | null;
 }

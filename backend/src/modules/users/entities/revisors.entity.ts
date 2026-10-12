@@ -1,4 +1,5 @@
-import { Entity, PrimaryColumn } from 'typeorm';
+import { Entity, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from './user.entity';
 
 /**
  * Сущность ревизора.
@@ -17,4 +18,13 @@ export class Revisors {
    */
   @PrimaryColumn({ name: 'user_id', type: 'bigint' })
   userId!: number;
+
+  /**
+   * Связь с пользователем. Объявлена ради имени внешнего ключа
+   * в боевой базе (`revisors_user_id_fkey`) — TypeORM иначе предложит
+   * пересоздать ограничение под именем-хешем.
+   */
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id', foreignKeyConstraintName: 'revisors_user_id_fkey' })
+  user!: User;
 }

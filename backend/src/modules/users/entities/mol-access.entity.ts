@@ -4,7 +4,7 @@ import { User } from '../../users/entities/user.entity';
 @Entity('mol_access')
 export class MolAccess {
   // Составной первичный ключ
-  @PrimaryColumn({ name: 'user_id' })
+  @PrimaryColumn({ name: 'user_id', type: 'bigint' })
   userId!: number;
 
   @PrimaryColumn()
@@ -15,6 +15,6 @@ export class MolAccess {
 
   // Связь с пользователем
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'user_id', foreignKeyConstraintName: 'mol_access_user_id_fkey' })
   user!: User;
 }

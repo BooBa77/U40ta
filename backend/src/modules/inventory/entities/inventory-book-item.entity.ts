@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { InventoryBook } from './inventory-book.entity';
 
 /**
  * Сущность строки инвентаризационной книги.
@@ -13,15 +14,23 @@ export class InventoryBookItem {
   /**
    * Первичный ключ, автоинкремент.
    */
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: number;
 
   /**
    * Ссылка на книгу, к которой относится строка.
    * FK к inventory_books.id с каскадным удалением.
    */
-  @Column({ name: 'id_book', type: 'int' })
+  @Column({ name: 'id_book', type: 'bigint' })
   idBook!: number;
+
+  /**
+   * Книга, к которой относится строка. Связь объявлена ради имени внешнего
+   * ключа в боевой базе (`inventory_book_items_id_book_fkey`).
+   */
+  @ManyToOne(() => InventoryBook, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'id_book', foreignKeyConstraintName: 'inventory_book_items_id_book_fkey' })
+  book!: InventoryBook;
 
   /**
    * Ссылка на исходную строку inventory_statements.
@@ -105,7 +114,7 @@ export class InventoryBookItem {
   /**
    * ID пользователя, выполнившего автоматическое подтверждение.
    */
-  @Column({ name: 'id_user_ok_auto_checked', type: 'bigint', nullable: true })
+  @Column({ name: 'id_user_ok_auto_checked', type: 'int', nullable: true })
   idUserOkAutoChecked!: number | null;
 
   /**

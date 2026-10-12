@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 
 /**
  * Сущность инвентаризационной книги.
@@ -18,7 +19,7 @@ export class InventoryBook {
   /**
    * Первичный ключ, автоинкремент.
    */
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: number;
 
   /**
@@ -31,12 +32,21 @@ export class InventoryBook {
   /**
    * Дата и время создания книги.
    */
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
   createdAt!: Date;
 
   /**
    * ID пользователя, создавшего книгу.
    */
-  @Column({ name: 'id_owner', type: 'int' })
+  @Column({ name: 'id_owner', type: 'bigint' })
   idOwner!: number;
+
+  /**
+   * Владелец книги. Связь объявлена ради имени внешнего ключа в боевой базе
+   * (`inventory_books_id_owner_fkey`) — иначе TypeORM предложит пересоздать
+   * ограничение под именем-хешем.
+   */
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'id_owner', foreignKeyConstraintName: 'inventory_books_id_owner_fkey' })
+  owner!: User;
 }

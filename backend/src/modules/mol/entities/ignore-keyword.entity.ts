@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, Unique } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
 /**
@@ -10,6 +10,8 @@ import { User } from '../../users/entities/user.entity';
  * Поиск ведётся по целому слову (не частичное вхождение), регистронезависимо.
  */
 @Entity('ignore_keywords')
+@Unique('ignore_keywords_user_id_keyword_key', ['userId', 'keyword'])
+@Index('idx_ignore_keywords_user_id', ['userId'])
 export class IgnoreKeyword {
     @PrimaryGeneratedColumn({ type: 'bigint' })
     id!: number;
@@ -24,6 +26,6 @@ export class IgnoreKeyword {
 
     /** Связь с пользователем */
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'user_id' })
+    @JoinColumn({ name: 'user_id', foreignKeyConstraintName: 'ignore_keywords_user_id_fkey' })
     user!: User;
 }

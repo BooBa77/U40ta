@@ -18,6 +18,6 @@ export class Photo {
   @Column({ name: 'created_by', type: 'bigint', nullable: true })
   createdBy!: number;
 
-  @Column({ name: 'created_at', type: 'timestamp with time zone', default: () => 'now()', nullable: false })
+  @Column({ name: 'created_at', type: 'timestamp with time zone', default: () => 'now()', nullable: true })
   createdAt!: Date;
 }
