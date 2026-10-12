@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import * as express from 'express';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { LoggerInterceptor } from './common/interceptors/logger.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -56,6 +57,25 @@ async function bootstrap() {
   // Регистрируем глобальные перехватчики
   app.useGlobalInterceptors(new LoggerInterceptor(logsService));
   app.useGlobalFilters(new AllExceptionsFilter(logsService));
+
+  // Документация API на /api/docs.
+  //
+  // Сделано по образцу ph: тот же DocumentBuilder, тот же путь и та же
+  // Bearer-авторизация — чтобы проекты не расходились в том, как их смотреть.
+  // Схема собирается из декораторов контроллеров и DTO на старте приложения,
+  // поэтому новые маршруты появляются в ней сами, без ручных правок.
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('U40TA API')
+    .setDescription(
+      'Учёт оргтехники и материальных ценностей: объекты, ведомости, МОЛ, ' +
+        'инвентарные книги, фотографии, QR-коды, разбор почты',
+    )
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, swaggerDocument);
 
   // Получаем порт из переменных окружения или используем дефолтный 3000
   // process.env.PORT - стандартный способ хранения настроек в Node.js
