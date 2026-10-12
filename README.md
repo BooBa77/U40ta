@@ -72,7 +72,6 @@ NODE_ENV, PORT, JWT_SECRET, JWT_EXPIRES_IN
 EMAIL_IMAP_USER, EMAIL_IMAP_PASSWORD, EMAIL_IMAP_HOST, EMAIL_IMAP_PORT, EMAIL_IMAP_TLS
 EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT,
 EMAIL_SMTP_SECURE, EMAIL_SMTP_FROM
-EMAIL_ATTACHMENTS_PATH
 ```
 
 ## Схема базы данных
@@ -112,7 +111,7 @@ docker ps --filter name=u40ta-prod
 | Что | Почему |
 |---|---|
 | В прод-`docker-compose.yml` **нет `env_file`** | Переменные перечислены поимённо в `environment:`. Новая переменная в `.env` сама в контейнер не попадёт — её нужно добавить и в compose |
-| У backend **нет томов** | `EMAIL_ATTACHMENTS_PATH` указывает в каталог, которого в контейнере нет. Появившиеся вложения исчезнут при первом пересоздании контейнера |
+| У backend **нет томов** — и это нормально | Вложения писем **не сохраняются на диск**: `imap.service.ts` передаёт содержимое файла (Buffer от mailparser) в анализ, и оно выбрасывается. Таблицы `email_attachments` в базе нет, каталог для файлов не нужен. Проверено 12.10.2026 по коду |
 | Тег образов всегда `latest` | Откат возможен только пересборкой из конкретного коммита |
 | `.gitignore` не действует на уже отслеживаемые файлы | Корневой `node_modules/` был закоммичен до появления правил и остаётся в индексе |
 | Node 20 против Node 24 в соседнем проекте | Обновление рантайма — отдельная задача, требует проверки `sharp` и нативных зависимостей |

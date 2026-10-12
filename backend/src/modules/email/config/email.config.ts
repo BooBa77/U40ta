@@ -16,7 +16,4 @@ export default registerAs('email', () => ({
     secure: process.env.EMAIL_SMTP_SECURE === 'true',
     from: process.env.EMAIL_SMTP_FROM || '"U40TA System" <u40ta@mail.ru>',
   },
-  attachments: {
-    path: process.env.EMAIL_ATTACHMENTS_PATH || '../email-attachments',
-  },
 }));

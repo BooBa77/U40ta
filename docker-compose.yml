@@ -42,7 +42,6 @@ services:
       - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT}
       - EMAIL_SMTP_SECURE=${EMAIL_SMTP_SECURE}
       - EMAIL_SMTP_FROM=${EMAIL_SMTP_FROM}
-      - EMAIL_ATTACHMENTS_PATH=${EMAIL_ATTACHMENTS_PATH}
     depends_on:
       - postgres
     restart: unless-stopped

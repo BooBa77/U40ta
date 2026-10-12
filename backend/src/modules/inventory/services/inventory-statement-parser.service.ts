@@ -32,7 +32,7 @@ interface InventoryFileReceivedEvent {
  * 5. Эмитит SSE-событие inventory-statement-loaded
  * 
  * ## Отличия от StatementParserService (МОЛ)
- * - Не привязан к email_attachments
+ * - Работает с файлом из памяти, а не с записью в базе
  * - Не имеет транзакций и флагов in_process
  */
 @Injectable()
