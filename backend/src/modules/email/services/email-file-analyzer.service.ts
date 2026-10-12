@@ -1,6 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
-import { LogsService } from '../../logs/logs.service';
 
 /**
  * Сервис анализа Excel-файлов, поступающих по электронной почте.
@@ -28,6 +27,8 @@ import { LogsService } from '../../logs/logs.service';
  */
 @Injectable()
 export class EmailFileAnalyzer {
+  private readonly logger = new Logger(EmailFileAnalyzer.name);
+
   /**
    * Обязательные колонки для документа типа ОСВ (оборотно-сальдовая ведомость).
    * Файл считается ОСВ, если в первой строке присутствуют ВСЕ эти колонки.
@@ -51,8 +52,6 @@ export class EmailFileAnalyzer {
     'Название',
     'Инвентарный номер'
   ];
-
-  constructor(private readonly logsService: LogsService) {}
 
   /**
    * Проанализировать Excel-файл из Buffer.
@@ -125,14 +124,10 @@ export class EmailFileAnalyzer {
         errorMessage = 'Формат файла не поддерживается';
       }
 
-      console.error(`Ошибка анализа Excel: ${error.message}`, error.stack);
-
-      this.logsService.log('backend', null, {
-        action: 'excel_analysis',
-        result: 'error',
-        error: errorMessage,
-        originalError: error.message
-      });
+      this.logger.error(
+        `Ошибка анализа Excel: ${errorMessage}. Исходная ошибка: ${error.message}`,
+        error.stack
+      );
 
       return {
         isValid: false,
@@ -189,13 +184,9 @@ export class EmailFileAnalyzer {
     const sortedSklads = Array.from(sklads).sort();
     const description = `ОСВ ${sortedSklads.join(',')}`;
 
-    this.logsService.log('backend', null, {
-      action: 'excel_analysis',
-      result: 'success',
-      docType: 'ОСВ',
-      description,
-      sklads: sortedSklads
-    });
+    this.logger.log(
+      `Анализ Excel выполнен: ОСВ, описание: ${description}, склады: ${sortedSklads.join(', ')}`
+    );
 
     return {
       isValid: true,
@@ -236,13 +227,9 @@ export class EmailFileAnalyzer {
     const sortedSklads = Array.from(sklads).sort();
     const description = `ОС ${sortedSklads.join(',')}`;
 
-    this.logsService.log('backend', null, {
-      action: 'excel_analysis',
-      result: 'success',
-      docType: 'ОС',
-      description,
-      sklads: sortedSklads
-    });
+    this.logger.log(
+      `Анализ Excel выполнен: ОС, описание: ${description}, склады: ${sortedSklads.join(', ')}`
+    );
 
     return {
       isValid: true,

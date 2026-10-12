@@ -6,7 +6,6 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SmtpService } from './smtp.service';
 import { EmailFileAnalyzer } from './email-file-analyzer.service';
-import { LogsService } from '../../logs/logs.service';
 import { UsersService } from '../../users/users.service';
 
 /**
@@ -44,7 +43,6 @@ export class EmailProcessor {
   constructor(
     private smtpService: SmtpService,
     private emailFileAnalyzer: EmailFileAnalyzer,
-    private logsService: LogsService,
     private usersService: UsersService,
     private eventEmitter: EventEmitter2,
   ) {}
@@ -145,15 +143,10 @@ export class EmailProcessor {
     emailFrom: string,
     analysis: { docType?: string; description?: string }
   ): Promise<void> {
-    this.logger.log(`Инвентаризационная ведомость принята: ${filename}, тип: ${analysis.docType}`);
-
-    this.logsService.log('backend', null, {
-      action: 'inventory_file_accepted',
-      filename,
-      emailFrom,
-      docType: analysis.docType,
-      description: analysis.description
-    });
+    this.logger.log(
+      `Инвентаризационная ведомость принята: ${filename}, тип: ${analysis.docType}, ` +
+      `отправитель: ${emailFrom}, описание: ${analysis.description}`
+    );
 
     this.eventEmitter.emit('inventory.file.received', {
       buffer,
@@ -187,14 +180,10 @@ export class EmailProcessor {
     const user = await this.usersService.findByEmail(emailFrom);
 
     if (!user) {
-      this.logger.warn(`Пользователь с email ${emailFrom} не найден, ведомость отклонена`);
-
-      this.logsService.log('backend', null, {
-        action: 'statement_file_rejected_user_not_found',
-        filename,
-        emailFrom,
-        docType: analysis.docType
-      });
+      this.logger.warn(
+        `Пользователь с email ${emailFrom} не найден, ведомость отклонена: ${filename}, ` +
+        `тип: ${analysis.docType}`
+      );
 
       // Уведомляем отправителя
       const rejectText =
@@ -219,14 +208,10 @@ export class EmailProcessor {
     }
 
     // ========== Логируем успешный приём ==========
-    this.logsService.log('backend', null, {
-      action: 'statement_file_accepted',
-      filename,
-      emailFrom,
-      userId: user.id,
-      docType: analysis.docType,
-      description: analysis.description
-    });
+    this.logger.log(
+      `Ведомость МОЛ принята: ${filename}, отправитель: ${emailFrom}, ` +
+      `пользователь: ${user.id}, тип: ${analysis.docType}, описание: ${analysis.description}`
+    );
 
     // ========== Эмитим событие для statements-модуля ==========
     this.eventEmitter.emit('statement.file.received', {
@@ -266,15 +251,10 @@ export class EmailProcessor {
     errorMessage?: string
   ): Promise<void> {
     const typeLabel = isInventory ? 'инвентаризационная' : 'обычная';
-    this.logger.log(`${typeLabel} ведомость отклонена: ${filename}, причина: ${errorMessage}`);
-
-    this.logsService.log('backend', null, {
-      action: 'email_attachment_rejected',
-      filename,
-      emailFrom,
-      isInventory,
-      reason: errorMessage
-    });
+    this.logger.warn(
+      `${typeLabel} ведомость отклонена: ${filename}, отправитель: ${emailFrom}, ` +
+      `причина: ${errorMessage}`
+    );
 
     const rejectText =
       `Извините, Ваш файл "${filename}" не принят.\n\n` +
@@ -304,15 +284,10 @@ export class EmailProcessor {
     emailFrom: string,
     error: Error
   ): Promise<void> {
-    this.logger.error(`Ошибка обработки файла ${filename}:`, error);
-
-    this.logsService.log('backend', null, {
-      action: 'email_processing_error',
-      filename,
-      emailFrom,
-      error: error.message,
-      stack: error.stack
-    });
+    this.logger.error(
+      `Ошибка обработки файла ${filename} от ${emailFrom}: ${error.message}`,
+      error.stack
+    );
 
     const errorText =
       `Ошибка обработки вложения.\n\n` +

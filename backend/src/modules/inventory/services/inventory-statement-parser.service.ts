@@ -5,7 +5,6 @@ import * as XLSX from 'xlsx';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InventoryStatement } from '../entities/inventory-statement.entity';
 import { AppEventsService } from '../../app-events/app-events.service';
-import { LogsService } from '../../logs/logs.service';
 
 /**
  * Интерфейс события inventory.file.received.
@@ -65,7 +64,6 @@ export class InventoryStatementParser {
     @InjectRepository(InventoryStatement)
     private readonly inventoryStatementRepo: Repository<InventoryStatement>,
     private readonly appEventsService: AppEventsService,
-    private readonly logsService: LogsService,
   ) {}
 
   /**
@@ -110,29 +108,18 @@ export class InventoryStatementParser {
       await this.inventoryStatementRepo.save(statements);
 
       this.logger.log(
-        `Сохранено ${statements.length} строк в inventory_statements: ${filename}`
+        `Сохранено ${statements.length} строк в inventory_statements: ${filename}, ` +
+        `отправитель: ${emailFrom}, тип: ${docType}`
       );
-
-      this.logsService.log('backend', null, {
-        action: 'inventory_parsed',
-        filename,
-        emailFrom,
-        docType,
-        rowsCount: statements.length
-      });
 
       // SSE-уведомление с ключом email — только для этого ревизора
       this.appEventsService.notifyInventoryStatementLoaded(emailFrom);
 
     } catch (error) {
-      this.logger.error(`Ошибка парсинга инвентаризационного файла ${filename}:`, error);
-
-      this.logsService.log('backend', null, {
-        action: 'inventory_parse_error',
-        filename,
-        emailFrom,
-        error: error.message
-      });
+      this.logger.error(
+        `Ошибка парсинга инвентаризационного файла ${filename} от ${emailFrom}:`,
+        error
+      );
     }
   }
 

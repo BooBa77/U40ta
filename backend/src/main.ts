@@ -3,9 +3,7 @@ import * as express from 'express';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { LoggerInterceptor } from './common/interceptors/logger.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { LogsService } from './modules/logs/logs.service';
 
 async function bootstrap() {
   // Создаем логгер с именем 'Bootstrap' для этого файла
@@ -51,12 +49,15 @@ async function bootstrap() {
   console.log('[Bootstrap] ValidationPipe forbidNonWhitelisted:', (validationPipe as any).forbidNonWhitelisted);
   app.useGlobalPipes(validationPipe); 
 
-  // Получаем экземпляр LogsService из приложения
-  const logsService = app.get(LogsService);
-  
-  // Регистрируем глобальные перехватчики
-  app.useGlobalInterceptors(new LoggerInterceptor(logsService));
-  app.useGlobalFilters(new AllExceptionsFilter(logsService));
+  // Глобальный фильтр исключений: единый формат ответа об ошибке и запись
+  // сбоя в консольный лог процесса.
+  //
+  // Раньше здесь стоял ещё перехватчик, писавший строку в таблицу `logs` на
+  // каждый HTTP-запрос, и фильтр писал туда же ошибки. Таблица от этого росла,
+  // а читать её было некому: технические записи убраны 12.10.2026, в базе
+  // остаётся только бизнес-история (объекты, QR-коды, фотографии). Технические
+  // логи смотрим через `docker compose logs`.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Документация API на /api/docs.
   //

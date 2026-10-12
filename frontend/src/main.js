@@ -3,25 +3,17 @@ import App from './App.vue'
 import router from './router'
 import '../public/css/global.css'
 import '../public/css/tailwind.css'
-import { useLogger } from './composables/useLogger'
 
 // Сначала создаем приложение
 const app = createApp(App)
 
-// Теперь можно использовать app
+// Ошибки приложения и запросов идут в консоль браузера.
+//
+// Раньше здесь стоял useLogger(), который отправлял их в таблицу `logs` через
+// POST /api/logs. Технические записи из базы убраны 12.10.2026: читать их было
+// некому, а таблица росла. В базе остаётся только бизнес-история — изменения
+// объекта, QR-кода и фотографии, её пишет services/logs.service.js.
 app.config.errorHandler = (err, instance, info) => {
-  const { log } = useLogger();
-  log({
-    type: 'vue_error',
-    message: err.message,
-    stack: err.stack,
-    info,
-    component: instance?.$options?.name,
-    url: window.location.href,
-    timestamp: new Date().toISOString(),
-  });
-  
-  // Выводим в консоль для разработки
   console.error('Vue error:', err, info);
 };
 
@@ -30,30 +22,16 @@ const originalFetch = window.fetch;
 window.fetch = async (...args) => {
   try {
     const response = await originalFetch(...args);
-    
+
     // Логируем только ошибки ответа
-    if (!response.ok && args[0] !== '/api/logs') {
-      const { log } = useLogger();
-      log({
-        type: 'api_error',
-        url: typeof args[0] === 'string' ? args[0] : args[0].url,
-        method: args[1]?.method || 'GET',
-        status: response.status,
-        statusText: response.statusText,
-      });
+    if (!response.ok) {
+      console.error('Ошибка запроса:', response.status, response.statusText, args[0]);
     }
-    
+
     return response;
   } catch (error) {
     // Сетевые ошибки (нет интернета, CORS и т.д.)
-    if (args[0] !== '/api/logs') {
-      const { log } = useLogger();
-      log({
-        type: 'network_error',
-        url: typeof args[0] === 'string' ? args[0] : args[0].url,
-        message: error.message,
-      });
-    }
+    console.error('Сетевая ошибка:', error.message, args[0]);
     throw error;
   }
 };

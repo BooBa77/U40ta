@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { JwtAuthModule } from '../auth/jwt-auth.module';
-import { LogsModule } from '../logs/logs.module';
 import { UsersModule } from '../users/users.module';
 import { EmailController } from './email.controller';
 import { ImapService } from './services/imap.service';
@@ -26,7 +25,6 @@ import { EmailFileAnalyzer } from './services/email-file-analyzer.service';
     ConfigModule,
     EventEmitterModule,
     JwtAuthModule,
-    LogsModule,
     UsersModule, // Для поиска пользователя по email в EmailProcessor
   ],
   controllers: [EmailController],

@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import Imap from 'imap';
 import { simpleParser } from 'mailparser';
 import { EmailProcessor } from './email-processor.service';
-import { LogsService } from '../../logs/logs.service';
 
 /**
  * Сервис для работы с почтовым ящиком по протоколу IMAP.
@@ -34,7 +33,7 @@ import { LogsService } from '../../logs/logs.service';
  * ## Обработка ошибок
  * - При ошибке подключения — выбрасывается понятное сообщение
  * - При ошибке обработки одного письма — логируется, остальные продолжают обрабатываться
- * - Все ошибки логируются в таблицу logs
+ * - Все ошибки логируются в консольный лог процесса (`docker compose logs`)
  * 
  * ## Использование
  * Вызывается из EmailController.checkEmailNow() при ручной проверке почты,
@@ -48,7 +47,6 @@ export class ImapService {
   constructor(
     private emailProcessor: EmailProcessor,
     private configService: ConfigService,
-    private logsService: LogsService,
   ) {}
 
   /**
@@ -142,11 +140,9 @@ export class ImapService {
           errorMessage = 'Неизвестная ошибка подключения. Проверьте настройки IMAP.';
         }
 
-        this.logsService.log('backend', null, {
-          action: 'imap_error',
-          error: errorMessage,
-          originalError: err.message
-        });
+        this.logger.error(
+          `Ошибка IMAP: ${errorMessage}. Исходная ошибка: ${err.message}`
+        );
 
         reject(new Error(`Ошибка подключения: ${errorMessage}`));
       });
