@@ -1,181 +1,92 @@
 # Модуль пользователей (Users)
 
 ## Назначение
-Модуль управляет основными пользователями системы, хранит их данные и обеспечивает связь с Telegram аккаунтами. Каждый пользователь системы связан с записью в `telegram_users` через поле `telegramUsersId`.
 
-## Архитектура
+Пользователи системы: фамилия, имя, аббревиатура для подписей и email. Здесь же
+— доступы: кто материально ответственное лицо (МОЛ) и кто ревизор. Роли
+**не поля пользователя**, а отдельные таблицы: `mol_access` и `revisors`.
 
-### Файловая структура
+Авторизации через Telegram в проекте нет (см. `docs/u40ta/AUDIT.md`).
+
+## Файловая структура
+
+```
 users/
-├── README.md (этот файл)
-├── users.controller.ts # HTTP контроллер пользователей
-├── users.module.ts # Модуль NestJS
-├── users.service.ts # Сервис бизнес-логики
-├── dto/ # Data Transfer Objects
-│ ├── create-user.dto.ts
-│ ├── update-user.dto.ts
-│ └── user-response.dto.ts
-└── entities/ # Сущности TypeORM
-└── user.entity.ts
+├── README.md            этот файл
+├── users.controller.ts  HTTP-маршруты
+├── users.module.ts      модуль NestJS
+├── users.service.ts     бизнес-логика
+├── dto/
+│   ├── create-user.dto.ts
+│   ├── update-user.dto.ts
+│   └── user-response.dto.ts
+└── entities/
+    └── user.entity.ts
+```
 
-text
+## Маршруты
 
-### Взаимосвязи модулей
-Telegram авторизация
-↓
-AuthService вызывает UsersService.findOrCreate()
-↓
-Создание/поиск в users таблице
-↓
-Связь: users.telegramUsersId → telegram_users.id
+Весь контроллер закрыт `JwtAuthGuard`. В режиме `development` guard пропускает
+запросы — ради `DevLogin.vue`.
 
-text
+| Метод | Путь | Что возвращает |
+|---|---|---|
+| `GET` | `/api/users` | список пользователей |
+| `GET` | `/api/users/:id` | одного пользователя |
+| `GET` | `/api/users/revisors-list` | список ревизоров |
+| `GET` | `/api/users/me/id` | id текущего пользователя |
+| `GET` | `/api/users/me/abr` | аббревиатуру текущего |
+| `GET` | `/api/users/me/mol-access` | склады, к которым есть доступ |
+| `GET` | `/api/users/me/has-access-to-sklad/:zavod/:sklad` | есть ли доступ к складу |
+| `GET` | `/api/users/me/has-access-to-statements` | может ли работать с ведомостями |
+| `GET` | `/api/users/me/is-revisor` | ревизор ли текущий |
 
-## Основные компоненты
+## Сервис
 
-### 1. Контроллер (`users.controller.ts`)
-**Защита:** Весь контроллер защищен `JwtAuthGuard`
+| Метод | Зачем |
+|---|---|
+| `create(dto)` | создать пользователя |
+| `createWithEmail(email, firstName, lastName, abr)` | создать при входе по email |
+| `findById(id)`, `findAll()` | поиск |
+| `findByEmail(email)` | поиск по email — используется при входе |
+| `update(id, dto)`, `remove(id)` | правка и удаление |
+| `getMolAccess(userId)`, `findMolsByLocations(locations)` | доступы МОЛ |
+| `findAllRevisors()`, `isRevisor(userId)` | ревизоры |
+| `hasAccessToStatements(userId)` | право работать с ведомостями |
+| `hasAccessToSklad(userId, zavod, sklad)` | право по конкретному складу |
 
-**Маршруты:**
-- `GET /api/users` - список всех пользователей системы
-- `GET /api/users/:id` - данные конкретного пользователя
+## Сущность
 
-**Особенности:**
-- В режиме `development` доступен без авторизации (для DevLogin.vue)
-- В `production` требует валидный JWT токен
+Таблица `users`, пять колонок:
 
-### 2. Сервис (`users.service.ts`)
-Основные методы:
+| Поле | Колонка | Примечание |
+|---|---|---|
+| `id` | `id` | первичный ключ |
+| `lastName` | `last_name` | фамилия |
+| `firstName` | `first_name` | имя |
+| `abr` | `abr` | аббревиатура для подписей, до 3 символов |
+| `eMail` | `e_mail` | email, может быть пустым |
 
-#### Создание и поиск
-- `create(createUserDto)` - создание нового пользователя
-- `findByTelegramUsersId(telegramUsersId)` - поиск по связи с Telegram
-- `findById(id)` - поиск по внутреннему ID
-- `findOrCreate(telegramUsersId, firstName, lastName)` - утилитарный метод для AuthService
+## DTO
 
-#### Управление данными
-- `findAll()` - получение всех пользователей
-- `update(id, updateUserDto)` - обновление данных пользователя
-- `remove(id)` - удаление пользователя
+- **`create-user.dto.ts`** — `firstName`, `lastName`, `eMail`; email проверяется
+  валидатором;
+- **`update-user.dto.ts`** — `PartialType(CreateUserDto)`: все поля
+  необязательные, при смене имени или фамилии сервис пересчитывает `abr`;
+- **`user-response.dto.ts`** — то, что уходит в API.
 
-#### Генерация ABR
-- `generateAbr(firstName, lastName)` - создание аббревиатуры (первая буква имени + первая буква фамилии)
+## Рабочий процесс: вход по email
 
-### 3. Сущность (`user.entity.ts`)
-**Таблица:** `users`
+1. Пользователь вводит email, `AuthService` отправляет код.
+2. При проверке кода `AuthService` ищет пользователя через `findByEmail`.
+3. Не находит — создаёт через `createWithEmail`, вычисляя `abr`.
+4. Выдаётся JWT.
 
-**Поля:**
-- `id` - первичный ключ (автоинкремент)
-- `telegramUsersId` - ссылка на `telegram_users.id` (unique, nullable)
-- `firstName` - имя пользователя
-- `lastName` - фамилия пользователя
-- `email` - email пользователя (может быть null)
-- `abr` - аббревиатура для подписей (например: "ИИ" для "Иван Иванов")
+## Особенности
 
-#### Специальные роли:
-- **МОЛ** - хранятся в таблице `mol_access`
-- **Ревизор** - хранятся в таблице `revisors`
-
-### 4. DTO (Data Transfer Objects)
-
-#### `create-user.dto.ts`
-Для создания пользователя:
-- `telegramUsersId` - обязательный, ссылка на Telegram аккаунт
-- `firstName`, `lastName` - обязательные
-- `abr` - генерируется автоматически если не указан
-
-#### `update-user.dto.ts`
-Наследует `CreateUserDto` с `PartialType`:
-- Все поля необязательные
-- При обновлении имени/фамилии сервис автоматически пересчитывает `abr`
-
-#### `user-response.dto.ts`
-Для безопасного ответа API:
-- Содержит все поля сущности кроме чувствительных данных
-- Можно расширять с `class-transformer` для исключения полей
-
-## Рабочий процесс
-
-### 1. Авторизация нового пользователя
-
-Telegram Widget → AuthService → UsersService.findOrCreate()
-↓
-Проверка по telegramUsersId
-↓
-Не найден? → Создание нового
-↓
-Генерация abr + сохранение в БД
-
-### 2. Обновление данных пользователя
-
-// При обновлении имени или фамилии:
-await usersService.update(1, { 
-  firstName: 'НовоеИмя',
-  lastName: 'НоваяФамилия'
-});
-// Сервис автоматически пересчитает abr → "НН"
-
-### 3. Получение списка пользователей
-
-// Используется в DevLogin.vue для выбора тестового пользователя
-GET /api/users → возвращает массив пользователей для выбора
-
-
-## Особенности реализации
-
-### Автоматическая генерация ABR
-При создании: generateAbr("Иван", "Иванов") → "ИИ"
-При обновлении: если меняется имя или фамилия → пересчет ABR
-ABR используется для подписей в системе
-
-### Связь с Telegram
-Один Telegram аккаунт → один пользователь системы
-Поле telegramUsersId уникальное, но может быть null (для тестовых пользователей)
-Удаление в telegram_users не каскадирует на users
-
-### Безопасность
-Все endpoints защищены JWT
-В development режиме доступны для тестирования
-Нет endpoints для создания пользователей напрямую (только через авторизацию)
-
-### Зависимости модуля
-TypeOrmModule - работа с базой данных
-JwtAuthModule - проверка JWT токенов
-AuthModule - основной потребитель сервиса
-
-## Использование в других модулях
-
-### В AuthService
-// Поиск существующего пользователя
-const user = await usersService.findByTelegramUsersId(telegramUsersId);
-
-// Создание нового пользователя
-const newUser = await usersService.findOrCreate(
-  telegramUsersId,
-  firstName,
-  lastName
-);
-
-### В контроллерах
-@Get('profile')
-@UseGuards(JwtAuthGuard)
-async getProfile(@Req() request) {
-  // Получение данных текущего пользователя
-  const userId = request.user.sub;
-  const user = await usersService.findById(userId);
-  return user;
-}
-
-## Примеры запросов
-
-### Получение списка пользователей
-Development режим (без токена)
-GET /api/users
-
-Production режим (с токеном)
-GET /api/users
-Authorization: Bearer <your_jwt_token>
-
-### Получение конкретного пользователя
-GET /api/users/1
-Authorization: Bearer <your_jwt_token>
+- **Аббревиатура** считается из фамилии и имени и используется для подписей;
+  при обновлении имени или фамилии пересчитывается автоматически.
+- **Доступы** (МОЛ, ревизор) живут в отдельных таблицах, а не в `users`: один
+  пользователь может быть МОЛ на нескольких складах.
+- **Создать пользователя напрямую через API нельзя** — только входом, чтобы в
+  системе не появлялись записи без владельца.

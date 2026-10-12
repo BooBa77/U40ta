@@ -73,15 +73,14 @@ EMAIL_IMAP_USER, EMAIL_IMAP_PASSWORD, EMAIL_IMAP_HOST, EMAIL_IMAP_PORT, EMAIL_IM
 EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT,
 EMAIL_SMTP_SECURE, EMAIL_SMTP_FROM
 EMAIL_ATTACHMENTS_PATH
-TELEGRAM_BOT_TOKEN
 ```
 
 ## Схема базы данных
 
 **`synchronize` выключен явно** (`backend/src/app.module.ts`), чтобы TypeORM не
-затирал данные. Миграций при этом нет — таблицы `migrations` в базе тоже нет,
-то есть изменения схемы сейчас применяются вручную и нигде не фиксируются.
-Это главный технический долг проекта.
+затирал данные. Схема меняется **только миграциями**: `backend/src/migrations/`
+и скрипты `migration:*` в `backend/package.json`. Правка схемы руками ломает
+соответствие между базой и историей миграций.
 
 ## Сборка и деплой
 
@@ -91,9 +90,13 @@ TELEGRAM_BOT_TOKEN
 предыдущую версию по тегу нельзя.
 
 ```sh
-# на сервере
+# На сервере: сначала образы, потом миграции, и лишь затем переключение.
+# Новый код ожидает новые колонки, поэтому обратный порядок даёт окно,
+# в котором запросы к затронутым таблицам падают.
 cd /home/dl_admin_tsy/u40ta-prod
-docker compose pull && docker compose up -d
+docker compose pull
+docker compose run --rm backend npm run migration:run:prod
+docker compose up -d
 ```
 
 `pull` без `up -d` ничего не меняет: образ только скачивается, контейнер
@@ -109,7 +112,6 @@ docker ps --filter name=u40ta-prod
 | Что | Почему |
 |---|---|
 | В прод-`docker-compose.yml` **нет `env_file`** | Переменные перечислены поимённо в `environment:`. Новая переменная в `.env` сама в контейнер не попадёт — её нужно добавить и в compose |
-| `TELEGRAM_BOT_TOKEN` объявлен в compose, но не задан в `.env` | При каждом `docker compose` в лог падает «Defaulting to a blank string» |
 | У backend **нет томов** | `EMAIL_ATTACHMENTS_PATH` указывает в каталог, которого в контейнере нет. Появившиеся вложения исчезнут при первом пересоздании контейнера |
 | Тег образов всегда `latest` | Откат возможен только пересборкой из конкретного коммита |
 | `.gitignore` не действует на уже отслеживаемые файлы | Корневой `node_modules/` был закоммичен до появления правил и остаётся в индексе |

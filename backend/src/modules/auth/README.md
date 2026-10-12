@@ -1,143 +1,94 @@
-markdown
 # Модуль авторизации (Auth)
 
 ## Назначение
-Модуль отвечает за аутентификацию и авторизацию пользователей через Telegram Widget. Вся логика входа, генерации JWT токенов и защиты endpoints реализована здесь.
 
-## Архитектура
+Вход в систему **по email с кодом подтверждения**: пользователь запрашивает код,
+получает его письмом, вводит и получает JWT-токен. Отдельно есть вход для
+разработки, доступный только вне production.
 
-### Файловая структура
+Авторизации через Telegram в проекте **нет** — она не реализована и не будет:
+в РФ Telegram заблокирован (решение от 12.10.2026, см. `docs/u40ta/AUDIT.md`).
+
+## Файловая структура
+
+```
 auth/
-├── README.md (этот файл)
-├── auth.controller.ts # HTTP контроллер авторизации
-├── auth.module.ts # Модуль NestJS
-├── jwt-auth.module.ts # Модуль JWT аутентификации
-├── dto/ # Data Transfer Objects
-│ ├── auth-response.dto.ts
-│ └── telegram-login.dto.ts
-├── guards/ # Guards (защитники маршрутов)
-│ └── jwt-auth.guard.ts
-└── services/ # Сервисы бизнес-логики
-├── auth.service.ts
-└── telegram-auth.service.ts
+├── README.md                этот файл
+├── auth.controller.ts       HTTP-маршруты авторизации
+├── auth.module.ts           модуль NestJS
+├── jwt-auth.module.ts       подключение JWT
+├── dto/
+│   ├── auth-response.dto.ts ответ с токеном
+│   └── email-auth.dto.ts    SendCodeDto, VerifyCodeDto, CheckCodeStatusDto
+├── guards/
+│   └── jwt-auth.guard.ts    защита маршрутов
+└── services/
+    ├── auth.service.ts      логика входа
+    └── email-code.service.ts генерация и проверка кодов
+```
 
-text
+## Маршруты
 
-### Взаимосвязи модулей
-Telegram Widget (frontend)
-↓
-auth.controller.ts (POST /api/auth/telegram)
-↓
-auth.service.ts (обработка логики)
-├── telegram-auth.service.ts (работа с Telegram)
-├── users.service.ts (из users модуля)
-├── telegram-users.service.ts (из telegram-users модуля)
-└── jwtService (генерация токена)
-↓
-JWT токен → фронтенд → localStorage
+| Метод | Путь | Что делает |
+|---|---|---|
+| `POST` | `/api/auth/email/send-code` | отправляет код на email |
+| `POST` | `/api/auth/email/verify` | проверяет код и возвращает `access_token` |
+| `POST` | `/api/auth/email/check-status` | активен ли код (для восстановления состояния после F5) |
+| `POST` | `/api/auth/dev-login` | вход по `userId` **только вне production**: в проде отдаёт 404 |
 
-text
+## Сервисы
 
-## Основные компоненты
+### `auth.service.ts`
 
-### 1. Контроллер (`auth.controller.ts`)
-**Маршруты:**
-- `POST /api/auth/telegram` - авторизация через Telegram Widget
-- `POST /api/auth/dev-login` - авторизация для разработки (только не-production)
+- `sendEmailCode(email)` — проверяет адрес, генерирует код, отправляет письмо;
+- `verifyEmailCode(email, code)` — проверяет код, находит или создаёт
+  пользователя и выдаёт JWT;
+- `checkEmailCodeStatus(email)` — сколько осталось до истечения кода;
+- `devLogin(userId)` — вход для разработки;
+- выдача токена: полезная нагрузка содержит `sub` (id пользователя), `abr`,
+  `firstName`, `lastName`.
 
-### 2. Сервисы
-#### `auth.service.ts`
-Центральный сервис авторизации:
-- `telegramLogin()` - основной метод обработки входа через Telegram
-- `devLogin()` - для режима разработки
-- `generateJwtToken()` - генерация JWT с payload:
-  - `sub` - ID пользователя
-  - `abr` - аббревиатура для подписей
-  - `firstName`, `lastName` - имя и фамилия
-  - `telegramUsersId` - ссылка на telegram_users
+### `email-code.service.ts`
 
-#### `telegram-auth.service.ts`
-Специализированный сервис для работы с Telegram:
-- `processTelegramData()` - обработка данных от Telegram Widget
-- `validateTelegramData()` - валидация данных (заглушка)
+Генерация, хранение и проверка кодов. **Коды живут в памяти процесса**: при
+перезапуске бэкенда выданные коды теряются, и пользователю нужно запросить новый.
+Это осознанное решение, а не недоделка — постоянное хранилище кодов не нужно.
 
-### 3. Guards (защитники)
-#### `jwt-auth.guard.ts`
-Защищает endpoints, требующие авторизацию:
-- Извлекает токен из `Authorization: Bearer <token>`
-- В режиме `development` пропускает все запросы (для удобства разработки)
-- Валидирует JWT токен и добавляет `user` в объект запроса
+## Guard
 
-### 4. DTO (Data Transfer Objects)
-#### `telegram-login.dto.ts`
-Валидация входящих данных от Telegram:
-- `id`, `first_name`, `last_name`, `username`
-- `auth_date`, `hash` (для будущей проверки подлинности)
+`jwt-auth.guard.ts` защищает маршруты, требующие входа:
 
-#### `auth-response.dto.ts`
-Ответ после успешной авторизации:
-- `access_token` - JWT токен для последующих запросов
-
-## Рабочий процесс авторизации
-
-1. **Frontend**: Пользователь нажимает кнопку Telegram Widget
-2. **Telegram Widget**: Отправляет данные пользователя на `/api/auth/telegram`
-3. **Backend**:
-   - Контроллер принимает данные
-   - AuthService обрабатывает их:
-     a. Находит/создает запись в `telegram_users`
-     b. Находит/создает пользователя в `users`
-     c. Генерирует JWT токен
-   - Возвращает `{ access_token: token }`
-4. **Frontend**: Сохраняет токен в `localStorage` и перенаправляет на `/`
+- читает токен из `Authorization: Bearer <token>`;
+- в режиме `development` **пропускает все запросы** — ради удобства разработки
+  и `DevLogin.vue`;
+- в production валидирует токен и кладёт `user` в объект запроса.
 
 ## Настройки JWT
-- Секретный ключ: `JWT_SECRET` (из переменных окружения)
-- Время жизни: `JWT_EXPIRES_IN` (по умолчанию '90d')
-- Алгоритм: HS256 (по умолчанию)
 
-## Особенности реализации
+| Переменная | Значение |
+|---|---|
+| `JWT_SECRET` | секрет, только в `.env` на сервере |
+| `JWT_EXPIRES_IN` | срок жизни токена (в проде — `90d`) |
+| алгоритм | HS256 |
 
-### Гостевая система
-В новой системе **нет состояния "ожидания одобрения"**. Все пользователи Telegram автоматически получают доступ как гости.
+## Зависимости модуля
 
-### Режим разработки
-- В `development` режиме:
-  - `JwtAuthGuard` пропускает все запросы
-  - Доступен `dev-login` endpoint для тестирования
-- В `production` режиме:
-  - Требуется валидный JWT токен
-  - `dev-login` endpoint недоступен
-
-### Зависимости модуля
-- `UsersModule` - работа с основными пользователями
-- `TelegramUsersModule` - работа с Telegram аккаунтами
-- `ConfigModule` - доступ к настройкам
-- `JwtModule` - работа с JWT токенами
+- `UsersModule` — поиск и создание пользователей
+- `ConfigModule` — доступ к переменным окружения
+- `JwtModule` — выпуск и проверка токенов
 
 ## Использование в других модулях
 
-### Защита endpoints
 ```typescript
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
-@Controller('assets')
-export class AssetsController {
-  // ... защищенные методы
+@Controller('objects')
+export class ObjectsController {
+  @Get()
+  findAll(@Req() request) {
+    const userId = request.user.sub; // id пользователя из токена
+    // ...
+  }
 }
-Получение данных пользователя в контроллере
-typescript
-@Get('profile')
-@UseGuards(JwtAuthGuard)
-getProfile(@Req() request) {
-  // request.user содержит payload из JWT токена
-  const userId = request.user.sub;
-  const userName = request.user.firstName;
-  // ...
-}
-Переменные окружения
-env
-JWT_SECRET=your_super_secret_key_here
-JWT_EXPIRES_IN=90d
-NODE_ENV=development|production
+```

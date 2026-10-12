@@ -53,37 +53,6 @@
   margin-bottom: 30px;
 }
 
-/* ===== КНОПКА TELEGRAM ===== */
-.telegram-btn-container {
-  /* Контейнер для кнопки Telegram */
-  margin-bottom: 30px;
-}
-
-.telegram-btn {
-  /* Голубая кнопка Telegram */
-  background-color: #0088cc;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 16px 32px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  width: 100%;
-  transition: background-color 0.2s ease;
-}
-
-.telegram-btn:hover {
-  /* Эффект при наведении */
-  background-color: #0077b3;
-}
-
-.telegram-btn:active {
-  /* Эффект при нажатии */
-  background-color: #006699;
-  transform: translateY(1px);
-}
-
 /* ===== КНОПКА УСТАНОВКИ PWA ===== */
 .pwa-section {
   /* Секция с PWA */
