@@ -1,8 +1,8 @@
 {
-    "name": "U40TA - Telegram Auth",
+    "name": "U40TA",
     "short_name": "U40TA",
     "id": "/",
-    "description": "Приложение с авторизацией через Telegram",
+    "description": "Учёт оргтехники и материальных ценностей",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",

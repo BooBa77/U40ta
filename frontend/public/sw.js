@@ -80,11 +80,9 @@ self.addEventListener('fetch', function(event) {
   const url = new URL(request.url);
   
   // ПРОПУСКАЕМ запросы, которые НЕ должны кэшироваться:
-  // 1. Запросы к Telegram API
-  // 2. Запросы к нашему API (/api/)
-  // 3. Внешние ресурсы (другие домены)
-  if (request.url.includes('telegram.org') || 
-      request.url.includes('/api/') ||
+  // 1. Запросы к нашему API (/api/)
+  // 2. Внешние ресурсы (другие домены)
+  if (request.url.includes('/api/') ||
       !request.url.startsWith(self.location.origin)) {
     // Просто пропускаем эти запросы без кэширования
     return fetch(request);

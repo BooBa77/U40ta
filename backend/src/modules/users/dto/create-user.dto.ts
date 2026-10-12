@@ -2,7 +2,7 @@ import { IsNumber, IsString, IsNotEmpty, IsEmail } from 'class-validator';
 
 /**
  * DTO для создания пользователя системы
- * Создается при авторизации через Telegram или Email
+ * Создается при авторизации по email
  * Поле abr генерируется в сервисе на основе first_name и last_name
  */
 export class CreateUserDto {

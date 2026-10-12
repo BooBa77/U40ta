@@ -25,7 +25,8 @@ services:
       - MIGRATION_DB_PASSWORD=${MIGRATION_DB_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      # TELEGRAM_BOT_TOKEN убран 12.10.2026: Telegram в РФ заблокирован,
+      # авторизации через него в коде нет. См. docs/u40ta/AUDIT.md, находка 7.
       - EMAIL_IMAP_USER=${EMAIL_IMAP_USER}
       - EMAIL_IMAP_PASSWORD=${EMAIL_IMAP_PASSWORD}
       - EMAIL_IMAP_HOST=${EMAIL_IMAP_HOST}
