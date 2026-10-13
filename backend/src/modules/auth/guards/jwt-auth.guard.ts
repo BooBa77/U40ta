@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { errorMessage } from '../../../common/utils/error';
 
 /**
  * JwtAuthGuard - защищает endpoints требующие JWT авторизацию
@@ -47,7 +48,7 @@ export class JwtAuthGuard implements CanActivate {
           }
         } catch (error) {
           // Игнорируем ошибки декодирования в dev
-          this.logger.debug(`Dev режим: ошибка декодирования токена: ${error.message}`);
+          this.logger.debug(`Dev режим: ошибка декодирования токена: ${errorMessage(error)}`);
         }
       }
   
@@ -74,7 +75,7 @@ export class JwtAuthGuard implements CanActivate {
       
       return true;
     } catch (error) {
-      this.logger.warn(`Невалидный JWT токен: ${error.message}`);
+      this.logger.warn(`Невалидный JWT токен: ${errorMessage(error)}`);
       throw new UnauthorizedException('Невалидный токен авторизации');
     }
   }

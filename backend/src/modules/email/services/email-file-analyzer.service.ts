@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 /**
  * Сервис анализа Excel-файлов, поступающих по электронной почте.
@@ -119,19 +120,21 @@ export class EmailFileAnalyzer {
       };
 
     } catch (error) {
-      let errorMessage = 'Ошибка чтения файла';
-      if (error.message?.includes('Unsupported file')) {
-        errorMessage = 'Формат файла не поддерживается';
+      // Локальная переменная названа errorText, а не errorMessage: имя
+      // errorMessage занято помощником из common/utils/error.
+      let errorText = 'Ошибка чтения файла';
+      if (errorMessage(error).includes('Unsupported file')) {
+        errorText = 'Формат файла не поддерживается';
       }
 
       this.logger.error(
-        `Ошибка анализа Excel: ${errorMessage}. Исходная ошибка: ${error.message}`,
-        error.stack
+        `Ошибка анализа Excel: ${errorText}. Исходная ошибка: ${errorMessage(error)}`,
+        errorStack(error)
       );
 
       return {
         isValid: false,
-        error: `${errorMessage}: ${error.message}`
+        error: `${errorText}: ${errorMessage(error)}`
       };
     }
   }

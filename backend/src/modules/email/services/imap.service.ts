@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Imap from 'imap';
 import { simpleParser } from 'mailparser';
 import { EmailProcessor } from './email-processor.service';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 /**
  * Сервис для работы с почтовым ящиком по протоколу IMAP.
@@ -115,7 +116,7 @@ export class ImapService {
           this.imap.end();
           resolve();
         } catch (error) {
-          this.logger.error(`Ошибка при обработке писем: ${error.message}`, error.stack);
+          this.logger.error(`Ошибка при обработке писем: ${errorMessage(error)}`, errorStack(error));
           this.imap.end();
           reject(error);
         }
@@ -128,23 +129,25 @@ export class ImapService {
         this.logger.error('Сообщение ошибки:', err.message);
         this.logger.error('Полный стек:', err.stack);
 
-        // Формируем понятное сообщение об ошибке
-        let errorMessage = err.message;
+        // Формируем понятное сообщение об ошибке.
+        // Переменная названа errorText, а не errorMessage: имя errorMessage
+        // занято помощником из common/utils/error.
+        let errorText = err.message;
         if (err.message && err.message.toLowerCase().includes('authentication')) {
-          errorMessage = 'Ошибка аутентификации. Проверьте логин и пароль.';
+          errorText = 'Ошибка аутентификации. Проверьте логин и пароль.';
         } else if (err.message && err.message.toLowerCase().includes('connect')) {
-          errorMessage = 'Не удалось подключиться к серверу. Проверьте хост и порт.';
+          errorText = 'Не удалось подключиться к серверу. Проверьте хост и порт.';
         } else if (err.message && err.message.toLowerCase().includes('timeout')) {
-          errorMessage = 'Таймаут подключения. Проверьте сетевое соединение.';
+          errorText = 'Таймаут подключения. Проверьте сетевое соединение.';
         } else if (!err.message || err.message === '') {
-          errorMessage = 'Неизвестная ошибка подключения. Проверьте настройки IMAP.';
+          errorText = 'Неизвестная ошибка подключения. Проверьте настройки IMAP.';
         }
 
         this.logger.error(
-          `Ошибка IMAP: ${errorMessage}. Исходная ошибка: ${err.message}`
+          `Ошибка IMAP: ${errorText}. Исходная ошибка: ${err.message}`
         );
 
-        reject(new Error(`Ошибка подключения: ${errorMessage}`));
+        reject(new Error(`Ошибка подключения: ${errorText}`));
       });
 
       // ========== Запускаем подключение ==========
@@ -214,7 +217,7 @@ export class ImapService {
         this.logger.log(`Обработка письма UID: ${uid}`);
         await this.processEmail(uid);
       } catch (error) {
-        this.logger.error(`Ошибка обработки письма ${uid}: ${error.message}`, (error as Error).stack);
+        this.logger.error(`Ошибка обработки письма ${uid}: ${errorMessage(error)}`, errorStack(error));
         // Продолжаем обработку следующих писем даже если одно упало
       }
     }
@@ -268,7 +271,7 @@ export class ImapService {
                 resolve();
               });
             } catch (error) {
-              this.logger.error(`Ошибка парсинга письма: ${error.message}`, error.stack);
+              this.logger.error(`Ошибка парсинга письма: ${errorMessage(error)}`, errorStack(error));
               reject(error);
             }
           });

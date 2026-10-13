@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Statement } from '../entities/statement.entity';
 import { IgnoreKeywordsService } from '../../mol/services/ignore-keywords.service';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 /**
  * Интерфейс события statement.file.received.
@@ -108,7 +109,7 @@ export class StatementParser {
       );
 
     } catch (error) {
-      this.logger.error(`Ошибка парсинга ведомости ${filename}: ${error.message}`, (error as Error).stack);
+      this.logger.error(`Ошибка парсинга ведомости ${filename}: ${errorMessage(error)}`, errorStack(error));
       throw error;
     }
   }

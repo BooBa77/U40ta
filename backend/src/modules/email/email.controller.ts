@@ -8,6 +8,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImapService } from './services/imap.service';
+import { errorMessage } from '../../common/utils/error';
 
 /**
  * Контроллер для работы с почтовым ящиком.
@@ -36,7 +37,7 @@ export class EmailController {
       await this.imapService.checkForNewEmails();
       return { success: true, message: 'Проверка почты завершена' };
     } catch (error) {
-      return { success: false, message: `Ошибка проверки почты: ${error.message}` };
+      return { success: false, message: `Ошибка проверки почты: ${errorMessage(error)}` };
     }
   }
 }

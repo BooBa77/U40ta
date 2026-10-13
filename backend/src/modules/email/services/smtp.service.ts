@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 @Injectable()
 export class SmtpService {
@@ -34,8 +35,8 @@ export class SmtpService {
       this.logger.log('Email отправлен:', result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      this.logger.error(`Ошибка отправки email: ${error.message}`, error.stack);
-      return { success: false, error: error.message };
+      this.logger.error(`Ошибка отправки email: ${errorMessage(error)}`, errorStack(error));
+      return { success: false, error: errorMessage(error) };
     }
   }
 }

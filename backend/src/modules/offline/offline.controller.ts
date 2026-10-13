@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OfflineService } from './services/offline.service';
 import { OfflineDataResponseDto } from './dto/offline-data.response.dto';
 import { SyncChangesRequestDto } from './dto/sync-changes.request.dto';
+import { errorMessage, errorStack } from '../../common/utils/error';
 
 @ApiTags('offline')
 @Controller('offline')
@@ -60,7 +61,7 @@ export class OfflineController {
             totalIgnoreKeywords: 0,
           }
         },
-        message: `Ошибка загрузки данных: ${error.message}`,
+        message: `Ошибка загрузки данных: ${errorMessage(error)}`,
       };
     }
   }
@@ -96,11 +97,11 @@ export class OfflineController {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      this.logger.error(`OfflineController: ошибка проверки: ${error.message}`, error.stack);
+      this.logger.error(`OfflineController: ошибка проверки: ${errorMessage(error)}`, errorStack(error));
       return {
         success: false,
         needsSync: true,
-        message: `Ошибка проверки: ${error.message}`,
+        message: `Ошибка проверки: ${errorMessage(error)}`,
         clearCache: false,
         timestamp: new Date().toISOString(),
       };
@@ -137,7 +138,7 @@ export class OfflineController {
     } catch (error) {
       return {
         success: false,
-        message: `Ошибка синхронизации: ${error.message}`,
+        message: `Ошибка синхронизации: ${errorMessage(error)}`,
       };
     }
   }

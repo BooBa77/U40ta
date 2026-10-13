@@ -15,16 +15,16 @@
     "outDir": "./dist",
     "incremental": true,
     "skipLibCheck": true,
+    // Полный строгий режим, как в ph: `strict` включает noImplicitAny,
+    // strictNullChecks, useUnknownInCatchVariables, strictBindCallApply и
+    // noFallthroughCasesInSwitch. Единственное послабление — инициализация
+    // свойств: сущности TypeORM заполняются из базы, а не конструктором.
+    "strict": true,
     "strictPropertyInitialization": false,
     // Явный список глобальных типов. `multer` здесь потому, что он объявляет
     // `Express.Multer.File` глобально, а в коде u40ta — в отличие от ph — модуль
     // `multer` нигде не импортируется, поэтому до этой правки тип не находился.
     "types": ["node", "multer"],
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false,
-    "useUnknownInCatchVariables": false
+    "forceConsistentCasingInFileNames": true
   }
 }

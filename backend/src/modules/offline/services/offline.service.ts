@@ -3,6 +3,7 @@ import { LogsService } from '../../logs';
 import { OfflineCacheService } from './offline-cache.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { SyncChangesRequestDto } from '../dto/sync-changes.request.dto';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 /**
  * Сервис офлайн-режима.
@@ -97,10 +98,10 @@ export class OfflineService {
       this.logsService.log('offline_mode', userId || null, {
         action: 'offline_mode_error',
         userId: userId || null,
-        error: error.message,
+        error: errorMessage(error),
       });
 
-      this.logger.error(`OfflineService: ошибка получения данных: ${error.message}`, error.stack);
+      this.logger.error(`OfflineService: ошибка получения данных: ${errorMessage(error)}`, errorStack(error));
 
       return {
         statements: [],
@@ -146,10 +147,10 @@ export class OfflineService {
         message: 'Синхронизация завершена',
       };
     } catch (error) {
-      this.logger.error(`OfflineService: ошибка синхронизации: ${error.message}`, error.stack);
+      this.logger.error(`OfflineService: ошибка синхронизации: ${errorMessage(error)}`, errorStack(error));
       return {
         success: false,
-        message: `Ошибка синхронизации: ${error.message}`,
+        message: `Ошибка синхронизации: ${errorMessage(error)}`,
       };
     }
   }

@@ -13,6 +13,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { StatementsService } from './services/statements.service';
+import { errorMessage } from '../../common/utils/error';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
 /**
@@ -104,7 +105,7 @@ export class StatementsController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Ошибка при удалении ведомости',
+        message: errorMessage(error) || 'Ошибка при удалении ведомости',
       };
     }
   }
@@ -153,7 +154,7 @@ export class StatementsController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: errorMessage(error),
         statements: [],
       };
     }

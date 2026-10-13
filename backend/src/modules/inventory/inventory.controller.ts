@@ -23,6 +23,7 @@ import { InventoryStatement } from './entities/inventory-statement.entity';
 import { UpdateInventoryBookDto } from './dto/update-inventory-book.dto';
 import { UsersService } from '../users/users.service';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
+import { errorMessage } from '../../common/utils/error';
 
 /**
  * Контроллер для работы с инвентаризационными ведомостями ревизора.
@@ -130,7 +131,7 @@ export class InventoryController {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Ошибка при удалении пакета'
+        message: errorMessage(error) || 'Ошибка при удалении пакета'
       };
     }
   }

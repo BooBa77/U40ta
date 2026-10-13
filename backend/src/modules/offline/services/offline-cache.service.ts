@@ -11,6 +11,7 @@ import { RevisorAccess } from '../../inventory/entities/revisor-access.entity';
 import { ProposedChange } from '../../proposed-changes/entities/proposed-change.entity';
 import { Photo } from '../../photos/entities/photos.entity';
 import { IgnoreKeyword } from '../../mol/entities/ignore-keyword.entity';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 /**
  * Сервис кэширования данных для офлайн-режима.
@@ -236,8 +237,8 @@ export class OfflineCacheService {
         },
       };
     } catch (error) {
-      this.logger.error(`OfflineCacheService: ошибка при получении данных: ${error.message}`, error.stack);
-      throw new Error(`Не удалось получить данные для офлайн-режима: ${error.message}`);
+      this.logger.error(`OfflineCacheService: ошибка при получении данных: ${errorMessage(error)}`, errorStack(error));
+      throw new Error(`Не удалось получить данные для офлайн-режима: ${errorMessage(error)}`);
     }
   }
 }

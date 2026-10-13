@@ -453,6 +453,10 @@ export class InventoryBooksService {
     }
 
     // ========== Шаг 4: Описываем колонки Excel ==========
+    // `as const` нужен не для красоты: без него `key` — обычная `string`, и
+    // обращение `rows[rowIndex][col.key]` не проходит строгую проверку индексов
+    // (TS7053). С `as const` `key` — объединение литералов ровно тех полей,
+    // которые есть в строке, и обращение остаётся типизированным без приведений.
     const columns = [
       { key: 'zavod',            header: 'Завод' },
       { key: 'sklad',            header: 'Склад' },
@@ -471,7 +475,7 @@ export class InventoryBooksService {
       { key: 'revisorAuto',      header: 'Ревизор (авто)' },
       { key: 'dateAuto',         header: 'Дата (авто)' },
       { key: 'rem',              header: 'Примечание' },
-    ];
+    ] as const;
 
     // ========== Шаг 5: Формируем строки данных ==========
     const rows = items.map(item => ({

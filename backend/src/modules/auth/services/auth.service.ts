@@ -6,6 +6,7 @@ import { UsersService } from '../../users/users.service';
 import { AuthResponseDto } from '../dto/auth-response.dto';
 import { EmailCodeService } from './email-code.service';
 import { SmtpService } from '../../email/services/smtp.service';
+import { errorMessage } from '../../../common/utils/error';
 
 @Injectable()
 export class AuthService {
@@ -85,7 +86,7 @@ export class AuthService {
     } catch (error) {
       // Если отправка не удалась - удаляем код
       this.emailCodeService.deleteCode(normalizedEmail);
-      this.logger.error(`Ошибка отправки кода на ${normalizedEmail}: ${error.message}`);
+      this.logger.error(`Ошибка отправки кода на ${normalizedEmail}: ${errorMessage(error)}`);
       throw new BadRequestException('Ошибка отправки письма. Попробуйте позже.');
     }
   }
@@ -240,7 +241,7 @@ export class AuthService {
       this.logger.log(`Токен валиден для пользователя ID: ${payload.sub}`);
       return payload;
     } catch (error) {
-      this.logger.warn(`Невалидный токен: ${error.message}`);
+      this.logger.warn(`Невалидный токен: ${errorMessage(error)}`);
       return null;
     }
   }
@@ -257,7 +258,7 @@ export class AuthService {
       this.logger.log(`Текущий пользователь: ${user.firstName} ${user.lastName}`);
       return user;
     } catch (error) {
-      this.logger.error(`Ошибка получения пользователя: ${error.message}`);
+      this.logger.error(`Ошибка получения пользователя: ${errorMessage(error)}`);
       return null;
     }
   }

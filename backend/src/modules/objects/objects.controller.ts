@@ -7,6 +7,7 @@ import { CreateObjectDto } from './dto/create-object.dto';
 import { UpdateObjectDto } from './dto/update-object.dto';
 import { InventoryObject } from './entities/object.entity';
 import { AppEventsService } from '../app-events/app-events.service';
+import { errorMessage, errorStack } from '../../common/utils/error';
 
 // Интерфейс для типизации пользователя в запросе
 interface RequestWithUser extends ExpressRequest {
@@ -69,10 +70,10 @@ export class ObjectsController {
         count: objects.length
       };
     } catch (error) {
-      this.logger.error(`[ObjectsController] Ошибка поиска объектов: ${error.message}`, error.stack);
+      this.logger.error(`[ObjectsController] Ошибка поиска объектов: ${errorMessage(error)}`, errorStack(error));
       return {
         success: false,
-        error: error.message,
+        error: errorMessage(error),
         objects: []
       };
     }
@@ -122,10 +123,10 @@ export class ObjectsController {
         combinations
       };
     } catch (error) {
-      this.logger.error(`[ObjectsController] Ошибка получения комбинаций складов: ${error.message}`, error.stack);
+      this.logger.error(`[ObjectsController] Ошибка получения комбинаций складов: ${errorMessage(error)}`, errorStack(error));
       return {
         success: false,
-        error: error.message,
+        error: errorMessage(error),
         combinations: []
       };
     }
@@ -144,10 +145,10 @@ export class ObjectsController {
         combinations
       };
     } catch (error) {
-      this.logger.error(`[ObjectsController] Ошибка получения комбинаций: ${error.message}`, error.stack);
+      this.logger.error(`[ObjectsController] Ошибка получения комбинаций: ${errorMessage(error)}`, errorStack(error));
       return {
         success: false,
-        error: error.message,
+        error: errorMessage(error),
         combinations: []
       };
     }
@@ -249,7 +250,7 @@ export class ObjectsController {
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: errorMessage(error)
       };
     }
   }
@@ -306,7 +307,7 @@ export class ObjectsController {
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: errorMessage(error)
       };
     }
   }

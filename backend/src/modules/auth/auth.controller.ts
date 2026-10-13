@@ -2,6 +2,7 @@ import { Controller, Post, Body, Logger, NotFoundException, BadRequestException,
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './services/auth.service';
 import { SendCodeDto, VerifyCodeDto, CheckCodeStatusDto } from './dto/email-auth.dto';
+import { errorMessage } from '../../common/utils/error';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -40,7 +41,7 @@ export class AuthController {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`Ошибка отправки кода: ${error.message}`);
+      this.logger.error(`Ошибка отправки кода: ${errorMessage(error)}`);
       throw new BadRequestException('Ошибка отправки кода');
     }
   }
@@ -62,7 +63,7 @@ export class AuthController {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`Ошибка проверки кода: ${error.message}`);
+      this.logger.error(`Ошибка проверки кода: ${errorMessage(error)}`);
       throw new BadRequestException('Ошибка проверки кода');
     }
   }

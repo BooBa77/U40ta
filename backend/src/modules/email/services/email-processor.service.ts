@@ -5,6 +5,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SmtpService } from './smtp.service';
 import { EmailFileAnalyzer } from './email-file-analyzer.service';
 import { UsersService } from '../../users/users.service';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 /**
  * Сервис обработки вложений электронной почты.
@@ -275,24 +276,25 @@ export class EmailProcessor {
    * 
    * @param filename - оригинальное имя файла
    * @param emailFrom - email отправителя (нормализованный)
-   * @param error - объект ошибки
+   * @param error - значение, пойманное в `catch`; тип `unknown`, потому что
+   *                бросить можно что угодно, а не только `Error`
    */
   private async handleProcessingError(
     filename: string,
     emailFrom: string,
-    error: Error
+    error: unknown
   ): Promise<void> {
     this.logger.error(
-      `Ошибка обработки файла ${filename} от ${emailFrom}: ${error.message}`,
-      error.stack
+      `Ошибка обработки файла ${filename} от ${emailFrom}: ${errorMessage(error)}`,
+      errorStack(error)
     );
 
     const errorText =
       `Ошибка обработки вложения.\n\n` +
       `Файл: ${filename}\n` +
       `Отправитель: ${emailFrom}\n` +
-      `Ошибка: ${error.message}\n\n` +
-      `Стек: ${error.stack}`;
+      `Ошибка: ${errorMessage(error)}\n\n` +
+      `Стек: ${errorStack(error)}`;
 
     await this.smtpService.sendEmail(
       this.ADMIN_EMAIL,
