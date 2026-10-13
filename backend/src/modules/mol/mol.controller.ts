@@ -44,6 +44,25 @@ export class MolController {
         return await this.molService.exportExcel(userId);
     }
 
+    /**
+     * Объекты всех доступных МОЛу складов, включая основные средства.
+     * GET /api/mol/objects
+     *
+     * Отдаёт те же данные, что и выгрузка в Excel, но по HTTP и одним запросом:
+     * мини-таблица на главной показывает объекты всех складов пользователя
+     * сразу, а модалка поиска в разделе МОЛ делает по запросу на каждый склад.
+     */
+    @Get('objects')
+    async getObjects(@Req() request: RequestWithUser) {
+        const userId = request.user?.sub;
+        if (!userId) {
+            throw new UnauthorizedException('Пользователь не авторизован');
+        }
+
+        const objects = await this.molService.getObjectsForUser(userId);
+        return { success: true, objects };
+    }
+
     // ============================================================================
     // ИГНОР-СЛОВА
     // ============================================================================

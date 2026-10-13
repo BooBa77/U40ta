@@ -6,6 +6,7 @@ import { InventoryObject } from '../../objects/entities/object.entity';
 import { Log } from '../../logs/logs.entity';
 import { SmtpService } from '../../email/services/smtp.service';
 import { UsersService } from '../../users/users.service';
+import { errorMessage, errorStack } from '../../../common/utils/error';
 
 @Injectable()
 export class MolService {
@@ -85,9 +86,27 @@ export class MolService {
         message: result.success ? `Таблица экспортирована на ${user.eMail}` : 'Ошибка при отправке письма',
         };
     } catch (error) {
-        this.logger.error(`[MolService] Ошибка экспорта: ${error.message}`, error.stack);
-        throw new InternalServerErrorException(error.message || 'Не удалось выгрузить данные');
+        this.logger.error(`[MolService] Ошибка экспорта: ${errorMessage(error)}`, errorStack(error));
+        throw new InternalServerErrorException(errorMessage(error) || 'Не удалось выгрузить данные');
     }
+  }
+
+  /**
+   * Объекты всех складов, доступных пользователю.
+   *
+   * Используется мини-таблицей на главной: она показывает объекты всех складов
+   * МОЛа одним списком, а не отдельным запросом на каждый склад (как модалка
+   * поиска в разделе МОЛ). Склады берутся из `mol_access`, поэтому основные
+   * средства попадают сюда автоматически — у них `zavod = 0`.
+   *
+   * @param userId - ID пользователя
+   */
+  async getObjectsForUser(userId: number): Promise<InventoryObject[]> {
+    const molAccess = await this.usersService.getMolAccess(userId);
+    this.logger.log(
+      `Объекты для мини-таблицы: ${molAccess.length} складов у пользователя ${userId}`,
+    );
+    return this.getObjectsBySklads(molAccess);
   }
 
   /**
@@ -100,17 +119,30 @@ export class MolService {
       return [];
     }
 
-    const conditions = sklads.map(s => 
-      `(zavod = ${s.zavod} AND sklad = '${s.sklad}')`
-    ).join(' OR ');
-
-    return await this.objectRepository
+    // Условия собираются параметрами, а не подстановкой значений в строку.
+    // Значения приходят из базы, поэтому инъекции здесь не было, но
+    // конкатенация в SQL становится опасной ровно в тот момент, когда источник
+    // данных меняется, — а заметить это потом нечем.
+    const query = this.objectRepository
       .createQueryBuilder('obj')
-      .where(conditions)
       .orderBy('obj.zavod', 'ASC')
       .addOrderBy('obj.sklad', 'ASC')
-      .addOrderBy('obj.invNumber', 'ASC')
-      .getMany();
+      .addOrderBy('obj.invNumber', 'ASC');
+
+    sklads.forEach((s, index) => {
+      const condition = `(obj.zavod = :zavod_${index} AND obj.sklad = :sklad_${index})`;
+
+      if (index === 0) {
+        query.where(condition);
+      } else {
+        query.orWhere(condition);
+      }
+
+      query.setParameter(`zavod_${index}`, s.zavod);
+      query.setParameter(`sklad_${index}`, s.sklad);
+    });
+
+    return query.getMany();
   }
 
   /**
@@ -184,7 +216,9 @@ export class MolService {
     XLSX.utils.book_append_sheet(workbook, objectsSheet, 'Объекты');
 
     // Автоширина для объектов
-    const objectKeys = ['id', 'Завод', 'Склад', 'Инв. номер', 'Партия', 'Наименование', 'S/N', 'Территория', 'Позиция', 'Кабинет', 'Пользователь', 'Проверен', 'Списан'];
+    // `as const` — чтобы `key` был объединением литералов, а не `string`:
+    // иначе обращение `row[key]` упирается в строгую проверку индексов (TS7053).
+    const objectKeys = ['id', 'Завод', 'Склад', 'Инв. номер', 'Партия', 'Наименование', 'S/N', 'Территория', 'Позиция', 'Кабинет', 'Пользователь', 'Проверен', 'Списан'] as const;
     const objectCols = objectKeys.map((key) => {
       let maxLen = key.length;
       for (const row of objectsData) {
@@ -212,7 +246,8 @@ export class MolService {
     XLSX.utils.book_append_sheet(workbook, logsSheet, 'Логи');
 
     // Автоширина для логов
-    const logKeys = ['id объекта', 'Дата', 'Сотрудник', 'Событие'];
+    // `as const` — по той же причине, что и у `objectKeys` выше.
+    const logKeys = ['id объекта', 'Дата', 'Сотрудник', 'Событие'] as const;
     const logCols = logKeys.map((key) => {
       let maxLen = key.length;
       for (const row of logsData) {

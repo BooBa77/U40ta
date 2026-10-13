@@ -58,6 +58,9 @@
         Проверка прав доступа...
       </div>
 
+      <!-- Секция объектов МОЛа (мини-таблица) -->
+      <MolObjectsSection />
+
       <!-- Модальное окно ObjectForm -->
       <ObjectFormModal
         v-if="showObjectForm"
@@ -118,6 +121,7 @@ import QrScannerButton from '@/components/QrScanner/ui/QrScannerButton.vue'
 import ObjectFormModal from '@/components/ObjectForm/ObjectFormModal.vue'
 import FlightModeToggle from './components/FlightModeToggle.vue'
 import StatementsSection from './components/StatementsSection.vue'
+import MolObjectsSection from './components/MolObjectsSection.vue'
 import InventoryBooksSection from './components/InventoryBooksSection.vue'
 import InventoryBookEditModal from './components/InventoryBookEditModal.vue'
 import MolInventoryModal from './components/MolInventoryModal.vue'
