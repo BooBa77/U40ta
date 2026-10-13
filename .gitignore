@@ -3,6 +3,8 @@ sync-db.bat
 node_modules/
 backend/node_modules/
 backend/dist/
+*.tsbuildinfo
+coverage/
 backup
 frontend/node_modules/
 frontend/views/test/
