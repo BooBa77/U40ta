@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>U40TA</title>
     
-    <!-- PWA MANIFEST -->
-    <link rel="manifest" href="/manifest.json">
-    
+    <!--
+      Ссылку на манифест и скрипт регистрации SW (registerSW.js) вставляет
+      vite-plugin-pwa при сборке. Руками их подключать не нужно: в dev-режиме
+      PWA выключена, а при сборке пути и имя файла манифеста
+      (manifest.webmanifest) задаёт плагин.
+    -->
+
     <!-- Theme Color -->
     <meta name="theme-color" content="#0088cc">
     

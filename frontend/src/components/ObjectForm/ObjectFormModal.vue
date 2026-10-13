@@ -240,10 +240,11 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onUnmounted } from 'vue'
 import { objectService } from '@/services/object.service'
 import { logsService } from '@/services/logs.service'
 import { proposedChangesService } from '@/services/proposed-changes.service'
+import { setBusy, whileBusy } from '@/composables/useAppBusy'
 import { useObjectPhotos } from './composables/useObjectPhotos'
 import { useObjectQrCodes } from './composables/useObjectQrCodes'
 import { useCamera } from '@/composables/useCamera'
@@ -261,6 +262,31 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['save', 'cancel', 'guest-save', 'guest-need-auth'])
+
+/**
+ * Занятость пользователя для PWA-обновления.
+ *
+ * Пока форма открыта, применять обновление нельзя: перезагрузка страницы
+ * стёрла бы заполненные, но не сохранённые поля (местоположение, s/n,
+ * комментарий, добавленные фото и QR). Счётчик держим ровно один раз на
+ * компонент — флаг busyHeld защищает от двойного инкремента, а он же
+ * мешает освободить чужую занятость повторным вызовом.
+ *
+ * Разбор механизма целиком — в composables/useSwUpdate.js и App.vue.
+ */
+let busyHeld = false
+
+const acquireBusy = () => {
+  if (busyHeld) return
+  busyHeld = true
+  setBusy(true)
+}
+
+const releaseBusy = () => {
+  if (!busyHeld) return
+  busyHeld = false
+  setBusy(false)
+}
 
 // Состояния
 const isSaving = ref(false)
@@ -435,6 +461,7 @@ const resetForm = () => {
 
 const handleCancel = () => {
   resetForm()
+  releaseBusy()
   emit('cancel', { wasCreated: false })
 }
 
@@ -560,12 +587,15 @@ const handleSave = async () => {
 
     if (canEdit) {
       // МОЛ — прямое сохранение
-      const savedObject = await objectService.saveObject({
+      // whileBusy: пока запрос летит, занятость не должна упасть, даже если
+      // модалку в этот момент уже закрыли (иначе обновление перезагрузит
+      // страницу посреди сохранения)
+      const savedObject = await whileBusy(() => objectService.saveObject({
         objectData: objectToSave,
         qrCodes: newQrCodes,
         photosToAdd: photosToAdd,
         photosToDelete: photosToDelete
-      })
+      }))
 
       savedId = savedObject.object?.id || savedObject.id
       const wasCreated = !objectData.value.id && savedId
@@ -655,7 +685,7 @@ const handleSave = async () => {
       }
 
       if (proposedChanges.length > 0) {
-        await proposedChangesService.proposeChanges(objectToSave.id, proposedChanges)
+        await whileBusy(() => proposedChangesService.proposeChanges(objectToSave.id, proposedChanges))
       }
       
       savedId = objectToSave.id
@@ -740,7 +770,7 @@ const handleConfirmOnly = async () => {
 
   try {
     if (objectData.value.id) {
-      await objectService.updateCheckedAt(objectData.value.id)
+      await whileBusy(() => objectService.updateCheckedAt(objectData.value.id))
     }
     emit('save', { wasCreated: false })
     resetForm()
@@ -753,6 +783,8 @@ const handleConfirmOnly = async () => {
 
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
+    // Форма открыта — пользователь может править данные, обновление отложено
+    acquireBusy()
     resetForm()
     await loadPlaceCombinations()
     
@@ -766,8 +798,21 @@ watch(() => props.isOpen, async (isOpen) => {
       initFromRowData(props.initialData)
       await processInitialQrCode(props.initialQrCode)
     }
+  } else {
+    // Модалку закрыл родитель (в том числе сразу после emit('save')) —
+    // занятость снимаем здесь, иначе счётчик остался бы висеть навсегда
+    releaseBusy()
   }
 }, { immediate: true })
+
+/**
+ * Страховка от «залипшего» счётчика: если компонент размонтируют, пока
+ * форма открыта (уход на другой роут, закрытие страницы), освободить
+ * занятость больше некому — а при счётчике > 0 обновление не применится никогда.
+ */
+onUnmounted(() => {
+  releaseBusy()
+})
 </script>
 
 <style scoped>

@@ -195,6 +195,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { emailService } from '@/services/email.service'
+import { setBusy, whileBusy } from '@/composables/useAppBusy'
 
 const CORPORATE_DOMAIN = 'irkutsk-dobycha.gazprom.ru'
 
@@ -224,6 +225,28 @@ export default {
     const codeError = ref('')
     const errorMessage = ref('')
     let timerInterval = null
+
+    /**
+     * Занятость пользователя для PWA-обновления: пока форма входа открыта,
+     * страницу перезагружать нельзя — пользователь вводит логин и код из
+     * письма, после перезагрузки ввод и таймер кода потерялись бы.
+     *
+     * Флаг busyHeld: счётчик поднимаем один раз на компонент, чтобы
+     * повторное закрытие не освободило чужую занятость.
+     */
+    let busyHeld = false
+
+    const acquireBusy = () => {
+      if (busyHeld) return
+      busyHeld = true
+      setBusy(true)
+    }
+
+    const releaseBusy = () => {
+      if (!busyHeld) return
+      busyHeld = false
+      setBusy(false)
+    }
 
     // ===== Вычисляемые свойства =====
     const fullEmail = computed(() => {
@@ -317,7 +340,7 @@ export default {
       errorMessage.value = ''
 
       try {
-        await emailService.sendCode(fullEmail.value)
+        await whileBusy(() => emailService.sendCode(fullEmail.value))
         codeSent.value = true
         startTimer(300)
         
@@ -350,7 +373,9 @@ export default {
       errorMessage.value = ''
 
       try {
-        const data = await emailService.verifyCode(fullEmail.value, code.value)
+        // whileBusy: пока идёт проверка кода, занятость не должна упасть,
+        // даже если модалку в этот момент уже закрыли
+        const data = await whileBusy(() => emailService.verifyCode(fullEmail.value, code.value))
         
         localStorage.setItem('auth_token', data.access_token)
         localStorage.removeItem('u40ta_email_login')
@@ -386,6 +411,7 @@ export default {
       if (isLoading.value || isVerifying.value) return
       clearInterval(timerInterval)
       timerInterval = null
+      releaseBusy()
       emailLocalPart.value = ''
       code.value = ''
       codeSent.value = false
@@ -426,6 +452,8 @@ export default {
     // ===== Жизненный цикл =====
     watch(() => props.isOpen, (newVal) => {
       if (newVal) {
+        // Форма входа открыта: пользователь вводит данные — обновление отложено
+        acquireBusy()
         const savedEmail = localStorage.getItem('u40ta_email_login')
         if (savedEmail) {
           restoreState()
@@ -434,12 +462,18 @@ export default {
           const emailInput = document.getElementById('email-input')
           if (emailInput) emailInput.focus()
         }, 200)
+      } else {
+        // Модалку закрыл родитель — снимаем занятость, иначе счётчик «залипнет»
+        releaseBusy()
       }
     })
 
     onUnmounted(() => {
       clearInterval(timerInterval)
       timerInterval = null
+      // Страховка: компонент размонтировали (например, после успешного входа
+      // ушли на «/»), а модалка в состоянии родителя осталась открытой
+      releaseBusy()
     })
 
     return {

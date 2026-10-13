@@ -145,10 +145,11 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { inventoryStatementsService } from '@/services/inventory-statements.service'
 import { inventoryBookService } from '@/services/inventory-book.service'
+import { setBusy, whileBusy } from '@/composables/useAppBusy'
 
 const props = defineProps({
   isOpen: { type: Boolean, required: true },
@@ -156,6 +157,29 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'saved', 'deleted'])
+
+/**
+ * Занятость пользователя для PWA-обновления: пока опись открыта, применять
+ * обновление нельзя — перезагрузка стёрла бы введённое название, снятые
+ * галочки ведомостей и доступы ревизоров, которые ещё не сохранены.
+ *
+ * Флаг busyHeld: счётчик поднимаем ровно один раз на компонент и не даём
+ * повторным вызовам освободить занятость других компонентов. Механизм —
+ * composables/useSwUpdate.js и App.vue.
+ */
+let busyHeld = false
+
+const acquireBusy = () => {
+  if (busyHeld) return
+  busyHeld = true
+  setBusy(true)
+}
+
+const releaseBusy = () => {
+  if (!busyHeld) return
+  busyHeld = false
+  setBusy(false)
+}
 
 // Состояния
 const bookName = ref('')
@@ -396,15 +420,15 @@ const handleSave = async () => {
           buhName: item.buhName,
         })))
       }
-      const book = await inventoryBookService.createBook(bookName.value.trim(), allItems)
+      const book = await whileBusy(() => inventoryBookService.createBook(bookName.value.trim(), allItems))
       currentBookId = book.id
     } else {
       // Редактирование существующей
       const statementIds = await getStatementIdsFromBatches()
-      await inventoryBookService.updateBook(currentBookId, {
+      await whileBusy(() => inventoryBookService.updateBook(currentBookId, {
         name: bookName.value.trim(),
         itemIds: statementIds
-      })
+      }))
     }
 
     // Сохраняем доступ ревизоров
@@ -489,7 +513,8 @@ const reset = () => {
 const handleExportExcel = async () => {
   isSaving.value = true
   try {
-    const result = await inventoryBookService.exportBookToExcel(props.bookId)
+    // Выгрузка уходит на почту и длится долго — держим занятость до ответа
+    const result = await whileBusy(() => inventoryBookService.exportBookToExcel(props.bookId))
     alert(result.message || 'Направлено Вам на почту')
   } catch (error) {
     console.error('Ошибка выгрузки:', error)
@@ -505,6 +530,8 @@ const handleExportExcel = async () => {
 
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
+    // Опись открыта — в ней есть несохранённый ввод, обновление откладываем
+    acquireBusy()
     // Получаем currentUserId сразу из токена
     const token = localStorage.getItem('auth_token')
     if (token) {
@@ -528,8 +555,20 @@ watch(() => props.isOpen, (isOpen) => {
       }
     }
   } else {
+    // Модалку закрыл родитель (в том числе сразу после emit('close')) —
+    // занятость снимаем здесь, иначе счётчик остался бы висеть навсегда
+    releaseBusy()
     reset()
   }
+})
+
+/**
+ * Страховка от «залипшего» счётчика: если компонент размонтируют, пока
+ * модалка открыта, освободить занятость больше некому — а при счётчике > 0
+ * PWA-обновление не применится никогда.
+ */
+onUnmounted(() => {
+  releaseBusy()
 })
 
 // Иконки
