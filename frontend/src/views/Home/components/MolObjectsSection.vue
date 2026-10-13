@@ -25,11 +25,14 @@
       </div>
 
       <!--
-        Таблица без горизонтальной прокрутки: table-fixed + ширины в процентах,
-        длинный текст обрезается (truncate), полное значение — в атрибуте title.
+        Ширины колонок заданы жёстко в пикселях (см. массив columns ниже) —
+        проект мобильный, все колонки в экран не влезают и не должны: таблица
+        едет вбок, её ширина равна сумме ширин колонок. Значения переносятся
+        по строкам, а не обрезаются: на телефоне подсказка при наведении
+        недоступна, и обрезка означала бы спрятанные данные.
       -->
-      <div class="border border-gray-200 rounded-lg bg-white overflow-hidden">
-        <table class="w-full table-fixed border-collapse text-sm">
+      <div class="border border-gray-200 rounded-lg bg-white overflow-x-auto">
+        <table class="table-fixed border-collapse text-sm" :style="{ width: tableWidth + 'px' }">
           <colgroup>
             <col v-for="col in tableColumns" :key="col.id" :style="{ width: col.width }" />
           </colgroup>
@@ -63,10 +66,8 @@
               <td class="px-2 py-2 text-center text-gray-400 text-xs">
                 {{ index + 1 }}
               </td>
-              <td v-for="col in columns" :key="col.id" class="px-2 py-2 text-gray-700">
-                <div class="truncate" :title="cellText(obj, col) || undefined">
-                  {{ cellText(obj, col) || '—' }}
-                </div>
+              <td v-for="col in columns" :key="col.id" class="px-2 py-2 text-gray-700 align-top break-words">
+                {{ cellText(obj, col) || '—' }}
               </td>
             </tr>
 
@@ -96,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import UniversalFilterModal from '@/components/common/UniversalFilterModal.vue'
 import { useTableFilter } from '@/composables/useTableFilter'
 import { useSSE } from '@/composables/useSSE'
@@ -115,25 +116,35 @@ const objects = ref([])
  * модалки фильтра именно из `column.title`. В SearchModal конфигурация написана
  * с `label`, и модалка показывает «Фильтр по placeUser» вместо «Пользователь».
  *
- * Ширины — в процентах и в сумме дают ровно 100: 6 («№») + 30 + 13 + 17 + 10
- * + 11 + 13. Проценты, а не пиксели, потому что таблица table-fixed: при нехватке
- * места обрезается текст ячейки (`truncate` + `title`), а не появляется
- * горизонтальная прокрутка, как в модалке поиска раздела МОЛ.
+ * Ширины — жёстко в пикселях, подбираются под мобильный экран; сумма ни к чему
+ * не привязана и менять её можно свободно. Таблица table-fixed: колонка получает
+ * ровно указанную ширину, а длинное значение переносится по строкам внутри неё.
  */
 const columns = [
-  { id: 'buhName',   title: 'Наименование', width: '30%', getValue: (row) => row.buhName },
-  { id: 'invNumber', title: 'Инв. номер',   width: '13%', getValue: (row) => row.invNumber },
-  { id: 'placeUser', title: 'Пользователь', width: '17%', getValue: (row) => row.placeUser },
-  { id: 'placeCab',  title: 'Кабинет',      width: '10%', getValue: (row) => row.placeCab },
-  { id: 'placePos',  title: 'Позиция',      width: '11%', getValue: (row) => row.placePos },
-  { id: 'placeTer',  title: 'Территория',   width: '13%', getValue: (row) => row.placeTer },
+  { id: 'buhName',   title: 'Наименование', width: '200px', getValue: (row) => row.buhName },
+  { id: 'invNumber', title: 'Инв. номер',   width: '120px', getValue: (row) => row.invNumber },
+  { id: 'placeUser', title: 'Пользователь', width: '130px', getValue: (row) => row.placeUser },
+  { id: 'placeCab',  title: 'Кабинет',      width: '90px',  getValue: (row) => row.placeCab },
+  { id: 'placePos',  title: 'Позиция',      width: '110px', getValue: (row) => row.placePos },
+  { id: 'placeTer',  title: 'Территория',   width: '110px', getValue: (row) => row.placeTer },
 ]
 
 /** Колонки таблицы подряд: технический номер строки, затем поля объекта. */
 const tableColumns = [
-  { id: 'rowNumber', title: '№', width: '6%' },
+  { id: 'rowNumber', title: '№', width: '40px' },
   ...columns
 ]
+
+/**
+ * Ширина таблицы — сумма ширин колонок.
+ *
+ * Задаётся явно, а не оставляется браузеру: при `table-layout: fixed` и ширине
+ * `auto` браузеры ведут себя по-разному, а так колонки получают ровно указанные
+ * пиксели, и ровно эта же сумма задаёт, насколько таблица вылезет за экран.
+ */
+const tableWidth = computed(() =>
+  tableColumns.reduce((sum, col) => sum + parseInt(col.width, 10), 0)
+)
 
 const {
   filterModalState,
