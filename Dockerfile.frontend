@@ -1,4 +1,8 @@
-FROM node:20-alpine AS builder
+# Node 24 — как в бэкенде и как в ph. Сборка на этом образе проверена отдельно
+# (scripts/check-frontend-build.ps1 собирает фронтенд в контейнере node:24-alpine):
+# Vite 4 работает на Node 24, а раньше фронтенд оставался единственным местом
+# проекта на Node 20.
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
