@@ -2,7 +2,9 @@
 sync-db.bat
 node_modules/
 backend/node_modules/
-backend/dist/
+# Не только backend/dist: сборка фронтенда тоже кладёт результат в dist,
+# а специфичное правило его не покрывало. В ph правило общее — как здесь.
+dist/
 *.tsbuildinfo
 coverage/
 backup
