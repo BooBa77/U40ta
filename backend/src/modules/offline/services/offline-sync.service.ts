@@ -73,7 +73,7 @@ export class OfflineSyncService {
     dto: SyncChangesRequestDto,
   ): Promise<{ processed: number; inventoryItemsProcessed: number }> {
     this.logger.log(
-      `[OfflineSyncService] Применяем ${dto.changes.length} изменений объектов ` +
+      `[OfflineSyncService] Применяем ${dto.changes?.length ?? 0} изменений объектов ` +
       `и ${dto.inventoryBookItemChanges?.length || 0} строк книг для userId=${userId}`,
     );
 
@@ -97,7 +97,10 @@ export class OfflineSyncService {
       // ========================================================================
       // 1. ОБРАБОТКА ОБЪЕКТОВ
       // ========================================================================
-      for (const obj of dto.changes) {
+      // `changes` необязателен: клиент может синхронизировать только игнор-слова
+      // или действия по предложениям. Раньше обращение к dto.changes без проверки
+      // давало TypeError и ответ 500 вместо нормальной обработки.
+      for (const obj of dto.changes ?? []) {
         const isMol = await this.usersService.hasAccessToSklad(
           userId,
           obj.zavod,

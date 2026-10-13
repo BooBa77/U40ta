@@ -1,20 +1,42 @@
-/* Отключено из-за проблем с валидацией на уровне транзакции
-export class SyncChangesRequestDto {
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => SyncObjectDto)
-  changes!: SyncObjectDto[];
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => SyncInventoryBookItemDto)
-  @IsOptional()
-  inventoryBookItemChanges?: SyncInventoryBookItemDto[];
-}
-*/
+/**
+ * Тело запроса офлайн-синхронизации.
+ *
+ * ## Почему проверяется только верхний уровень
+ *
+ * Вложенная валидация (`SyncObjectDto`, `SyncInventoryBookItemDto`) здесь была
+ * отключена прежним разработчиком с пометкой «из-за проблем с валидацией на
+ * уровне транзакции»: клиент присылает то, что накопил в офлайне, и жёсткая
+ * проверка каждого поля ломала живой сценарий. Поэтому проверяем **форму**
+ * запроса — что переданные списки действительно списки, — а разбор содержимого
+ * остаётся на сервисе, где для каждого объекта отдельно проверяются права МОЛа.
+ *
+ * ## Что это чинит
+ *
+ * Раньше тело принималось как `any`: запрос с `changes` не-массивом или с
+ * нестроковыми игнор-словами падал внутри сервиса с `TypeError`, и клиент
+ * получал 500 вместо внятного 400. Проверено 13.10.2026.
+ *
+ * Все поля необязательные намеренно: клиент может прислать только игнор-слова
+ * или только действия по предложениям, и это нормальный сценарий.
+ */
 export class SyncChangesRequestDto {
-  changes!: any[];
+  @IsOptional()
+  @IsArray()
+  changes?: any[];
+
+  @IsOptional()
+  @IsArray()
   inventoryBookItemChanges?: any[];
+
+  @IsOptional()
+  @IsArray()
   proposedChangeActions?: any[];
-  ignoreKeywords?: string[]; // полная замена списка игнор-слов
+
+  /** Полная замена списка игнор-слов: массив строк. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  ignoreKeywords?: string[];
 }

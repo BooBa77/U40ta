@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, UsePipes, ValidationPipe, Req, Logger } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OfflineService } from './services/offline.service';
 import { OfflineDataResponseDto } from './dto/offline-data.response.dto';
+import { SyncChangesRequestDto } from './dto/sync-changes.request.dto';
 
 @ApiTags('offline')
 @Controller('offline')
@@ -110,11 +111,14 @@ export class OfflineController {
    * POST /api/offline/sync
    */
   @Post('sync')
-  //@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }))
+  // Валидация формы запроса (см. SyncChangesRequestDto): проверяются только
+  // списки верхнего уровня. `whitelist: false` — намеренно: тело содержит
+  // вложенные структуры, которые DTO подробно не описывает, и вырезать
+  // незнакомые поля было бы потерей данных.
+  @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
   async syncChanges(
     @Req() request: any,
-    @Body() body: any,
-    //@Body() body: SyncChangesRequestDto,
+    @Body() body: SyncChangesRequestDto,
   ) {
     try {
       const userId = request.user?.sub || request.user?.userId;
