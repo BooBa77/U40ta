@@ -74,6 +74,18 @@ EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD, EMAIL_SMTP_HOST, EMAIL_SMTP_PORT,
 EMAIL_SMTP_SECURE, EMAIL_SMTP_FROM
 ```
 
+## Документация API
+
+Swagger живёт на [`/api/docs`](https://u40ta.booba.fvds.ru/api/docs): схема
+собирается из декораторов контроллеров и DTO на старте приложения, поэтому новые
+маршруты появляются в ней сами. Авторизация — Bearer-токен, который выдаёт
+`POST /api/auth/email/verify`.
+
+Проверка живости — `GET /api/health`. Маршрут без авторизации, отвечает
+`{"status":"ok","db":"ok","latencyMs":…,"timestamp":…}`; запрос `SELECT 1` внутри
+проверяет не «процесс жив», а работу с базой. Его дёргают мониторинг и проверка
+после деплоя.
+
 ## Схема базы данных
 
 **`synchronize` выключен явно** (`backend/src/app.module.ts`), чтобы TypeORM не
@@ -102,9 +114,14 @@ docker compose up -d
 остаётся на старом. Проверка после деплоя:
 
 ```sh
-curl -s https://u40ta.booba.fvds.ru/api/health   # если эндпоинт есть
+curl -s https://u40ta.booba.fvds.ru/api/health   # {"status":"ok","db":"ok",...}
 docker ps --filter name=u40ta-prod
+docker compose logs --tail=30 backend            # логи: nestjs-pino
 ```
+
+Логи пишет `nestjs-pino` в консоль контейнера — в проде JSON, в разработке
+человекочитаемо. В базу технические логи не пишутся: там только бизнес-история
+объектов.
 
 ## Грабли
 
