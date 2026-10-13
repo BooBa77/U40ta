@@ -25,6 +25,7 @@
 | logs.module.ts | Глобальный модуль NestJS |
 | dto/object-history.dto.ts | DTO для логирования истории объектов |
 | dto/qr-code-history.dto.ts | DTO для логирования истории QR-кодов |
+| dto/photo-history.dto.ts | DTO для логирования истории фотографий |
 | index.ts | Публичный экспорт модуля |
 
 ## Сущность Log (logs.entity.ts)
@@ -32,19 +33,24 @@
 | Поле | Тип | Описание |
 |:---|:---|:---|
 | id | bigserial | Первичный ключ, автоинкремент |
-| source | varchar(20) | Источник: frontend, backend, object_history, qr_code_history |
+| source | varchar(20) | Источник: frontend, object-history, qr-code-history, photo-history, offline_mode |
 | time | timestamptz | Время события, по умолчанию NOW() |
 | user_id | bigint | ID пользователя из JWT (поле sub), может быть NULL |
 | content | jsonb | Произвольные данные события в формате JSON |
 
 ### Возможные значения source:
 
-| Значение | Описание |
+Разделитель в составных значениях — **дефис**, не подчёркивание: по строке
+`object-history` идёт и запись, и выборка истории объекта.
+
+| Значение | Кто пишет |
 |:---|:---|
-| frontend | Логи с клиентской части (Vue), принудительно устанавливается контроллером |
-| backend | Системные и бизнес-логи с бэкенда |
-| object_history | История изменений объектов (создание, перемещение, списание и т.д.) |
-| qr_code_history | История привязки/отвязки QR-кодов к объектам |
+| `frontend` | `POST /api/logs` — контроллер принудительно ставит этот источник |
+| `object-history` | `POST /api/logs/object-history` и реплей офлайн-логов |
+| `qr-code-history` | `POST /api/logs/qr-code-history` |
+| `photo-history` | `POST /api/logs/photo-history` |
+| `offline_mode` | `offline.service.ts` — вход в офлайн-режим и ошибки синхронизации |
+| `backend` | зарезервирован в JSDoc сервиса, но ни одна точка в коде его пока не пишет |
 
 ## API Endpoints
 
@@ -54,7 +60,7 @@
 
 **Защита**:
 - JwtAuthGuard — требуется авторизация
-- ThrottlerGuard — ограничение частоты запросов (10 запросов/минута)
+- ThrottlerGuard — ограничение частоты запросов (50 запросов/минута)
 
 **Тело запроса**:
 
@@ -99,13 +105,37 @@
 **Что пишется в лог**:
 
     {
-      "source": "object_history",
+      "source": "object-history",
       "content": {
         "object_id": 123,
         "event_type": "created",
         "story_line": "Новый объект создан пользователем Иванов"
       }
     }
+
+### GET /api/logs/object-history/:objectId
+
+**Назначение**: чтение истории изменений объекта для вкладки «История» в карточке.
+
+**Защита**: JwtAuthGuard — требуется авторизация.
+
+**Ответ**:
+
+    {
+      "success": true,
+      "history": [
+        {
+          "id": 15,
+          "time": "2026-10-12T05:31:00.000Z",
+          "eventType": "created",
+          "storyLine": "Новый объект создан пользователем Иванов",
+          "userAbr": "ИИ"
+        }
+      ]
+    }
+
+Записи берутся только с `source = 'object-history'`, сортируются по времени
+возрастанию, аббревиатуры авторов подтягиваются из `users`.
 
 ### POST /api/logs/qr-code-history
 
@@ -127,10 +157,37 @@
 **Что пишется в лог**:
 
     {
-      "source": "qr_code_history",
+      "source": "qr-code-history",
       "content": {
         "qr_code_value": "QR-ABC123",
         "object_id": 200
+      }
+    }
+
+### POST /api/logs/photo-history
+
+**Назначение**: Логирование истории фотографий объекта.
+
+**Защита**: JwtAuthGuard — требуется авторизация.
+
+**Тело запроса**:
+
+    {
+      "objectId": 200,
+      "photoId": 42
+    }
+
+**DTO валидация** (PhotoHistoryDto):
+- objectId — integer, обязательный
+- photoId — integer, обязательный
+
+**Что пишется в лог**:
+
+    {
+      "source": "photo-history",
+      "content": {
+        "object_id": 200,
+        "photo_id": 42
       }
     }
 
@@ -140,12 +197,15 @@
 
 ### Метод log()
 
-    log(source: string, userId: number | null, content: any): void
+    log(source: string, userId: number | null, content: any, time?: Date): void
 
 **Параметры**:
 - source — источник лога (см. возможные значения выше)
 - userId — ID пользователя (может быть null для неавторизованных действий)
 - content — объект с данными, сериализуется в JSONB
+- time — необязательное время события; передаётся при реплее офлайн-логов
+  (`offline-sync.service.ts`), чтобы сохранить исходную метку, иначе БД ставит
+  `NOW()`
 
 **Особенности**:
 - Асинхронная запись через insert() без await
@@ -175,6 +235,17 @@
       }
     }
 
+### Метод getObjectHistory()
+
+    getObjectHistory(objectId: number): Promise<Array<{
+      id: number; time: Date; eventType: string; storyLine: string; userAbr: string | null;
+    }>>
+
+Читает записи `object-history` по `content->>'object_id'`, сортирует по времени
+возрастанию и подтягивает аббревиатуры авторов. Пользователей берёт запросом
+через `repository.manager`, а не через `UsersService`, — чтобы не заводить
+циклическую зависимость `logs` ↔ `users`.
+
 ## Технические логи — в консоль, а не в базу
 
 Раньше на каждый HTTP-запрос в таблицу `logs` писалась строка
@@ -202,7 +273,7 @@
       imports: [
         ThrottlerModule.forRoot([{
           ttl: 60000,
-          limit: 10,
+          limit: 50,
         }]),
         LogsModule,
       ]
@@ -214,9 +285,17 @@
 
 Бизнес-историю пишет `frontend/src/services/logs.service.js`: он отправляет записи
 на `/api/logs/object-history`, `/api/logs/qr-code-history` и
-`/api/logs/photo-history`, а читает через `GET /api/logs/<вид>-history/:id`.
+`/api/logs/inventory-history`, а читает через `GET /api/logs/<вид>-history/:id`.
 Вызовы стоят там, где меняется объект, — их и показывает вкладка «История» в
 карточке объекта.
+
+Два расхождения, о которых стоит знать при чтении этого сервиса:
+
+* `inventory-history` и `GET /api/logs/qr-code-history/:value` фронтенд вызывает,
+  но в контроллере таких маршрутов нет — сейчас они дают `404`;
+* `photo-history` наоборот: маршрут `POST /api/logs/photo-history` есть, а метода
+  в `logs.service.js` нет; источник `photo-history` фронтенд разбирает только при
+  офлайн-синхронизации.
 
 Компосабл `frontend/src/composables/useLogger.ts` удалён 12.10.2026 вместе с
 отправкой технических логов в базу: ошибки фронтенда идут в консоль браузера.

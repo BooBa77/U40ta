@@ -21,7 +21,9 @@ users/
 │   ├── update-user.dto.ts
 │   └── user-response.dto.ts
 └── entities/
-    └── user.entity.ts
+    ├── user.entity.ts
+    ├── mol-access.entity.ts
+    └── revisors.entity.ts
 ```
 
 ## Маршруты
@@ -46,7 +48,7 @@ users/
 | Метод | Зачем |
 |---|---|
 | `create(dto)` | создать пользователя |
-| `createWithEmail(email, firstName, lastName, abr)` | создать при входе по email |
+| `createWithEmail(email, firstName, lastName, abr)` | создать пользователя с готовой аббревиатурой; сейчас нигде не вызывается — вход идёт через `create` |
 | `findById(id)`, `findAll()` | поиск |
 | `findByEmail(email)` | поиск по email — используется при входе |
 | `update(id, dto)`, `remove(id)` | правка и удаление |
@@ -70,17 +72,28 @@ users/
 ## DTO
 
 - **`create-user.dto.ts`** — `firstName`, `lastName`, `eMail`; email проверяется
-  валидатором;
-- **`update-user.dto.ts`** — `PartialType(CreateUserDto)`: все поля
-  необязательные, при смене имени или фамилии сервис пересчитывает `abr`;
-- **`user-response.dto.ts`** — то, что уходит в API.
+  `@IsEmail` и `@IsNotEmpty`;
+- **`update-user.dto.ts`** — самостоятельный класс, а не `PartialType`: те же три
+  поля, каждое под `@IsOptional`; при смене имени или фамилии сервис
+  пересчитывает `abr`;
+- **`user-response.dto.ts`** — `id`, `firstName`, `lastName`, `abr`, `eMail` под
+  `@Expose`; сейчас в API не используется — контроллер отдаёт сущность как есть.
 
 ## Рабочий процесс: вход по email
 
 1. Пользователь вводит email, `AuthService` отправляет код.
 2. При проверке кода `AuthService` ищет пользователя через `findByEmail`.
-3. Не находит — создаёт через `createWithEmail`, вычисляя `abr`.
+3. Не находит — создаёт через `create({ firstName, lastName, eMail })`: имя и
+   фамилию `AuthService` выводит из локальной части адреса, `abr` считает
+   `UsersService` как первые буквы имени и фамилии.
 4. Выдаётся JWT.
+
+## Зависимости модуля
+
+- `TypeOrmModule.forFeature([User, MolAccess, Revisors])` — таблицы модуля;
+- `JwtAuthModule` — `JwtAuthGuard` на контроллере;
+- наружу экспортируется только `UsersService`; его импортируют `auth`, `email`,
+  `inventory`, `mol`, `offline` и `proposed-changes`.
 
 ## Особенности
 
