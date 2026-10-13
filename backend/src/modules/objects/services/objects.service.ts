@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager  } from 'typeorm';
 import { InventoryObject } from '../entities/object.entity';
@@ -9,6 +9,8 @@ import { QrCodesService } from '../../qr-codes/qr-codes.service';
 
 @Injectable()
 export class ObjectsService {
+  private readonly logger = new Logger(ObjectsService.name);
+
   constructor(
     @InjectRepository(InventoryObject)
     private readonly objectRepository: Repository<InventoryObject>,
@@ -32,7 +34,7 @@ export class ObjectsService {
     sklad?: string,
     partyNumber?: string
   ): Promise<InventoryObject[]> {
-    console.log(`[ObjectsService] Поиск объектов: inv=${invNumber}, zavod=${zavod}, sklad=${sklad}, party=${partyNumber}`);
+    this.logger.debug(`[ObjectsService] Поиск объектов: inv=${invNumber}, zavod=${zavod}, sklad=${sklad}, party=${partyNumber}`);
     
     const queryBuilder = this.objectRepository
       .createQueryBuilder('object')
@@ -52,7 +54,7 @@ export class ObjectsService {
     
     const objects = await queryBuilder.getMany();
     
-    console.log(`[ObjectsService] Найдено объектов: ${objects.length}`);
+    this.logger.debug(`[ObjectsService] Найдено объектов: ${objects.length}`);
     return objects;
   }
 
@@ -152,7 +154,7 @@ export class ObjectsService {
    * pos, cab, user могут быть NULL (их потом фильтруем на клиенте)
    */
   async getPlaceCombinations(): Promise<{ ter: string; pos: string | null; cab: string | null; user: string | null }[]> {
-    console.log('[ObjectsService] Загрузка уникальных комбинаций местоположений');
+    this.logger.debug('[ObjectsService] Загрузка уникальных комбинаций местоположений');
     
     const result = await this.objectRepository
       .createQueryBuilder('object')
@@ -169,7 +171,7 @@ export class ObjectsService {
       .addOrderBy('object.place_user')
       .getRawMany();
     
-    console.log(`[ObjectsService] Загружено комбинаций: ${result.length}`);
+    this.logger.debug(`[ObjectsService] Загружено комбинаций: ${result.length}`);
     return result;
   }  
   
@@ -290,7 +292,7 @@ export class ObjectsService {
     partyNumber?: string,
     sn?: string,
   ): Promise<InventoryObject[]> {
-    console.log(`[ObjectsService] findSimilar: docType=${docType}, inv=${invNumber}, party=${partyNumber}, sn=${sn}`);
+    this.logger.debug(`[ObjectsService] findSimilar: docType=${docType}, inv=${invNumber}, party=${partyNumber}, sn=${sn}`);
 
     const queryBuilder = this.objectRepository
       .createQueryBuilder('object')
@@ -307,7 +309,7 @@ export class ObjectsService {
     // Для 'ОС' дополнительные условия не добавляем — только invNumber
 
     const objects = await queryBuilder.getMany();
-    console.log(`[ObjectsService] findSimilar: найдено ${objects.length} объектов`);
+    this.logger.debug(`[ObjectsService] findSimilar: найдено ${objects.length} объектов`);
     return objects;
   }
 }

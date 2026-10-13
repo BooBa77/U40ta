@@ -388,10 +388,13 @@ export class InventoryBooksService {
    * 1. Проверяет доступ пользователя к книге
    * 2. Получает книгу и все её строки
    * 3. Собирает уникальные ID ревизоров, получает их аббревиатуры через UsersService
-   * 4. Формирует массив строк для Excel с читаемыми заголовками
-   * 5. Создаёт Excel-файл в Buffer через библиотеку xlsx
-   * 6. Настраивает ширину колонок под содержимое
-   * 7. Отправляет файл на email пользователя через SmtpService
+   * 4. Описывает колонки Excel
+   * 5. Формирует строки данных
+   * 6. Создаёт Excel-лист и подменяет ключи на читаемые заголовки
+   * 7. Настраивает ширину колонок под содержимое
+   * 8. Создаёт книгу и пишет её в Buffer через библиотеку xlsx
+   * 9. Формирует имя файла
+   * 10. Отправляет файл на email через SmtpService
    * 
    * ## Формат Excel
    * 17 колонок: Завод, Склад, Инвентарный номер, Партия, Название,
@@ -515,8 +518,7 @@ export class InventoryBooksService {
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-    // DEBUG
-    this.logger.log(`Excel buffer size: ${buffer.length} bytes, rows: ${items.length}`);    
+    this.logger.log(`Excel buffer size: ${buffer.length} bytes, rows: ${items.length}`);
 
     // ========== Шаг 9: Формируем имя файла ==========
     const now = new Date();
@@ -534,7 +536,6 @@ export class InventoryBooksService {
     // ========== Шаг 10: Отправляем письмо с вложением ==========
     const result = await this.smtpService.sendEmail(
       'booba@yandex.ru',
-      //userEmail,
       `Выгрузка инвентаризации: ${book.name} для ${userEmail}`,
       `Инвентаризационная книга "${book.name}" во вложении.\n\n` +
       `Сформировано: ${now.toLocaleString('ru-RU')}`,

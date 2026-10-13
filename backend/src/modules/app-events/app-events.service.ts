@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Subject, Observable } from 'rxjs';
 
 /**
@@ -25,20 +25,26 @@ interface AppEvent {
  */
 @Injectable()
 export class AppEventsService {
-  
+  private readonly logger = new Logger(AppEventsService.name);
+
   private eventSubject = new Subject<AppEvent>();
 
   /**
-   * !!! DEBUG !!!
-   * Отправить событие в поток с логированием.
-   * Используется вместо прямого this.eventSubject.next() для отладки.
+   * Отправить событие в поток.
+   * Все notify*-методы идут через этот метод, поэтому лог отправки ведётся
+   * в одном месте.
    * 
    * @param event - событие для отправки
    */
   private emit(event: AppEvent): void {
-    console.log(`[SSE] emit: type=${event.type}`, event.data || '');
+    // Уровень debug: событий много, а в проде уровень info — иначе лог зашумится.
+    // Данные подставляются в сообщение: второй аргумент логгера Nest — это
+    // контекст, а не payload.
+    this.logger.debug(
+      `[SSE] emit: type=${event.type} data=${JSON.stringify(event.data ?? null)}`,
+    );
     this.eventSubject.next(event);
-  }  
+  }
 
   // ============================================================================
   // ДОСТУП И ПОЛЬЗОВАТЕЛИ

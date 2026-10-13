@@ -34,8 +34,6 @@ export class InventoryStatementsService {
     docType: string;
     count: number;
   }[]> {
-    console.log('[DEBUG] getBatches query email:', email);
-
     const result = await this.repo
       .createQueryBuilder('s')
       .select('s.emailFrom', 'emailFrom')
@@ -53,8 +51,7 @@ export class InventoryStatementsService {
       .orderBy('s.receivedAt', 'DESC')
       .getRawMany();
 
-      console.log('[DEBUG] getBatches found:', result.length, 'batches');    
-      return result;
+    return result;
   }
 
   /**

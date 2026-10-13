@@ -214,7 +214,7 @@ export class ImapService {
         this.logger.log(`Обработка письма UID: ${uid}`);
         await this.processEmail(uid);
       } catch (error) {
-        this.logger.error(`Ошибка обработки письма ${uid}:`, error);
+        this.logger.error(`Ошибка обработки письма ${uid}: ${error.message}`, (error as Error).stack);
         // Продолжаем обработку следующих писем даже если одно упало
       }
     }

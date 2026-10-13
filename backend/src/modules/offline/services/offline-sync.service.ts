@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { ObjectsService } from '../../objects/services/objects.service';
 import { LogsService } from '../../logs/logs.service';
@@ -42,6 +42,8 @@ import { ProposedChange } from '../../proposed-changes/entities/proposed-change.
  */
 @Injectable()
 export class OfflineSyncService {
+  private readonly logger = new Logger(OfflineSyncService.name);
+
   constructor(
     private readonly entityManager: EntityManager,
     private readonly objectsService: ObjectsService,
@@ -70,7 +72,7 @@ export class OfflineSyncService {
     userId: number,
     dto: SyncChangesRequestDto,
   ): Promise<{ processed: number; inventoryItemsProcessed: number }> {
-    console.log(
+    this.logger.log(
       `[OfflineSyncService] Применяем ${dto.changes.length} изменений объектов ` +
       `и ${dto.inventoryBookItemChanges?.length || 0} строк книг для userId=${userId}`,
     );
@@ -87,7 +89,7 @@ export class OfflineSyncService {
               userId,
               dto.ignoreKeywords
           );
-          console.log(
+          this.logger.log(
               `[OfflineSyncService] Синхронизированы игнор-слова и обновлены ведомости: ${count} строк помечено неактуальными для userId=${userId}`
           );
       }
@@ -104,7 +106,7 @@ export class OfflineSyncService {
 
         // Новые объекты может создавать только МОЛ
         if (!isMol && obj.id < 0) {
-          console.warn(
+          this.logger.warn(
             `[OfflineSyncService] Пропущен новый объект tempId=${obj.id} — ` +
             `пользователь не МОЛ склада ${obj.zavod}/${obj.sklad}`,
           );
@@ -138,7 +140,7 @@ export class OfflineSyncService {
       }
     });
 
-    console.log(
+    this.logger.log(
       `[OfflineSyncService] Синхронизация завершена: ` +
       `${processed} объектов, ${inventoryItemsProcessed} строк книг обработано`,
     );
@@ -183,7 +185,7 @@ export class OfflineSyncService {
       };
       const created = await this.objectsService.create(createDto, userId, manager);
       realId = created.id;
-      console.log(`[OfflineSyncService] МОЛ: создан объект tempId=${obj.id} → realId=${realId}`);
+      this.logger.log(`[OfflineSyncService] МОЛ: создан объект tempId=${obj.id} → realId=${realId}`);
     } else {
       const updateDto: UpdateObjectDto = {
         zavod: obj.zavod ?? undefined,
@@ -202,7 +204,7 @@ export class OfflineSyncService {
       };
       await this.objectsService.update(obj.id, updateDto, userId, manager);
       realId = obj.id;
-      console.log(`[OfflineSyncService] МОЛ: обновлён объект id=${realId}`);
+      this.logger.log(`[OfflineSyncService] МОЛ: обновлён объект id=${realId}`);
     }
 
     await this.saveObjectLogs(userId, realId, obj.logs);
@@ -224,7 +226,7 @@ export class OfflineSyncService {
     userId: number,
     obj: any,
   ): Promise<void> {
-    console.log(
+    this.logger.debug(
       `[OfflineSyncService] неМОЛ: трансформируем изменения объекта ${obj.id} в proposed_changes`,
     );
 
@@ -233,7 +235,7 @@ export class OfflineSyncService {
       const user = await this.usersService.findById(userId);
       userAbr = user.abr;
     } catch {
-      console.warn(`[OfflineSyncService] Пользователь ${userId} не найден, используется userAbr='???'`);
+      this.logger.warn(`[OfflineSyncService] Пользователь ${userId} не найден, используется userAbr='???'`);
     }
 
     const objectBuhName = obj.buhName || '';
@@ -259,14 +261,14 @@ export class OfflineSyncService {
             break;
 
           default:
-            console.log(`[OfflineSyncService] Пропущен лог с source=${log.source}`);
+            this.logger.debug(`[OfflineSyncService] Пропущен лог с source=${log.source}`);
         }
       }
     }
 
     await this.saveObjectLogs(userId, obj.id, obj.logs);
 
-    console.log(
+    this.logger.debug(
       `[OfflineSyncService] неМОЛ: создано предложений для объекта ${obj.id}: ` +
       `${addedTypes.size} шт. (${[...addedTypes].join(', ')})`,
     );
@@ -310,7 +312,7 @@ export class OfflineSyncService {
       });
       await manager.save(entity);
       addedTypes.add('place');
-      console.log(`[OfflineSyncService] неМОЛ: created proposed_change type=place`);
+      this.logger.debug(`[OfflineSyncService] неМОЛ: created proposed_change type=place`);
     }
 
     if (eventType === 'sn_changed' && !addedTypes.has('sn')) {
@@ -327,7 +329,7 @@ export class OfflineSyncService {
       });
       await manager.save(entity);
       addedTypes.add('sn');
-      console.log(`[OfflineSyncService] неМОЛ: created proposed_change type=sn`);
+      this.logger.debug(`[OfflineSyncService] неМОЛ: created proposed_change type=sn`);
     }
 
     if (eventType === 'comment' && !addedTypes.has('comment')) {
@@ -344,7 +346,7 @@ export class OfflineSyncService {
       });
       await manager.save(entity);
       addedTypes.add('comment');
-      console.log(`[OfflineSyncService] неМОЛ: created proposed_change type=comment`);
+      this.logger.debug(`[OfflineSyncService] неМОЛ: created proposed_change type=comment`);
     }
   }
 
@@ -364,7 +366,7 @@ export class OfflineSyncService {
     objectSn: string | null,
   ): Promise<void> {
     if (!obj.photosToAdd?.length) {
-      console.warn(
+      this.logger.warn(
         `[OfflineSyncService] неМОЛ: photo-history лог без photosToAdd, пропущен`,
       );
       return;
@@ -395,7 +397,7 @@ export class OfflineSyncService {
       });
       await manager.save(entity);
 
-      console.log(
+      this.logger.debug(
         `[OfflineSyncService] неМОЛ: created proposed_change type=photo photoId=${photo.id}`,
       );
     }
@@ -423,7 +425,7 @@ export class OfflineSyncService {
       }
       this.logsService.log(log.source, userId, log.content, new Date(log.time));
     }
-    console.log(`[OfflineSyncService] Сохранено ${logs.length} логов для объекта ${realId}`);
+    this.logger.debug(`[OfflineSyncService] Сохранено ${logs.length} логов для объекта ${realId}`);
   }
 
   // ============================================================================
@@ -445,7 +447,7 @@ export class OfflineSyncService {
     });
 
     if (!dbItem) {
-      console.warn(
+      this.logger.warn(
         `[OfflineSyncService] Строка с idInventoryStatement=${item.idInventoryStatement} не найдена в БД, пропускаем`,
       );
       return;
@@ -456,7 +458,7 @@ export class OfflineSyncService {
     });
 
     if (!book) {
-      console.warn(
+      this.logger.warn(
         `[OfflineSyncService] Книга idBook=${dbItem.idBook} не найдена, строка ${item.idInventoryStatement} пропущена`,
       );
       return;
@@ -480,7 +482,7 @@ export class OfflineSyncService {
     const autoFresh = offlineDateAuto > dbDateAuto;
     const shouldUpdateObjectData = isManualCancel || manualFresh || autoFresh;
 
-    console.log(
+    this.logger.debug(
       `[OfflineSyncService] Строка ${item.idInventoryStatement}: ` +
       `manualCancel=${isManualCancel}, manualFresh=${manualFresh}, autoFresh=${autoFresh}, updateObject=${shouldUpdateObjectData}`,
     );
@@ -489,7 +491,7 @@ export class OfflineSyncService {
       dbItem.isOkManual = false;
       dbItem.idUserOkManualChecked = null;
       dbItem.dateOkManualChecked = null;
-      console.log(
+      this.logger.debug(
         `[OfflineSyncService] Ручное подтверждение отменено для строки ${item.idInventoryStatement}`,
       );
     } else if (manualFresh && item.isOkManual !== undefined) {
@@ -497,7 +499,7 @@ export class OfflineSyncService {
       dbItem.dateOkManualChecked = item.dateOkManualChecked
         ? new Date(item.dateOkManualChecked)
         : null;
-      console.log(
+      this.logger.debug(
         `[OfflineSyncService] Обновлено ручное подтверждение для строки ${item.idInventoryStatement}`,
       );
     }
@@ -507,7 +509,7 @@ export class OfflineSyncService {
       dbItem.dateOkAutoChecked = item.dateOkAutoChecked
         ? new Date(item.dateOkAutoChecked)
         : null;
-      console.log(
+      this.logger.debug(
         `[OfflineSyncService] Обновлено авто подтверждение для строки ${item.idInventoryStatement}`,
       );
     }
@@ -518,7 +520,7 @@ export class OfflineSyncService {
       if (item.placePos !== undefined) dbItem.placePos = item.placePos;
       if (item.placeCab !== undefined) dbItem.placeCab = item.placeCab;
       if (item.placeUser !== undefined) dbItem.placeUser = item.placeUser;
-      console.log(
+      this.logger.debug(
         `[OfflineSyncService] Обновлены данные объекта для строки ${item.idInventoryStatement}`,
       );
     }
@@ -529,7 +531,7 @@ export class OfflineSyncService {
 
       if (offlineRem && offlineRem !== dbRem) {
         dbItem.rem = dbRem ? `${dbRem}\n${offlineRem}` : offlineRem;
-        console.log(
+        this.logger.debug(
           `[OfflineSyncService] Комментарий дописан для строки ${item.idInventoryStatement}`,
         );
       } else if (!offlineRem && dbRem) {
@@ -545,7 +547,7 @@ export class OfflineSyncService {
       for (const log of item.logs) {
         this.logsService.log(log.source, userId, log.content, new Date(log.time));
       }
-      console.log(
+      this.logger.debug(
         `[OfflineSyncService] Сохранено ${item.logs.length} логов для строки ${item.idInventoryStatement}`,
       );
     }
@@ -600,7 +602,7 @@ export class OfflineSyncService {
         createdCount++;
       } else if (action.action === 'delete') {
         if (action.id == null) {
-          console.warn(`[OfflineSyncService] proposed_change delete без id, пропущен`);
+          this.logger.warn(`[OfflineSyncService] proposed_change delete без id, пропущен`);
           continue;
         }
         try {
@@ -608,7 +610,7 @@ export class OfflineSyncService {
           deletedCount++;
         } catch (error) {
           if (error instanceof NotFoundException) {
-            console.log(
+            this.logger.warn(
               `[OfflineSyncService] proposed_change ${action.id} уже удалён другим МОЛом, пропускаем`,
             );
           } else {
@@ -618,7 +620,7 @@ export class OfflineSyncService {
       }
     }
 
-    console.log(
+    this.logger.log(
       `[OfflineSyncService] proposed_changes: создано ${createdCount}, удалено ${deletedCount}`,
     );
   }

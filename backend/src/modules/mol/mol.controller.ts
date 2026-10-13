@@ -14,11 +14,13 @@ import {
     HttpCode,
     HttpStatus,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MolService } from './services/mol.service';
 import { IgnoreKeywordsService } from './services/ignore-keywords.service';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
+@ApiTags('mol')
 @Controller('mol')
 @UseGuards(JwtAuthGuard)
 export class MolController {

@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards, Param, Req, UnauthorizedException } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,6 +15,7 @@ interface RequestWithUser extends ExpressRequest {
   };
 }
 
+@ApiTags('users')
 @Controller('users')
 @UseGuards(JwtAuthGuard) // Защищаем весь контроллер JWT аутентификацией
 export class UsersController {

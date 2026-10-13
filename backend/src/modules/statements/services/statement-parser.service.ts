@@ -108,7 +108,7 @@ export class StatementParser {
       );
 
     } catch (error) {
-      this.logger.error(`Ошибка парсинга ведомости ${filename}:`, error);
+      this.logger.error(`Ошибка парсинга ведомости ${filename}: ${error.message}`, (error as Error).stack);
       throw error;
     }
   }

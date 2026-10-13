@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { InventoryObject } from 'src/modules/objects/entities/object.entity';
@@ -28,6 +28,8 @@ import { IgnoreKeyword } from 'src/modules/mol/entities/ignore-keyword.entity';
  */
 @Injectable()
 export class OfflineCacheService {
+  private readonly logger = new Logger(OfflineCacheService.name);
+
   constructor(
     @InjectRepository(Statement)
     private readonly statementsRepository: Repository<Statement>,
@@ -85,7 +87,7 @@ export class OfflineCacheService {
    *   - meta — метаданные с количеством по каждой сущности
    */
   async getAllData(userId: number): Promise<any> {
-    console.log(`OfflineCacheService: получение данных для пользователя ${userId}`);
+    this.logger.log(`OfflineCacheService: получение данных для пользователя ${userId}`);
 
     try {
       // 1. Получаем доступные склады пользователя
@@ -101,7 +103,7 @@ export class OfflineCacheService {
       });
       const bookIds = revisorAccess.map(ra => ra.idBook);
 
-      console.log(`OfflineCacheService: пользователь имеет доступ к ${bookIds.length} книгам`);
+      this.logger.debug(`OfflineCacheService: пользователь имеет доступ к ${bookIds.length} книгам`);
 
       // 3. Получаем ВСЕ объекты
       const objects = await this.objectsRepository.find({
@@ -131,7 +133,7 @@ export class OfflineCacheService {
           order: { id: 'ASC' },
         });
 
-        console.log(
+        this.logger.debug(
           `OfflineCacheService: загружено книг: ${inventoryBooks.length}, строк: ${inventoryBookItems.length}`,
         );
       }
@@ -187,7 +189,7 @@ export class OfflineCacheService {
           createdAt: pc.createdAt,
         }));
 
-        console.log(`OfflineCacheService: загружено proposed_changes: ${proposedChanges.length}`);
+        this.logger.debug(`OfflineCacheService: загружено proposed_changes: ${proposedChanges.length}`);
       }
 
       // 8.1. Собираем фото из proposed_changes
@@ -199,7 +201,7 @@ export class OfflineCacheService {
         photos = await this.photosRepository.find({
           where: { id: In(photoIds) },
         });
-        console.log(`OfflineCacheService: загружено proposed-фото: ${photos.length}`);
+        this.logger.debug(`OfflineCacheService: загружено proposed-фото: ${photos.length}`);
       }
 
       // 9. Получаем ключевые слова пользователя
@@ -208,7 +210,7 @@ export class OfflineCacheService {
           order: { keyword: 'ASC' },
       });
 
-      console.log(`OfflineCacheService: загружено ignore_keywords: ${ignoreKeywords.length}`);
+      this.logger.debug(`OfflineCacheService: загружено ignore_keywords: ${ignoreKeywords.length}`);
       
       // 10. Формируем ответ
       return {
@@ -234,7 +236,7 @@ export class OfflineCacheService {
         },
       };
     } catch (error) {
-      console.error('OfflineCacheService: ошибка при получении данных:', error);
+      this.logger.error(`OfflineCacheService: ошибка при получении данных: ${error.message}`, error.stack);
       throw new Error(`Не удалось получить данные для офлайн-режима: ${error.message}`);
     }
   }

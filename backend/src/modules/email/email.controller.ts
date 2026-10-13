@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ImapService } from './services/imap.service';
 
@@ -13,6 +14,7 @@ import { ImapService } from './services/imap.service';
  * 
  * Базовый путь: /api/email
  */
+@ApiTags('email')
 @Controller('email')
 @UseGuards(JwtAuthGuard)
 export class EmailController {

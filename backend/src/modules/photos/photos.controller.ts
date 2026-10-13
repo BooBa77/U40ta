@@ -18,11 +18,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { PhotosService } from './photos.service';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
 
+@ApiTags('photos')
 @Controller('photos')
 @UseGuards(JwtAuthGuard)
 export class PhotosController {

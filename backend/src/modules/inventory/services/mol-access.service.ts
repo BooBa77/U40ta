@@ -147,7 +147,7 @@ export class MolAccessService {
    * 2. Загружаем строки inventory_book_items
    * 3. Группируем по комбинации invNumber|partyNumber|zavod|sklad
    * 4. Для каждой группы:
-   *    - Шаг 1: если isActual = false → возвращаем items как есть (серые)
+   *    - Шаг 1: неактуальные (isActual = false) — отдаются без объекта (серые)
    *    - Шаг 2: подтверждённые (isOkAuto ИЛИ isOkManual) — зелёные
    *    - Шаг 3: неподтверждённые — чёрные/красные/синие по количеству
    *    - Шаг 4: контрольный запрос оставшихся objects — синие

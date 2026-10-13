@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { LogsService } from 'src/modules/logs';
 import { OfflineCacheService } from './offline-cache.service';
 import { OfflineSyncService } from './offline-sync.service';
@@ -18,6 +18,8 @@ import { SyncChangesRequestDto } from '../dto/sync-changes.request.dto';
  */
 @Injectable()
 export class OfflineService {
+  private readonly logger = new Logger(OfflineService.name);
+
   constructor(
     private readonly logsService: LogsService,
     private readonly offlineCacheService: OfflineCacheService,
@@ -42,7 +44,7 @@ export class OfflineService {
    *   - meta — метаданные (userId, fetchedAt, количество по каждой сущности)
    */
   async getOfflineData(userId: number): Promise<any> {
-    console.log(`OfflineService: получение данных для офлайн-режима (userId: ${userId})`);
+    this.logger.log(`OfflineService: получение данных для офлайн-режима (userId: ${userId})`);
 
     try {
       const data = await this.offlineCacheService.getAllData(userId);
@@ -68,16 +70,6 @@ export class OfflineService {
         totalInventoryBookItems: inventoryBookItemsCount,
         totalIgnoreKeywordsItems: ignoreKeywordsItemsCount,
       });
-
-      console.log(`OfflineService: данные получены`);
-      console.log(`  - Строк ведомостей: ${statementsCount}`);
-      console.log(`  - Объектов: ${objectsCount}`);
-      console.log(`  - QR-кодов: ${qrCodesCount}`);
-      console.log(`  - Фото (из proposed_changes): ${photosCount}`);
-      console.log(`  - Предлагаемых изменений: ${proposedChangesCount}`);
-      console.log(`  - Инвентаризационных книг: ${inventoryBooksCount}`);
-      console.log(`  - Строк инвентаризационных книг: ${inventoryBookItemsCount}`);
-      console.log(`  - Слов игнор-списка: ${ignoreKeywordsItemsCount}`);
 
       return {
         statements: data?.statements || [],
@@ -108,7 +100,7 @@ export class OfflineService {
         error: error.message,
       });
 
-      console.error('OfflineService: ошибка:', error);
+      this.logger.error(`OfflineService: ошибка получения данных: ${error.message}`, error.stack);
 
       return {
         statements: [],
@@ -144,7 +136,7 @@ export class OfflineService {
    * @returns результат синхронизации с полями success, processed, inventoryItemsProcessed, message
    */
   async syncChanges(userId: number, dto: SyncChangesRequestDto): Promise<any> {
-    console.log(`OfflineService: синхронизация ${dto.changes?.length || 0} изменений`);
+    this.logger.log(`OfflineService: синхронизация ${dto.changes?.length || 0} изменений`);
 
     try {
       const result = await this.offlineSyncService.applyChanges(userId, dto);
@@ -154,7 +146,7 @@ export class OfflineService {
         message: 'Синхронизация завершена',
       };
     } catch (error) {
-      console.error('OfflineService: ошибка синхронизации:', error);
+      this.logger.error(`OfflineService: ошибка синхронизации: ${error.message}`, error.stack);
       return {
         success: false,
         message: `Ошибка синхронизации: ${error.message}`,
@@ -179,7 +171,7 @@ export class OfflineService {
     message: string;
   } {
     const changesCount = localChanges?.length || 0;
-    console.log(`OfflineService: проверка синхронизации (изменений: ${changesCount})`);
+    this.logger.debug(`OfflineService: проверка синхронизации (изменений: ${changesCount})`);
 
     if (changesCount === 0) {
       return {
@@ -203,7 +195,7 @@ export class OfflineService {
    * @returns объект с полем success: true и сообщением
    */
   confirmCacheClear(): { success: boolean; message: string } {
-    console.log('OfflineService: подтверждение очистки кэша');
+    this.logger.debug('OfflineService: подтверждение очистки кэша');
     return {
       success: true,
       message: 'Кэш может быть очищен',

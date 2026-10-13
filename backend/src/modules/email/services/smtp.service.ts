@@ -34,7 +34,7 @@ export class SmtpService {
       this.logger.log('Email отправлен:', result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      this.logger.error('Ошибка отправки email:', error);
+      this.logger.error(`Ошибка отправки email: ${error.message}`, error.stack);
       return { success: false, error: error.message };
     }
   }

@@ -1,12 +1,16 @@
-import { Controller, Get, Post, Body, UseGuards, Req, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, UsePipes, ValidationPipe, Logger } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OfflineService } from './services/offline.service';
 import { OfflineDataResponseDto } from './dto/offline-data.response.dto';
 import { SyncChangesRequestDto } from './dto/sync-changes.request.dto'
 
+@ApiTags('offline')
 @Controller('offline')
 @UseGuards(JwtAuthGuard) // Защита JWT для всех endpoint'ов
 export class OfflineController {
+  private readonly logger = new Logger(OfflineController.name);
+
   constructor(private readonly offlineService: OfflineService) {}
 
   /**
@@ -74,18 +78,15 @@ export class OfflineController {
       const userId = request.user?.sub || request.user?.userId;
       const localChanges = body.localChangesHistory || [];
       
-      console.log(`OfflineController: проверка перехода в онлайн для пользователя ${userId}`);
-      console.log(`OfflineController: получено локальных изменений: ${localChanges.length}`);
-      console.log(`OfflineController: тип данных: ${typeof localChanges}`);
-      console.log(`OfflineController: данные:`, localChanges);
+      this.logger.debug(`OfflineController: проверка перехода в онлайн для пользователя ${userId}`);
+      this.logger.debug(`OfflineController: получено локальных изменений: ${localChanges.length}`);
       
       const checkResult = this.offlineService.checkIfSyncNeeded(localChanges);
       
-      console.log(`OfflineController: результат проверки:`, {
-        needsSync: checkResult.needsSync,
-        message: checkResult.message,
-        clearCache: !checkResult.needsSync
-      });
+      this.logger.debug(
+        `OfflineController: результат проверки: needsSync=${checkResult.needsSync}, ` +
+        `message=${checkResult.message}, clearCache=${!checkResult.needsSync}`,
+      );
       
       return {
         success: true,
@@ -95,7 +96,7 @@ export class OfflineController {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('OfflineController: ошибка проверки:', error);
+      this.logger.error(`OfflineController: ошибка проверки: ${error.message}`, error.stack);
       return {
         success: false,
         needsSync: true,
@@ -116,7 +117,6 @@ export class OfflineController {
     @Body() body: any,
     //@Body() body: SyncChangesRequestDto,
   ) {
-    console.log('[OfflineController] raw body:', JSON.stringify(body, null, 2));
     try {
       const userId = request.user?.sub || request.user?.userId;
       if (!userId) {

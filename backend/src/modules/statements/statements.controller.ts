@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { StatementsService } from './services/statements.service';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface';
@@ -24,6 +25,7 @@ import type { RequestWithUser } from '../../common/interfaces/request-with-user.
  * 
  * Базовый путь: /api/statements
  */
+@ApiTags('statements')
 @Controller('statements')
 @UseGuards(JwtAuthGuard)
 export class StatementsController {

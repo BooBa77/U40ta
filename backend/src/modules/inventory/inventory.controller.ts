@@ -13,6 +13,7 @@ import {
   HttpStatus,
   ForbiddenException,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InventoryStatementsService } from './services/inventory-statements.service';
 import { InventoryBooksService } from './services/inventory-books.service';
@@ -34,6 +35,7 @@ import type { RequestWithUser } from '../../common/interfaces/request-with-user.
  * 
  * Базовый путь: /api/inventory
  */
+@ApiTags('inventory')
 @Controller('inventory')
 @UseGuards(JwtAuthGuard)
 export class InventoryController {
@@ -63,31 +65,15 @@ export class InventoryController {
    * Получить список уникальных batch'ей ревизора.
    * GET /api/inventory/batches
    */
-/*  @Get('batches')
-  async getBatches(
-    @Req() request: RequestWithUser
-  ): Promise<{ emailFrom: string; receivedAt: Date; zavod: number; sklad: string; docType: string; count: number }[]> {
+  @Get('batches')
+  async getBatches(@Req() request: RequestWithUser) {
     const email = await this.getUserEmail(request);
+
     if (!email) {
       return [];
     }
 
     return await this.inventoryStatementsService.getBatches(email);
-  }
-*/
-  @Get('batches')
-  async getBatches(@Req() request: RequestWithUser) {
-    const email = await this.getUserEmail(request);
-    console.log('[DEBUG] getBatches email:', email);
-    
-    if (!email) {
-      console.log('[DEBUG] getBatches: email пустой, возвращаю []');
-      return [];
-    }
-    
-    const result = await this.inventoryStatementsService.getBatches(email);
-    console.log('[DEBUG] getBatches result:', result);
-    return result;
   }
 
   /**

@@ -7,11 +7,13 @@ import {
   Query, 
   UseGuards
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { QrCodesService } from './qr-codes.service';
 import { CreateQrCodeDto } from './dto/create-qr-code.dto';
 import { UpdateQrOwnerDto } from './dto/update-qr-owner.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiTags('qr-codes')
 @Controller('qr-codes')
 export class QrCodesController {
   constructor(private readonly qrCodesService: QrCodesService) {}

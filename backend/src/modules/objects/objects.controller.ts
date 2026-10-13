@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query, Req, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { ObjectsService } from './services/objects.service';
@@ -14,8 +15,11 @@ interface RequestWithUser extends ExpressRequest {
   };
 }
 
+@ApiTags('objects')
 @Controller('objects')
 export class ObjectsController {
+  private readonly logger = new Logger(ObjectsController.name);
+
   constructor(
     private readonly objectsService: ObjectsService,
     private readonly appEventsService: AppEventsService,
@@ -33,7 +37,7 @@ export class ObjectsController {
     @Query('party') party?: string
   ) {
     try {
-      console.log(`[ObjectsController] Запрос объектов по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
+      this.logger.debug(`[ObjectsController] Запрос объектов по inv=${inv}, zavod=${zavod}, sklad=${sklad}`);
       
       if (!inv || inv.trim() === '') {
         return {
@@ -59,7 +63,7 @@ export class ObjectsController {
         count: objects.length
       };
     } catch (error) {
-      console.error('[ObjectsController] Ошибка поиска объектов:', error);
+      this.logger.error(`[ObjectsController] Ошибка поиска объектов: ${error.message}`, error.stack);
       return {
         success: false,
         error: error.message,
@@ -112,7 +116,7 @@ export class ObjectsController {
         combinations
       };
     } catch (error) {
-      console.error('[ObjectsController] Ошибка получения комбинаций складов:', error);
+      this.logger.error(`[ObjectsController] Ошибка получения комбинаций складов: ${error.message}`, error.stack);
       return {
         success: false,
         error: error.message,
@@ -134,7 +138,7 @@ export class ObjectsController {
         combinations
       };
     } catch (error) {
-      console.error('[ObjectsController] Ошибка получения комбинаций:', error);
+      this.logger.error(`[ObjectsController] Ошибка получения комбинаций: ${error.message}`, error.stack);
       return {
         success: false,
         error: error.message,
@@ -173,9 +177,7 @@ export class ObjectsController {
     @Query('sklad') sklad: string
   ): Promise<{ success: boolean; objects: InventoryObject[] }> {
         
-    console.log(`[ObjectsController] GET /objects/sklad - raw zavod: "${zavod}", typeof: ${typeof zavod}, sklad: "${sklad}"`)
     const zavodNum = parseInt(zavod, 10)
-    console.log(`[ObjectsController] zavodNum: ${zavodNum}, isNaN: ${isNaN(zavodNum)}`)
 
     if (isNaN(zavodNum)) {
       throw new BadRequestException('zavod должен быть числом')

@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Param, Body, Req, UseGuards } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LogsService } from './logs.service';
 import { ObjectHistoryDto } from './dto/object-history.dto';
@@ -7,6 +8,7 @@ import { QrCodeHistoryDto } from './dto/qr-code-history.dto';
 import { PhotoHistoryDto } from './dto/photo-history.dto';
 import type { RequestWithUser } from '../../common/interfaces/request-with-user.interface'
 
+@ApiTags('logs')
 @Controller('logs')
 export class LogsController {
   constructor(private readonly logsService: LogsService) {}

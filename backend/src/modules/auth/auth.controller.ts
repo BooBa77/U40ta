@@ -1,7 +1,9 @@
 import { Controller, Post, Body, Logger, NotFoundException, BadRequestException, UsePipes, ValidationPipe } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './services/auth.service';
 import { SendCodeDto, VerifyCodeDto, CheckCodeStatusDto } from './dto/email-auth.dto';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);

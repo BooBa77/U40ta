@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
@@ -9,6 +9,8 @@ import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class MolService {
+  private readonly logger = new Logger(MolService.name);
+
   constructor(
     @InjectRepository(InventoryObject)
     private readonly objectRepository: Repository<InventoryObject>,
@@ -83,7 +85,7 @@ export class MolService {
         message: result.success ? `Таблица экспортирована на ${user.eMail}` : 'Ошибка при отправке письма',
         };
     } catch (error) {
-        console.error('[MolService] Ошибка экспорта:', error);
+        this.logger.error(`[MolService] Ошибка экспорта: ${error.message}`, error.stack);
         throw new InternalServerErrorException(error.message || 'Не удалось выгрузить данные');
     }
   }
@@ -127,22 +129,17 @@ export class MolService {
       .orderBy('log.time', 'ASC')
       .getMany();
 
-    console.log('[MolService] Найдено логов:', logs.length);
-    
     if (logs.length === 0) {
       return [];
     }
 
     // Собираем уникальные userId - ПРЕОБРАЗУЕМ В number
     const userIds = [...new Set(logs.map(log => Number(log.userId)).filter(id => id !== null && !isNaN(id)))];
-    console.log('[MolService] Уникальные userId в логах (числа):', userIds);
 
     // Получаем всех пользователей
     const users = await this.usersService.findAll();
-    console.log('[MolService] Всего пользователей в БД:', users.length);
 
     const userMap = new Map(users.map(u => [u.id, u]));
-    console.log('[MolService] Размер userMap:', userMap.size);
 
     // Обогащаем логи данными пользователей
     const enrichedLogs = logs.map(log => {
@@ -158,22 +155,6 @@ export class MolService {
         storyLine: content.story_line
       };
     });
-
-    // Проверяем первый обогащенный лог
-    if (enrichedLogs.length > 0) {
-      console.log('[MolService] Первый обогащенный лог:', JSON.stringify({
-        id: enrichedLogs[0].id,
-        userId: enrichedLogs[0].userId,
-        hasUser: !!enrichedLogs[0].user,
-        userData: enrichedLogs[0].user ? {
-          id: enrichedLogs[0].user.id,
-          abr: enrichedLogs[0].user.abr,
-          firstName: enrichedLogs[0].user.firstName,
-          lastName: enrichedLogs[0].user.lastName
-        } : null,
-        storyLine: enrichedLogs[0].storyLine
-      }, null, 2));
-    }
 
     return enrichedLogs;
   }
