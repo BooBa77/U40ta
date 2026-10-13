@@ -115,7 +115,7 @@ export class ImapService {
           this.imap.end();
           resolve();
         } catch (error) {
-          this.logger.error('Ошибка при обработке писем:', error);
+          this.logger.error(`Ошибка при обработке писем: ${error.message}`, error.stack);
           this.imap.end();
           reject(error);
         }
@@ -123,7 +123,7 @@ export class ImapService {
 
       // ========== Обработчик ошибок IMAP ==========
       this.imap.once('error', (err) => {
-        this.logger.error('IMAP ошибка:', err);
+        this.logger.error(`IMAP ошибка: ${err.message}`, err.stack);
         this.logger.error('Тип ошибки:', err.name);
         this.logger.error('Сообщение ошибки:', err.message);
         this.logger.error('Полный стек:', err.stack);
@@ -169,7 +169,7 @@ export class ImapService {
       // Открываем INBOX
       this.imap.openBox('INBOX', false, (err, box) => {
         if (err) {
-          this.logger.error('Ошибка открытия INBOX:', err);
+          this.logger.error(`Ошибка открытия INBOX: ${err.message}`, err.stack);
           reject(new Error(`Ошибка открытия INBOX: ${err.message}`));
           return;
         }
@@ -177,7 +177,7 @@ export class ImapService {
         // Ищем непрочитанные письма
         this.imap.search(['UNSEEN'], (err, results) => {
           if (err) {
-            this.logger.error('Ошибка поиска писем:', err);
+            this.logger.error(`Ошибка поиска писем: ${err.message}`, err.stack);
             reject(new Error(`Ошибка поиска писем: ${err.message}`));
             return;
           }
@@ -261,14 +261,14 @@ export class ImapService {
               // Помечаем письмо как прочитанное
               this.imap.addFlags(uid, ['\\Seen'], (err) => {
                 if (err) {
-                  this.logger.error('Ошибка пометки письма:', err);
+                  this.logger.error(`Ошибка пометки письма: ${err.message}`, err.stack);
                 } else {
                   this.logger.log(`Письмо ${uid} помечено как прочитанное`);
                 }
                 resolve();
               });
             } catch (error) {
-              this.logger.error('Ошибка парсинга письма:', error);
+              this.logger.error(`Ошибка парсинга письма: ${error.message}`, error.stack);
               reject(error);
             }
           });
@@ -276,7 +276,7 @@ export class ImapService {
       });
 
       fetch.once('error', (err) => {
-        this.logger.error('Ошибка получения письма:', err);
+        this.logger.error(`Ошибка получения письма: ${err.message}`, err.stack);
         reject(err);
       });
     });
