@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, EntityManager } from 'typeorm';
 import { ProposedChange } from './entities/proposed-change.entity';
@@ -6,6 +6,8 @@ import { User } from '../users/entities/user.entity';
 import { InventoryObject } from '../objects/entities/object.entity';
 import { PhotosService } from '../photos/photos.service';
 import { Photo } from '../photos/entities/photos.entity';
+import { UsersService } from '../users/users.service';
+import { hasMolAccess } from '../users/mol-access.util';
 
 /**
  * Сервис для работы с предлагаемыми изменениями.
@@ -32,6 +34,7 @@ export class ProposedChangesService {
     @InjectRepository(InventoryObject)
     private readonly objectsRepository: Repository<InventoryObject>,
     private readonly photosService: PhotosService,
+    private readonly usersService: UsersService,
   ) {}
 
   /**
@@ -174,8 +177,9 @@ export class ProposedChangesService {
    * 
    * @param id — ID записи предлагаемого изменения
    * @param userId — ID пользователя, утверждающего изменение (МОЛ)
+   * @throws ForbiddenException если склад объекта не закреплён за пользователем
    */
-  async approve(id: number, _userId: number): Promise<void> {
+  async approve(id: number, userId: number): Promise<void> {
     this.logger.log(`Утверждение предлагаемого изменения с ID ${id}`);
 
     const change = await this.proposedChangesRepository.findOne({ where: { id } });
@@ -186,6 +190,20 @@ export class ProposedChangesService {
     const object = await this.objectsRepository.findOne({ where: { id: change.objectId } });
     if (!object) {
       throw new NotFoundException(`Объект с ID ${change.objectId} не найден`);
+    }
+
+    // До 13.10.2026 права не проверялись: список предложений фильтруется по
+    // доступу МОЛа (findByMolAccess), но само утверждение — нет, поэтому чужое
+    // предложение можно было применить, зная id. Проверяем тот же признак, по
+    // которому строится список: пару «завод + склад» объекта.
+    const molAccess = await this.usersService.getMolAccess(userId);
+    if (!hasMolAccess(molAccess, object.zavod, object.sklad)) {
+      this.logger.warn(
+        `Пользователь ${userId} пытался утвердить изменение ${id} по объекту ${object.id} со склада ${object.zavod}/${object.sklad} без доступа`,
+      );
+      throw new ForbiddenException(
+        `Нет доступа к объекту ${object.id}: склад ${object.zavod}/${object.sklad} не закреплён за пользователем`,
+      );
     }
 
     switch (change.changeType) {

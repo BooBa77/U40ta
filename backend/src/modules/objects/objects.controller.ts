@@ -17,6 +17,12 @@ interface RequestWithUser extends ExpressRequest {
 
 @ApiTags('objects')
 @Controller('objects')
+// Guard на классе, как во всех остальных контроллерах проекта. До 13.10.2026 он
+// стоял только на POST и PATCH, поэтому GET-маршруты (поиск по инвентарному
+// номеру, комбинации складов и мест, карточка объекта) отвечали без токена:
+// наименования, инвентарные и серийные номера, местоположение и МОЛ читал любой,
+// кто знает адрес. Проверено 13.10.2026.
+@UseGuards(JwtAuthGuard)
 export class ObjectsController {
   private readonly logger = new Logger(ObjectsController.name);
 
@@ -216,7 +222,6 @@ export class ObjectsController {
    * Все операции выполняются в одной транзакции.
    */
   @Post()
-  @UseGuards(JwtAuthGuard)
   async create(
     @Body() createObjectDto: CreateObjectDto,
     @Req() request: RequestWithUser, // получаем request с пользователем
@@ -263,7 +268,6 @@ export class ObjectsController {
    * Все операции выполняются в одной транзакции.
    */  
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateObjectDto: UpdateObjectDto,

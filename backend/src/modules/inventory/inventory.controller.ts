@@ -319,9 +319,19 @@ export class InventoryController {
   @Post('books/:id/items/update-actual')
   @HttpCode(HttpStatus.OK)
   async updateItemActual(
+    @Req() request: RequestWithUser,
     @Param('id') bookId: number,
     @Body() body: { invNumber: string; isActual: boolean }
   ): Promise<{ success: boolean }> {
+    const userId = request.user.sub;
+
+    // До 13.10.2026 проверки доступа здесь не было: соседние обработчики
+    // начинают с getBook (он проверяет доступ ревизора к книге), а этот писал
+    // в базу сразу — то есть статус актуальности в любой книге мог переключить
+    // любой аутентифицированный пользователь, зная id книги и инвентарный
+    // номер. getBook бросает ForbiddenException, если доступа нет.
+    await this.inventoryBooksService.getBook(bookId, userId);
+
     // Обновляем статус
     await this.inventoryBooksService.updateActualStatus(
       bookId,
