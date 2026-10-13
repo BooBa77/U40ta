@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { LoggerModule } from 'nestjs-pino';
+import { HealthModule } from './health/health.module';
 import { AppEventsModule } from './modules/app-events/app-events.module'; // SSE
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -27,6 +29,46 @@ import { MolModule } from './modules/mol/mol.module';
       load: [emailConfig],  
       envFilePath: '.env',
     }),
+
+    // Логгер Pino — так же, как в ph, чтобы оба проекта логировались одинаково
+    // и разбирались одинаково. В разработке человекочитаемый вывод, в проде —
+    // JSON, который читают системы сбора логов.
+    //
+    // pino-http сам пишет строку на каждый запрос — ровно то, что раньше делал
+    // самодельный перехватчик, только в консоль, а не в базу.
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isDev = config.get<string>('NODE_ENV') !== 'production';
+        return {
+          pinoHttp: {
+            transport: isDev
+              ? {
+                  target: 'pino-pretty',
+                  options: {
+                    singleLine: true,
+                    colorize: true,
+                    translateTime: 'SYS:HH:MM:ss',
+                    ignore: 'pid,hostname',
+                  },
+                }
+              : undefined,
+            level: isDev ? 'debug' : 'info',
+            // requestId подмешивается в каждую строку лога: по нему видно,
+            // какие записи относятся к одному запросу.
+            genReqId: (req) => req.headers['x-request-id'] || crypto.randomUUID(),
+            customLogLevel: (req, res, err) => {
+              if (res.statusCode >= 500 || err) return 'error';
+              if (res.statusCode >= 400) return 'warn';
+              return 'info';
+            },
+          },
+        };
+      },
+    }),
+
+    // Проверка живости: /api/health. В ph такой маршрут есть, теперь и здесь.
+    HealthModule,
 
     // TypeOrmModule - модуль для работы с базой данных PostgreSQL
     // forRootAsync используется для асинхронной конфигурации, когда нужны данные из ConfigService
