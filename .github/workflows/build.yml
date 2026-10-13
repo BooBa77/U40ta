@@ -10,7 +10,57 @@ env:
   IMAGE_FRONTEND: booba77/u40ta-frontend
 
 jobs:
+  # Проверки идут ДО сборки образов: если линтер, сборка или тесты падают,
+  # в реестр не попадает заведомо сломанный образ, а прод не обновляется.
+  # Раньше workflow собирал и пушил образы сразу, без единой проверки.
+  checks:
+    name: Проверки
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Зависимости бэкенда
+        working-directory: backend
+        run: npm ci
+
+      - name: Линтер бэкенда
+        working-directory: backend
+        run: npm run lint
+
+      - name: Сборка бэкенда
+        working-directory: backend
+        run: npm run build
+
+      # Тесты идут с SWC: в конфиге Vitest он отключается только переменной
+      # VITEST_NO_SWC, которую ставит локальный скрипт из-за песочницы DSH.
+      - name: Тесты бэкенда
+        working-directory: backend
+        run: npm test
+
+      - name: Зависимости фронтенда
+        working-directory: frontend
+        run: npm ci
+
+      - name: Сборка фронтенда
+        working-directory: frontend
+        run: npm run build
+
   build:
+    name: Сборка образов
+    needs: checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,17 +68,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Login to ghcr.io
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile.backend
@@ -36,7 +86,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:latest
 
       - name: Build and push frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile.frontend
