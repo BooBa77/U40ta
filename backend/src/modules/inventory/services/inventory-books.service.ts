@@ -8,7 +8,7 @@ import { RevisorAccessService } from './revisor-access.service';
 import { AppEventsService } from '../../app-events/app-events.service';
 import * as XLSX from 'xlsx';
 import { SmtpService } from '../../email/services/smtp.service';
-import { UsersService } from 'src/modules/users/users.service';
+import { UsersService } from '../../users/users.service';
 
 /**
  * Сервис для работы с инвентаризационными книгами.
@@ -501,7 +501,7 @@ export class InventoryBooksService {
     XLSX.utils.sheet_add_aoa(worksheet, [columns.map(c => c.header)], { origin: 'A1' });
 
     // ========== Шаг 7: Настраиваем ширину колонок ==========
-    const colWidths = columns.map((col, colIndex) => {
+    const colWidths = columns.map((col) => {
       let maxLen = col.header.length;
       for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
         const val = rows[rowIndex][col.key];

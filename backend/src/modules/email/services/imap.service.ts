@@ -167,7 +167,7 @@ export class ImapService {
   private async processNewEmails(): Promise<void> {
     return new Promise((resolve, reject) => {
       // Открываем INBOX
-      this.imap.openBox('INBOX', false, (err, box) => {
+      this.imap.openBox('INBOX', false, (err, _box) => {
         if (err) {
           this.logger.error(`Ошибка открытия INBOX: ${err.message}`, err.stack);
           reject(new Error(`Ошибка открытия INBOX: ${err.message}`));

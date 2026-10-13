@@ -35,7 +35,7 @@ export class UsersController {
     try {
       const user = await this.usersService.findById(userId);
       return { abr: user.abr };
-    } catch (error) {
+    } catch {
       // Если пользователь не найден (гость)
       return { abr: null };
     }

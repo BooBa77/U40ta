@@ -1,5 +1,8 @@
 # Этап сборки
-FROM node:20-alpine AS builder
+#
+# Node 24 — как в ph: Nest 12 требует свежий рантайм, и проекты должны
+# собираться на одном и том же образе.
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY backend/package*.json ./
 RUN npm ci
@@ -7,7 +10,7 @@ COPY backend/ .
 RUN npm run build
 
 # Продакшн
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./

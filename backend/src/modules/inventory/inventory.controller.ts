@@ -319,12 +319,9 @@ export class InventoryController {
   @Post('books/:id/items/update-actual')
   @HttpCode(HttpStatus.OK)
   async updateItemActual(
-    @Req() request: RequestWithUser,
     @Param('id') bookId: number,
     @Body() body: { invNumber: string; isActual: boolean }
   ): Promise<{ success: boolean }> {
-    const userId = request.user.sub;
-    
     // Обновляем статус
     await this.inventoryBooksService.updateActualStatus(
       bookId,

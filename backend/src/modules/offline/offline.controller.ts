@@ -1,9 +1,8 @@
-import { Controller, Get, Post, Body, UseGuards, Req, UsePipes, ValidationPipe, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Logger } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OfflineService } from './services/offline.service';
 import { OfflineDataResponseDto } from './dto/offline-data.response.dto';
-import { SyncChangesRequestDto } from './dto/sync-changes.request.dto'
 
 @ApiTags('offline')
 @Controller('offline')

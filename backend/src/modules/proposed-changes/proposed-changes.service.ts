@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, EntityManager } from 'typeorm';
 import { ProposedChange } from './entities/proposed-change.entity';
@@ -175,7 +175,7 @@ export class ProposedChangesService {
    * @param id — ID записи предлагаемого изменения
    * @param userId — ID пользователя, утверждающего изменение (МОЛ)
    */
-  async approve(id: number, userId: number): Promise<void> {
+  async approve(id: number, _userId: number): Promise<void> {
     this.logger.log(`Утверждение предлагаемого изменения с ID ${id}`);
 
     const change = await this.proposedChangesRepository.findOne({ where: { id } });

@@ -16,11 +16,11 @@ import { MigrationInterface, QueryRunner } from "typeorm";
 export class Init1791780849494 implements MigrationInterface {
   name = 'Init1791780849494';
 
-  public async up(queryRunner: QueryRunner): Promise<void> {
+  public async up(_queryRunner: QueryRunner): Promise<void> {
     // намеренно пусто
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
+  public async down(_queryRunner: QueryRunner): Promise<void> {
     // намеренно пусто: откатывать нечего
   }
 }

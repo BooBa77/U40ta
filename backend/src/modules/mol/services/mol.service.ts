@@ -133,9 +133,6 @@ export class MolService {
       return [];
     }
 
-    // Собираем уникальные userId - ПРЕОБРАЗУЕМ В number
-    const userIds = [...new Set(logs.map(log => Number(log.userId)).filter(id => id !== null && !isNaN(id)))];
-
     // Получаем всех пользователей
     const users = await this.usersService.findAll();
 

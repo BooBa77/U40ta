@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { InventoryObject } from 'src/modules/objects/entities/object.entity';
-import { Statement } from 'src/modules/statements/entities/statement.entity';
-import { QrCode } from 'src/modules/qr-codes/entities/qr-code.entity';
-import { MolAccess } from 'src/modules/users/entities/mol-access.entity';
-import { InventoryBook } from 'src/modules/inventory/entities/inventory-book.entity';
-import { InventoryBookItem } from 'src/modules/inventory/entities/inventory-book-item.entity';
-import { RevisorAccess } from 'src/modules/inventory/entities/revisor-access.entity';
+import { InventoryObject } from '../../objects/entities/object.entity';
+import { Statement } from '../../statements/entities/statement.entity';
+import { QrCode } from '../../qr-codes/entities/qr-code.entity';
+import { MolAccess } from '../../users/entities/mol-access.entity';
+import { InventoryBook } from '../../inventory/entities/inventory-book.entity';
+import { InventoryBookItem } from '../../inventory/entities/inventory-book-item.entity';
+import { RevisorAccess } from '../../inventory/entities/revisor-access.entity';
 import { ProposedChange } from '../../proposed-changes/entities/proposed-change.entity';
 import { Photo } from '../../photos/entities/photos.entity';
-import { IgnoreKeyword } from 'src/modules/mol/entities/ignore-keyword.entity';
+import { IgnoreKeyword } from '../../mol/entities/ignore-keyword.entity';
 
 /**
  * Сервис кэширования данных для офлайн-режима.

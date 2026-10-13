@@ -32,7 +32,7 @@ export class AuthService {
     let user;
     try {
       user = await this.usersService.findById(userId);
-    } catch (error) {
+    } catch {
       this.logger.warn(`Пользователь с ID ${userId} не найден в таблице users`);
       throw new NotFoundException(`User with ID ${userId} not found`);
     }

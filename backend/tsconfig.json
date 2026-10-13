@@ -13,13 +13,18 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
+    "strictPropertyInitialization": false,
+    // Явный список глобальных типов. `multer` здесь потому, что он объявляет
+    // `Express.Multer.File` глобально, а в коде u40ta — в отличие от ph — модуль
+    // `multer` нигде не импортируется, поэтому до этой правки тип не находился.
+    "types": ["node", "multer"],
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "useUnknownInCatchVariables": false
   }
 }

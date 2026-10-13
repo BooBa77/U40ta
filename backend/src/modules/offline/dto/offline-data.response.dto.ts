@@ -1,9 +1,9 @@
-import { InventoryObject } from 'src/modules/objects/entities/object.entity';
-import { Statement } from 'src/modules/statements/entities/statement.entity';
-import { QrCode } from 'src/modules/qr-codes/entities/qr-code.entity';
-import { Photo } from 'src/modules/photos/entities/photos.entity';
-import { InventoryBook } from 'src/modules/inventory/entities/inventory-book.entity';
-import { InventoryBookItem } from 'src/modules/inventory/entities/inventory-book-item.entity';
+import { InventoryObject } from '../../objects/entities/object.entity';
+import { Statement } from '../../statements/entities/statement.entity';
+import { QrCode } from '../../qr-codes/entities/qr-code.entity';
+import { Photo } from '../../photos/entities/photos.entity';
+import { InventoryBook } from '../../inventory/entities/inventory-book.entity';
+import { InventoryBookItem } from '../../inventory/entities/inventory-book-item.entity';
 
 export interface OfflineDataDto {
   objects: InventoryObject[];

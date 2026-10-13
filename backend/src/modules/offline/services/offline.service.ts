@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LogsService } from 'src/modules/logs';
+import { LogsService } from '../../logs';
 import { OfflineCacheService } from './offline-cache.service';
 import { OfflineSyncService } from './offline-sync.service';
 import { SyncChangesRequestDto } from '../dto/sync-changes.request.dto';
