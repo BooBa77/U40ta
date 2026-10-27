@@ -31,6 +31,9 @@ export function useCamera() {
       }
       
       const devices = await navigator.mediaDevices.enumerateDevices()
+      // До выдачи разрешения браузер отдаёт заглушки с пустым deviceId — это
+      // нормально: иконка сканера должна быть видна, а реальную камеру откроет
+      // сам сканер (он сначала просит разрешение, см. useQrCamera).
       hasCamera.value = devices.some(device => device.kind === 'videoinput')
     } catch (error) {
       console.error('Ошибка проверки камеры:', error)

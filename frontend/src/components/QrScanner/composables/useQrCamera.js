@@ -29,6 +29,7 @@ export function useQrCamera(options = {}) {
   let focusIntervalId = null
 
   const debugData = {
+    permission: '',
     cameras: [],
     selectedCamera: null,
     selectedReason: '',
@@ -52,6 +53,86 @@ export function useQrCamera(options = {}) {
   }
 
   /**
+   * Создаёт ошибку с нужным именем: по нему выше выбирается текст для пользователя.
+   */
+  const createCameraError = (name, message) => {
+    const error = new Error(message)
+    error.name = name
+    return error
+  }
+
+  /**
+   * Состояние разрешения на камеру: 'granted' | 'denied' | 'prompt' | 'unknown'.
+   */
+  const getPermissionState = async () => {
+    try {
+      if (!navigator.permissions || !navigator.permissions.query) return 'unknown'
+      const status = await navigator.permissions.query({ name: 'camera' })
+      return status.state || 'unknown'
+    } catch (e) {
+      return 'unknown'
+    }
+  }
+
+  /**
+   * Открывает камеру, перебирая ограничения от точных к мягким.
+   *
+   * Ограничения передаются списком: если точный deviceId не сработал
+   * (устройство пропало, камеру забрало приложение), пробуем следующее.
+   */
+  const openStream = async (videoConstraints) => {
+    let lastError = null
+
+    for (const constraints of videoConstraints) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false })
+      } catch (error) {
+        lastError = error
+
+        // Это сменой ограничений не лечится: пользователь запретил доступ
+        // или страница открыта не по HTTPS.
+        if (['NotAllowedError', 'SecurityError'].includes(error.name)) throw error
+
+        // Камеру мог не успеть отпустить предыдущий поток — даём ей паузу.
+        if (error.name === 'NotReadableError') {
+          await new Promise((resolve) => setTimeout(resolve, 300))
+        }
+      }
+    }
+
+    throw lastError || createCameraError('NotFoundError', 'Камера не найдена на устройстве.')
+  }
+
+  /**
+   * Добивается того, что сайту разрешён доступ к камере.
+   *
+   * Пока разрешение не выдано, браузер не отдаёт deviceId камер:
+   * enumerateDevices возвращает устройства с пустым id, а getUserMedia по
+   * такому id падает. Поэтому сначала открываем камеру «по умолчанию» — это
+   * и показывает запрос разрешения, — а список устройств читаем уже после.
+   */
+  const ensureCameraPermission = async () => {
+    debugData.permission = await getPermissionState()
+    updateDebugPanel()
+
+    if (debugData.permission === 'granted') return
+
+    if (debugData.permission === 'denied') {
+      throw createCameraError('NotAllowedError', 'Доступ к камере запрещён для этого сайта.')
+    }
+
+    // facingMode здесь «желательно задняя», а не требование: иначе на
+    // устройстве без задней камеры запрос падал бы с OverconstrainedError
+    // вместо показа диалога разрешения.
+    const tempStream = await openStream([{ facingMode: { ideal: 'environment' } }, true])
+
+    tempStream.getTracks().forEach((track) => track.stop())
+
+    debugData.permission = await getPermissionState()
+    updateDebugPanel()
+  }
+
+  /**
    * Получает список видеоустройств.
    */
   const getVideoDevices = async () => {
@@ -66,9 +147,12 @@ export function useQrCamera(options = {}) {
 
   /**
    * Собирает capabilities для всех камер.
+   *
+   * Устройства с пустым deviceId — это заглушки браузера до выдачи разрешения;
+   * открыть их нельзя, и в выборе камеры они только мешают.
    */
   const collectCameraInfo = async () => {
-    const devices = await getVideoDevices()
+    const devices = (await getVideoDevices()).filter((device) => device.deviceId)
     const result = []
 
     for (const device of devices) {
@@ -263,6 +347,7 @@ export function useQrCamera(options = {}) {
 
     lines.push('=== СТАТУС ===')
     lines.push(`status: ${debugData.status}`)
+    lines.push(`permission: ${debugData.permission || '—'}`)
     lines.push(`scanner: ${debugData.scannerType || '—'}`)
     lines.push(`video: ${debugData.videoResolution || '—'} @ ${debugData.videoFps || '—'} fps`)
 
@@ -628,6 +713,12 @@ export function useQrCamera(options = {}) {
    */
   const startCameraScan = async () => {
     if (isScanning.value) return
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (onError) onError('Браузер не поддерживает доступ к камере.')
+      return
+    }
+
     isScanning.value = true
 
     try {
@@ -636,53 +727,62 @@ export function useQrCamera(options = {}) {
       const video = createOverlay()
       updateDebugPanel()
 
+      // 2. Просим доступ к камере. Без этого списка камер с настоящими id не будет
+      debugData.status = 'requesting permission'
+      updateDebugPanel()
+      await ensureCameraPermission()
+
       debugData.status = 'selecting camera'
       updateDebugPanel()
 
-      // 2. Выбираем камеру
+      // 3. Выбираем камеру — уже по настоящим deviceId
       currentDeviceId = await selectBestCamera()
       updateDebugPanel()
 
       if (!currentDeviceId) {
-        throw new Error('Не найдено ни одной камеры на устройстве')
+        throw createCameraError('NotFoundError', 'Камера не найдена на устройстве.')
       }
 
       debugData.status = 'requesting stream'
       updateDebugPanel()
 
-      // 3. Запрашиваем поток
-      const constraints = {
-        video: {
+      // 4. Запрашиваем поток. Если камера успела «уйти» (её забрало другое
+      //    приложение, устройство пересоздалось) — откатываемся к камере по
+      //    умолчанию, а не показываем «камер не найдено».
+      stream = await openStream([
+        {
           deviceId: { exact: currentDeviceId },
           width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'environment'
+          height: { ideal: 720 }
         },
-        audio: false
-      }
-
-      stream = await navigator.mediaDevices.getUserMedia(constraints)
+        {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        true
+      ])
 
       debugData.status = 'playing video'
       updateDebugPanel()
 
-      // 4. Подключаем поток
+      // 5. Подключаем поток
       video.srcObject = stream
       await video.play()
 
-      // 5. Читаем параметры
+      // 6. Читаем параметры
       const track = stream.getVideoTracks()[0]
       readVideoSettings(track)
       updateDebugPanel()
 
-      // 6. Фокус
+      // 7. Фокус
       debugData.status = 'configuring focus'
       updateDebugPanel()
       await tryEnableContinuousFocus(track)
       startFocusLoop(track)
       updateDebugPanel()
 
-      // 7. Запускаем сканирование
+      // 8. Запускаем сканирование
       debugData.status = 'starting scan'
       updateDebugPanel()
 
@@ -698,16 +798,20 @@ export function useQrCamera(options = {}) {
       console.error('[useQrCamera] Ошибка запуска камеры:', error)
       isScanning.value = false
       debugData.status = 'ERROR'
-      debugData.lastError = error.message
+      debugData.lastError = error.name && error.name !== 'Error'
+        ? `${error.name}: ${error.message}`
+        : error.message
       updateDebugPanel()
 
       let message = error.message
       if (error.name === 'NotAllowedError') {
-        message = 'Доступ к камере запрещен. Разрешите доступ в настройках браузера.'
+        message = 'Доступ к камере запрещён. Разрешите камеру для этого сайта в настройках браузера.'
       } else if (error.name === 'NotFoundError') {
         message = 'Камера не найдена на устройстве.'
       } else if (error.name === 'NotReadableError') {
-        message = 'Камера занята другим приложением.'
+        message = 'Камера занята другим приложением. Закройте его и попробуйте снова.'
+      } else if (error.name === 'SecurityError') {
+        message = 'Камера доступна только на странице по HTTPS.'
       }
 
       if (onError) onError(message)
