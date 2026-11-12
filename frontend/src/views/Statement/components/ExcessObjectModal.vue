@@ -54,15 +54,20 @@
               class="p-3 bg-yellow-50 rounded-lg border border-yellow-200 flex flex-col gap-2"
             >
               <p class="text-sm text-yellow-800">
-                Вероятно произошло вовлечение в производство, смена партии {{ involveFromParty }} на {{ involveParty }}.
+                Партии {{ involveFromParty }} в ведомости нет, а новых партий в ней больше,
+                чем объектов на складе. Вероятно, единицу вовлекли в производство.
+                На какую партию заменить?
               </p>
               <button 
+                v-for="candidate in involveCandidates"
+                :key="candidate.party"
                 class="w-full py-2.5 bg-yellow-500 text-white rounded-md text-sm font-medium
                        active:bg-yellow-600 disabled:opacity-50"
                 :disabled="isSaving"
-                @click="handleInvolve"
+                @click="handleInvolve(candidate.party)"
               >
-                Заменить партию в базе?
+                {{ candidate.party }} — в ведомости {{ candidate.statementCount }},
+                у объектов {{ candidate.objectCount }}
               </button>
             </div>
 
@@ -148,8 +153,9 @@
  * Модалка для работы с объектом, отсутствующим в ведомости (isExcess).
  * 
  * ## Возможности
- * - Вовлечение в производство: если party начинается с 'MAS' и в statements
- *   есть записи с тем же inv, но другой партией — предлагает заменить партию.
+ * - Вовлечение в производство: если партия начинается с 'MAS', а в ведомости
+ *   есть партии, которых среди объектов меньше, чем строк в ведомости, —
+ *   предлагает заменить партию на одну из них.
  * - Перемещение на другой склад: смена zavod/sklad у объекта.
  */
 import { ref, computed, watch } from 'vue'
@@ -199,9 +205,13 @@ const object = ref({
 })
 
 // Вовлечение в производство
-const involveDetected = ref(false)
-const involveParty = ref('')
+const involveCandidates = ref([])
 const involveFromParty = ref('')
+
+/**
+ * Есть ли что предложить: хотя бы одна партия ведомости «недобрана» объектами.
+ */
+const involveDetected = computed(() => involveCandidates.value.length > 0)
 
 // Комбинации складов
 const combinations = ref([])
@@ -301,39 +311,75 @@ const loadCombinations = async () => {
  * Проверка возможности вовлечения в производство.
  * 
  * Условия:
- * 1. Партия начинается с 'MAS'
- * 2. В statements есть запись с тем же inv, но другой партией
+ * 1. Партия объекта начинается с 'MAS'.
+ * 2. Партии объекта в ведомости нет — объект вне ведомости.
+ * 3. В ведомости есть партия, которой среди объектов меньше, чем строк
+ *    в ведомости: эту разницу и объясняет пропавшая единица.
+ *
+ * Сравниваются **количества**, а не множества партий. Раньше искали первую
+ * партию, которой нет среди объектов, и после первого вовлечения партия
+ * появлялась у объекта — следующий объект с той же историей предложения
+ * уже не получал, хотя строк в ведомости на него хватало.
  */
 const checkInvolve = async () => {
   if (!canInvolve.value) return
   if (!props.receivedAt) return
   
   try {
-    const statements = await statementService.getStatementsByInv(
-      props.receivedAt,
-      object.value.invNumber,
-      null,
-      object.value.zavod,
-      object.value.sklad
-    )
-
-    const objects = await objectService.getObjectsByInv(
-      object.value.invNumber,
-      null,
-      object.value.zavod,
-      object.value.sklad
-    )
+    const [statements, objects] = await Promise.all([
+      statementService.getStatementsByInv(
+        props.receivedAt,
+        object.value.invNumber,
+        null,
+        object.value.zavod,
+        object.value.sklad
+      ),
+      objectService.getObjectsByInv(
+        object.value.invNumber,
+        null,
+        object.value.zavod,
+        object.value.sklad
+      )
+    ])
     
     if (statements.length === 0 || objects.length === 0) return
-    
-    const objectParties = new Set(objects.map(o => o.partyNumber || ''))
-    const newStatement = statements.find(s => !objectParties.has(s.partyNumber || ''))
-    
-    if (newStatement && newStatement.partyNumber !== object.value.partyNumber) {
-      involveParty.value = newStatement.partyNumber
-      involveFromParty.value = object.value.partyNumber
-      involveDetected.value = true
+
+    /**
+     * Считает строки по партиям.
+     * @param {Array} rows — строки ведомости или объекты
+     * @returns {Map<string, number>} партия → количество
+     */
+    const countByParty = (rows) => {
+      const counts = new Map()
+      for (const row of rows) {
+        const party = row.partyNumber || ''
+        if (!party) continue
+        counts.set(party, (counts.get(party) || 0) + 1)
+      }
+      return counts
     }
+
+    const statementCounts = countByParty(statements)
+    const objectCounts = countByParty(objects)
+
+    // Партия объекта в ведомости есть — это излишек, а не вовлечение.
+    if (statementCounts.has(object.value.partyNumber)) return
+
+    const candidates = []
+    for (const [party, statementCount] of statementCounts) {
+      const objectCount = objectCounts.get(party) || 0
+      const deficit = statementCount - objectCount
+      if (deficit > 0) {
+        candidates.push({ party, statementCount, objectCount, deficit })
+      }
+    }
+
+    // Первым — самый большой недостаток: при одном кандидате это сразу
+    // нужная кнопка, при нескольких пользователь всё равно выбирает сам.
+    candidates.sort((a, b) => b.deficit - a.deficit || a.party.localeCompare(b.party))
+
+    involveCandidates.value = candidates
+    involveFromParty.value = object.value.partyNumber
   } catch (err) {
     console.error('[ExcessObjectModal] Ошибка проверки вовлечения:', err)
   }
@@ -360,20 +406,21 @@ const onZavodChange = () => {
 
 /**
  * Вовлечение в производство — замена партии у объекта.
+ * @param {string} party — партия из ведомости, на которую меняем
  */
-const handleInvolve = async () => {
+const handleInvolve = async (party) => {
   isSaving.value = true
   saveError.value = ''
   
   try {
     await objectService.updateObject(object.value.id, {
-      partyNumber: involveParty.value
+      partyNumber: party
     })
     
     await logsService.addObjectHistory(
       object.value.id,
       'party_changed',
-      `партия изменена с ${involveFromParty.value} на ${involveParty.value} (вовлечение в производство)`
+      `партия изменена с ${involveFromParty.value} на ${party} (вовлечение в производство)`
     )
     await objectService.updateCheckedAt(object.value.id)
     
@@ -448,8 +495,7 @@ watch(() => props.isOpen, async (newVal) => {
     }
     selectedZavod.value = ''
     selectedSklad.value = ''
-    involveDetected.value = false
-    involveParty.value = ''
+    involveCandidates.value = []
     involveFromParty.value = ''
     saveError.value = ''
     error.value = ''
